@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Metal Designer для цехов</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="Эскиз с размерами при клиенте, без проектировщика на стороне. Детали, длины реза и масса сразу, для мангалов ещё и DXF.">
+<style>
+  :root {
+    --paper: #f6f7f3;
+    --ink: #1c2a40;
+    --line: #2a3d5e;
+    --muted: #4b5a70;
+    --grid-major: rgba(42, 61, 94, .11);
+    --grid-minor: rgba(42, 61, 94, .05);
+    --accent: #c4480c;
+    --accent-dark: #a33a08;
+    --card: rgba(255, 255, 255, .78);
+    --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Segoe UI Mono", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--ink);
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(var(--grid-major) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+      linear-gradient(var(--grid-minor) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+    background-size: 40px 40px, 40px 40px, 8px 8px, 8px 8px;
+  }
+  a { color: var(--line); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+  section { padding: 40px 0; border-top: 1px solid var(--line); }
+  section:first-of-type { border-top: 0; }
+  .tag {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+  h1, h2, h3 { line-height: 1.15; margin: 0; text-wrap: balance; }
+  h1 { font-size: clamp(30px, 7.6vw, 52px); font-weight: 800; letter-spacing: -.01em; }
+  h2 { font-size: clamp(24px, 5.6vw, 34px); font-weight: 750; margin-bottom: 20px; }
+  h3 { font-size: 20px; font-weight: 700; }
+  p { margin: 0; }
+
+  /* Кнопки */
+  .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 14px 20px;
+    border: 2px solid var(--line);
+    border-radius: 4px;
+    font-size: 17px;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    color: var(--line);
+    background: var(--paper);
+  }
+  .btn:hover { background: #fff; }
+  .btn-main { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-main:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  .btn:focus-visible { outline: 3px solid var(--line); outline-offset: 2px; }
+
+  /* Блок 1 */
+  .hero { padding: 20px 0 36px; }
+  .brand { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--line); margin-bottom: 18px; }
+  .brand span { font-weight: 400; color: var(--muted); }
+  .lead { margin-top: 14px; font-size: 18px; color: var(--muted); max-width: 34em; }
+  .sketch { margin: 28px 0 0; }
+  .sketch svg { display: block; width: 100%; height: auto; }
+  .sketch figcaption {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 6px;
+    margin-top: 4px;
+  }
+
+  /* Блок 2 */
+  .compare { display: grid; gap: 16px; }
+  .col { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 20px; }
+  .col-new { border: 2px solid var(--line); }
+  .col h3 { margin-bottom: 12px; }
+  .steps { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+  .steps li { position: relative; padding: 8px 0 8px 40px; counter-increment: s; }
+  .steps li + li { border-top: 1px dashed rgba(42, 61, 94, .35); }
+  .steps li::before {
+    content: counter(s);
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 26px;
+    height: 26px;
+    border: 1.5px solid var(--line);
+    border-radius: 50%;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 23px;
+    text-align: center;
+  }
+  .col-old .steps li { color: var(--muted); }
+  .col-new .steps li:last-child { font-weight: 700; }
+
+  /* Блок 3 */
+  .cards { display: grid; gap: 16px; }
+  .card {
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 20px;
+  }
+  .card .path { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .card ul { margin: 12px 0 18px; padding-left: 20px; }
+  .card li { margin: 3px 0; }
+  .card .btn { margin-top: auto; }
+  .soon {
+    display: inline-block;
+    align-self: flex-start;
+    margin-top: 10px;
+    padding: 2px 8px;
+    border: 1.5px dashed var(--accent);
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent-dark);
+  }
+
+  /* Блок 4 */
+  .who { display: grid; gap: 16px; }
+  .who div { border-left: 3px solid var(--line); padding: 4px 0 4px 16px; }
+  .who h3 { margin-bottom: 4px; }
+  .who p { color: var(--muted); }
+
+  /* Блок 5 */
+  .next-text { font-size: 19px; max-width: 30em; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 16px 0 28px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  @media (min-width: 720px) {
+    .wrap { padding: 0 32px; }
+    section { padding: 64px 0; }
+    .actions { flex-direction: row; flex-wrap: wrap; }
+    .btn { width: auto; }
+    .compare, .who { grid-template-columns: 1fr 1fr; }
+    .cards { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (min-width: 960px) {
+    .hero { padding: 40px 0 72px; }
+    .hero-grid { display: grid; grid-template-columns: 1fr 1.05fr; gap: 48px; align-items: center; }
+    .sketch { margin: 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- 1. Первый экран -->
+  <section class="hero">
+    <div class="wrap">
+      <p class="brand">Metal Designer <span>· для цехов лазерной резки и сварки</span></p>
+      <div class="hero-grid">
+        <div>
+          <h1>Эскиз с размерами&nbsp;— сами, при клиенте</h1>
+          <p class="lead">Без проектировщика на стороне. Клиент одобрил — детали, длины реза и масса уже посчитаны. Для мангалов сразу DXF под лазер.</p>
+          <div class="actions">
+            <a class="btn btn-main" href="https://vitalishaklach.github.io/metal-designer/karkas/index.html" target="_blank" rel="noopener">Открыть демо</a>
+            <!-- TODO: заменить USERNAME на ник Виталия в Telegram -->
+            <a class="btn" href="https://t.me/USERNAME" target="_blank" rel="noopener">Написать про свой цех</a>
+          </div>
+        </div>
+
+        <figure class="sketch">
+          <svg viewBox="0 0 480 340" width="100%" role="img" aria-labelledby="sketch-title">
+            <title id="sketch-title">Эскиз навеса: ширина 3000 мм, высота 2000 мм</title>
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M0,1.8 L10,5 L0,8.2 Z" fill="#c4480c"/>
+              </marker>
+            </defs>
+
+            <!-- Осевая -->
+            <line x1="260" y1="12" x2="260" y2="296" stroke="#2a3d5e" stroke-width=".8" stroke-dasharray="14 3 2 3" opacity=".6"/>
+
+            <!-- Земля и штриховка -->
+            <line x1="76" y1="280" x2="444" y2="280" stroke="#1c2a40" stroke-width="1.6"/>
+            <path d="M84 280l-8 9M100 280l-8 9M116 280l-8 9M132 280l-8 9M148 280l-8 9M164 280l-8 9M180 280l-8 9M196 280l-8 9M212 280l-8 9M228 280l-8 9M244 280l-8 9M260 280l-8 9M276 280l-8 9M292 280l-8 9M308 280l-8 9M324 280l-8 9M340 280l-8 9M356 280l-8 9M372 280l-8 9M388 280l-8 9M404 280l-8 9M420 280l-8 9M436 280l-8 9" stroke="#2a3d5e" stroke-width=".8" opacity=".55"/>
+
+            <!-- Стойки и опорные пластины -->
+            <g fill="none" stroke="#1c2a40" stroke-width="1.6">
+              <rect x="110" y="80" width="8" height="200"/>
+              <rect x="402" y="80" width="8" height="200"/>
+              <rect x="103" y="276" width="22" height="4" fill="#1c2a40"/>
+              <rect x="395" y="276" width="22" height="4" fill="#1c2a40"/>
+            </g>
+
+            <!-- Подкосы -->
+            <g stroke="#1c2a40" stroke-width="1.4">
+              <line x1="118" y1="122" x2="160" y2="80"/>
+              <line x1="402" y1="122" x2="360" y2="80"/>
+            </g>
+
+            <!-- Ферма -->
+            <g fill="none" stroke="#1c2a40" stroke-width="1.6" stroke-linejoin="round">
+              <polygon points="90,80 260,30 430,80"/>
+              <polyline points="132.5,67.5 175,80 217.5,42.5 260,80 302.5,42.5 345,80 387.5,67.5" stroke-width="1.1"/>
+              <line x1="260" y1="30" x2="260" y2="80" stroke-width="1.1"/>
+            </g>
+
+            <!-- Кровля -->
+            <polyline points="78,77.5 260,24 442,77.5" fill="none" stroke="#2a3d5e" stroke-width="3.2" stroke-linejoin="round"/>
+
+            <!-- Выноски -->
+            <g fill="none" stroke="#2a3d5e" stroke-width=".9">
+              <polyline points="150,55 112,22 60,22"/>
+              <polyline points="345,62 400,32 466,32"/>
+              <polyline points="410,190 424,176 470,176"/>
+            </g>
+            <g font-family="ui-monospace, Consolas, Menlo, monospace" font-size="16" fill="#1c2a40">
+              <text x="62" y="18">кровля</text>
+              <text x="410" y="28">ферма</text>
+              <text x="416" y="172">стойка</text>
+            </g>
+
+            <!-- Размер 2000 -->
+            <g stroke="#2a3d5e" stroke-width=".9">
+              <line x1="106" y1="80" x2="50" y2="80"/>
+              <line x1="76" y1="280" x2="50" y2="280"/>
+            </g>
+            <line x1="58" y1="80" x2="58" y2="280" stroke="#c4480c" stroke-width="1.4" marker-start="url(#arr)" marker-end="url(#arr)"/>
+            <text x="50" y="180" transform="rotate(-90 50 180)" text-anchor="middle" font-family="ui-monospace, Consolas, Menlo, monospace" font-size="19" font-weight="700" fill="#c4480c">2000</text>
+
+            <!-- Размер 3000 -->
+            <g stroke="#2a3d5e" stroke-width=".9">
+              <line x1="110" y1="292" x2="110" y2="328"/>
+              <line x1="410" y1="292" x2="410" y2="328"/>
+            </g>
+            <line x1="110" y1="320" x2="410" y2="320" stroke="#c4480c" stroke-width="1.4" marker-start="url(#arr)" marker-end="url(#arr)"/>
+            <text x="260" y="314" text-anchor="middle" font-family="ui-monospace, Consolas, Menlo, monospace" font-size="19" font-weight="700" fill="#c4480c">3000</text>
+          </svg>
+          <figcaption>Навес. Вид спереди. Размеры в мм.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Сейчас / С Metal Designer -->
+  <section>
+    <div class="wrap">
+      <p class="tag">02 · Как идёт заказ</p>
+      <h2>Сейчас и с Metal Designer</h2>
+      <div class="compare">
+        <div class="col col-old">
+          <h3>Сейчас</h3>
+          <ol class="steps">
+            <li>Клиент объясняет на пальцах: «навес метра два».</li>
+            <li>Вы заказываете эскиз на стороне и платите.</li>
+            <li>Ждёте проектировщика.</li>
+            <li>Клиент может передумать.</li>
+            <li>Только потом раскрой и DXF.</li>
+          </ol>
+        </div>
+        <div class="col col-new">
+          <h3>С Metal Designer</h3>
+          <ol class="steps">
+            <li>Собираете эскиз при клиенте.</li>
+            <li>Клиент видит 3D и размеры.</li>
+            <li>Клиент одобрил.</li>
+            <li>Детали, длины реза и масса — сразу. Для мангалов и DXF.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Что можно собрать и что получаете -->
+  <section>
+    <div class="wrap">
+      <p class="tag">03 · Конфигураторы</p>
+      <h2>Что можно собрать и что получаете</h2>
+      <div class="cards">
+        <article class="card">
+          <p class="path">karkas/</p>
+          <h3>Навесы и каркасы из профтрубы</h3>
+          <ul>
+            <li>Длины реза со скосами</li>
+            <li>Спецификация</li>
+            <li>Раскрой хлыстов по 6 м</li>
+            <li>Чертежи А3 в PDF</li>
+          </ul>
+          <a class="btn" href="https://vitalishaklach.github.io/metal-designer/karkas/index.html" target="_blank" rel="noopener">Открыть каркасы</a>
+        </article>
+        <article class="card">
+          <p class="path">mangal/</p>
+          <h3>Мангалы и печи под казан</h3>
+          <ul>
+            <li>Размеры для сварщика</li>
+            <li>Раскрой и масса</li>
+            <li>DXF по деталям и архивом</li>
+            <li>Список «что купить»</li>
+            <li>Заметки по сварке</li>
+          </ul>
+          <a class="btn" href="https://vitalishaklach.github.io/metal-designer/mangal/index.html" target="_blank" rel="noopener">Открыть мангалы</a>
+        </article>
+        <article class="card">
+          <p class="path">art/</p>
+          <h3>Фигуры из листа</h3>
+          <span class="soon">DXF — скоро</span>
+          <ul>
+            <li>Доберман, бык или своя модель</li>
+            <li>Детали и масса</li>
+            <li>Длина реза</li>
+            <li>Швы</li>
+          </ul>
+          <a class="btn" href="https://vitalishaklach.github.io/metal-designer/art/index.html" target="_blank" rel="noopener">Открыть фигуры</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Кто рисует -->
+  <section>
+    <div class="wrap">
+      <p class="tag">04 · Кто рисует</p>
+      <h2>Мастер или клиент</h2>
+      <div class="who">
+        <div>
+          <h3>Мастер в цехе</h3>
+          <p>При клиенте, за одним столом. Клиент сразу видит, что получит.</p>
+        </div>
+        <div>
+          <h3>Клиент сам</h3>
+          <p>Рисует по ссылке, если цех решит её дать. Это решаете вы.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Дальше -->
+  <section class="next">
+    <div class="wrap">
+      <p class="tag">05 · Что дальше</p>
+      <h2>Дровницы, полки — следующие</h2>
+      <p class="next-text">Напишите, что нужно вашему цеху.</p>
+      <div class="actions">
+        <a class="btn btn-main" href="https://vitalishaklach.github.io/metal-designer/karkas/index.html" target="_blank" rel="noopener">Открыть демо</a>
+        <!-- TODO: заменить USERNAME на ник Виталия в Telegram -->
+        <a class="btn" href="https://t.me/USERNAME" target="_blank" rel="noopener">Написать про свой цех</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+<footer>
+  <div class="wrap">Сделано без программиста, с Claude</div>
+</footer>
+</body>
+</html>
