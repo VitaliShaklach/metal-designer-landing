@@ -148,11 +148,12 @@
     .btn { width: auto; }
     .compare, .who { grid-template-columns: 1fr 1fr; }
     .cards { grid-template-columns: repeat(2, 1fr); }
+    /* Беседка слева, мангал справа — в один ряд под текстом */
+    .sketches { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 40px; }
+    .sketches .sketch, .sketches .sketch + .sketch { margin: 0; }
   }
   @media (min-width: 960px) {
     .hero { padding: 40px 0 72px; }
-    .hero-grid { display: grid; grid-template-columns: 1fr 1.05fr; gap: 48px; align-items: start; }
-    .sketch { margin: 0; }
   }
 </style>
 </head>
