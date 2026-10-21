@@ -73,6 +73,7 @@
   .btn-main { background: var(--accent); border-color: var(--accent); color: #fff; }
   .btn-main:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
   .btn:focus-visible { outline: 3px solid var(--line); outline-offset: 2px; }
+  .btn-off, .btn-off:hover { opacity: .5; cursor: default; background: var(--accent); }
 
   /* Блок 1 */
   .hero { padding: 20px 0 36px; }
@@ -125,22 +126,10 @@
     border-radius: 4px;
     padding: 20px;
   }
-  .card .path { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .card-sub { margin-top: 6px; color: var(--muted); }
   .card ul { margin: 12px 0 18px; padding-left: 20px; }
   .card li { margin: 3px 0; }
   .card .btn { margin-top: auto; }
-  .soon {
-    display: inline-block;
-    align-self: flex-start;
-    margin-top: 10px;
-    padding: 2px 8px;
-    border: 1.5px dashed var(--accent);
-    border-radius: 3px;
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--accent-dark);
-  }
 
   /* Блок 4 */
   .who { display: grid; gap: 16px; }
@@ -157,7 +146,7 @@
     .actions { flex-direction: row; flex-wrap: wrap; }
     .btn { width: auto; }
     .compare, .who { grid-template-columns: 1fr 1fr; }
-    .cards { grid-template-columns: repeat(3, 1fr); }
+    .cards { grid-template-columns: repeat(2, 1fr); }
   }
   @media (min-width: 960px) {
     .hero { padding: 40px 0 72px; }
@@ -178,9 +167,9 @@
           <h1>Эскиз с размерами&nbsp;— сами, при клиенте</h1>
           <p class="lead">Без проектировщика на стороне. Клиент одобрил — детали, длины реза и масса уже посчитаны. Для мангалов сразу DXF под лазер.</p>
           <div class="actions">
-            <a class="btn btn-main" href="https://vitalishaklach.github.io/metal-designer/karkas/index.html" target="_blank" rel="noopener">Открыть демо</a>
-            <!-- TODO: заменить USERNAME на ник Виталия в Telegram -->
-            <a class="btn" href="https://t.me/USERNAME" target="_blank" rel="noopener">Написать про свой цех</a>
+            <!-- Когда появится demo.html, заменить на <a class="btn btn-main" href="demo.html">Открыть демо</a> -->
+            <span class="btn btn-main btn-off" aria-disabled="true">Демо — скоро</span>
+            <a class="btn" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Написать про свой цех</a>
           </div>
         </div>
 
@@ -278,7 +267,7 @@
           <h3>С Metal Designer</h3>
           <ol class="steps">
             <li>Собираете эскиз при клиенте.</li>
-            <li>Клиент видит 3D и размеры.</li>
+            <li>Клиент видит эскиз и размеры.</li>
             <li>Клиент одобрил.</li>
             <li>Детали, длины реза и масса — сразу. Для мангалов и DXF.</li>
           </ol>
@@ -290,43 +279,49 @@
   <!-- 3. Что можно собрать и что получаете -->
   <section>
     <div class="wrap">
-      <p class="tag">03 · Конфигураторы</p>
+      <p class="tag">03 · Что можно собрать</p>
       <h2>Что можно собрать и что получаете</h2>
       <div class="cards">
         <article class="card">
-          <p class="path">karkas/</p>
-          <h3>Навесы и каркасы из профтрубы</h3>
+          <h3>Навес</h3>
+          <p class="card-sub">Хозблок, дровница и место под мангал. Меняете ширину и высоту.</p>
           <ul>
-            <li>Длины реза со скосами</li>
-            <li>Спецификация</li>
+            <li>Длины реза всех труб</li>
             <li>Раскрой хлыстов по 6 м</li>
-            <li>Чертежи А3 в PDF</li>
+            <li>Масса металла</li>
+            <li>Площадь кровли и обшивки</li>
+            <li>Чертёж в PDF</li>
           </ul>
-          <a class="btn" href="https://vitalishaklach.github.io/metal-designer/karkas/index.html" target="_blank" rel="noopener">Открыть каркасы</a>
         </article>
         <article class="card">
-          <p class="path">mangal/</p>
-          <h3>Мангалы и печи под казан</h3>
+          <h3>Мангал</h3>
+          <p class="card-sub">Длина, ширина, высота, поддув, ножки на болтах или вваренные, колёса, толщина металла.</p>
           <ul>
-            <li>Размеры для сварщика</li>
-            <li>Раскрой и масса</li>
-            <li>DXF по деталям и архивом</li>
-            <li>Список «что купить»</li>
-            <li>Заметки по сварке</li>
+            <li>Развёртки деталей и DXF под лазер</li>
+            <li>Масса</li>
+            <li>Список покупок</li>
+            <li>Чертёж в PDF</li>
           </ul>
-          <a class="btn" href="https://vitalishaklach.github.io/metal-designer/mangal/index.html" target="_blank" rel="noopener">Открыть мангалы</a>
         </article>
         <article class="card">
-          <p class="path">art/</p>
-          <h3>Фигуры из листа</h3>
-          <span class="soon">DXF — скоро</span>
+          <h3>Печь под казан</h3>
+          <p class="card-sub">Казан 6–12 л, высота печи и трубы, пламяотражатель, толщина металла.</p>
           <ul>
-            <li>Доберман, бык или своя модель</li>
-            <li>Детали и масса</li>
-            <li>Длина реза</li>
-            <li>Швы</li>
+            <li>Развёртки деталей и DXF под лазер</li>
+            <li>Масса</li>
+            <li>Список покупок</li>
+            <li>Чертёж в PDF</li>
           </ul>
-          <a class="btn" href="https://vitalishaklach.github.io/metal-designer/art/index.html" target="_blank" rel="noopener">Открыть фигуры</a>
+        </article>
+        <article class="card">
+          <h3>Ваше изделие</h3>
+          <p class="card-sub">Обведите каркас по своему фото — получите длины реза, раскрой и массу.</p>
+          <ul>
+            <li>Нужного нет или есть 3D-модель? Пришлите модель, фото или описание</li>
+            <li>Сделаю развёртки, DXF под лазер и чертежи в PDF</li>
+            <li>Или добавлю изделие в ваш конфигуратор</li>
+          </ul>
+          <a class="btn" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать в Telegram</a>
         </article>
       </div>
     </div>
@@ -357,9 +352,9 @@
       <h2>Дровницы, полки — следующие</h2>
       <p class="next-text">Напишите, что нужно вашему цеху.</p>
       <div class="actions">
-        <a class="btn btn-main" href="https://vitalishaklach.github.io/metal-designer/karkas/index.html" target="_blank" rel="noopener">Открыть демо</a>
-        <!-- TODO: заменить USERNAME на ник Виталия в Telegram -->
-        <a class="btn" href="https://t.me/USERNAME" target="_blank" rel="noopener">Написать про свой цех</a>
+        <!-- Когда появится demo.html, заменить на <a class="btn btn-main" href="demo.html">Открыть демо</a> -->
+        <span class="btn btn-main btn-off" aria-disabled="true">Демо — скоро</span>
+        <a class="btn" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Написать про свой цех</a>
       </div>
     </div>
   </section>
