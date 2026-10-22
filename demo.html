@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Песочница — Metal Designer для цехов</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="Соберите навес и сразу получите эскиз с размерами, длины реза и массу металла.">
+<style>
+  :root {
+    --paper: #f6f7f3;
+    --ink: #1c2a40;
+    --line: #2a3d5e;
+    --muted: #4b5a70;
+    --grid-major: rgba(42, 61, 94, .11);
+    --grid-minor: rgba(42, 61, 94, .05);
+    --accent: #c4480c;
+    --accent-dark: #a33a08;
+    --card: rgba(255, 255, 255, .78);
+    --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Segoe UI Mono", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--ink);
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(var(--grid-major) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+      linear-gradient(var(--grid-minor) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+    background-size: 40px 40px, 40px 40px, 8px 8px, 8px 8px;
+  }
+  a { color: var(--line); }
+  h1, h2, h3 { line-height: 1.15; margin: 0; }
+  h1 { font-size: clamp(26px, 6vw, 38px); font-weight: 800; }
+  h3 { font-size: 20px; margin-bottom: 10px; }
+  p { margin: 0; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+
+  /* Шапка */
+  header { padding: 18px 0 8px; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .brand { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--line); }
+  .brand span { font-weight: 400; color: var(--muted); }
+  .back { font-size: 15px; }
+  h1 { margin-top: 14px; }
+  .private {
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* Вкладки */
+  .tabs { display: flex; gap: 6px; margin: 20px 0 0; overflow-x: auto; scrollbar-width: none; border-bottom: 2px solid var(--line); }
+  .tab {
+    flex: 0 0 auto;
+    padding: 10px 14px;
+    border: 2px solid var(--line);
+    border-bottom: 0;
+    border-radius: 4px 4px 0 0;
+    background: var(--paper);
+    font: 700 15px var(--sans);
+    color: var(--line);
+    cursor: pointer;
+  }
+  .tab[aria-selected="true"] { background: var(--line); color: #fff; }
+  .tab small { font: 400 11px var(--mono); opacity: .75; margin-left: 4px; }
+
+  /* Вкладка */
+  .panel { padding: 20px 0 48px; }
+  .work { display: grid; gap: 20px; }
+  .work > * { min-width: 0; }
+  .sketch { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 10px; }
+  .sketch svg { display: block; width: 100%; height: auto; max-height: 62vh; }
+  .sketch figcaption { font-family: var(--mono); font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 6px; margin-top: 6px; }
+  .params { display: grid; gap: 18px; align-content: start; }
+  .field label { display: flex; justify-content: space-between; font-weight: 700; }
+  .field output { font-family: var(--mono); font-weight: 700; color: var(--accent-dark); }
+  .field input[type="range"] { width: 100%; height: 36px; accent-color: var(--accent); }
+  .field .hint { font-size: 14px; color: var(--muted); }
+  .fixed { font-size: 14px; color: var(--muted); }
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 14px 20px;
+    border: 2px solid var(--accent);
+    border-radius: 4px;
+    background: var(--accent);
+    color: #fff;
+    font: 700 17px var(--sans);
+    cursor: pointer;
+  }
+  .btn:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  .btn:focus-visible, .tab:focus-visible { outline: 3px solid var(--line); outline-offset: 2px; }
+
+  /* Результат */
+  .result:empty { display: none; }
+  .result { margin-top: 24px; background: var(--card); border: 2px solid var(--line); border-radius: 4px; padding: 18px; scroll-margin-top: 12px; }
+  .parts { list-style: none; margin: 0; padding: 0; }
+  .parts li { padding: 8px 0; border-top: 1px dashed rgba(42, 61, 94, .35); }
+  .parts li:first-child { border-top: 0; }
+  .part-name { display: block; font-weight: 600; }
+  .part-meta { display: block; font-family: var(--mono); font-size: 14px; color: var(--muted); }
+  .total { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--line); font-size: 19px; }
+  .note { margin-top: 10px; font-size: 14px; color: var(--muted); }
+
+  .soon { padding: 32px 0; color: var(--muted); }
+  .soon b { color: var(--ink); }
+
+  @media (min-width: 860px) {
+    .wrap { padding: 0 32px; }
+    .work { grid-template-columns: 300px 1fr; gap: 32px; }
+    /* эскиз вместе с размерами помещается в окно под шапкой и вкладками */
+    .sketch svg { max-height: max(300px, calc(100vh - 290px)); }
+    .work .params { order: 0; }
+    .work .sketch { order: 1; }
+  }
+  @media (max-width: 520px) {
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 0; }
+    .tab { border-bottom: 2px solid var(--line); border-radius: 4px; }
+  }
+  @media (max-width: 859px) {
+    .work .sketch { order: 0; }
+    .work .params { order: 1; }
+  }
+</style>
+</head>
+<body>
+<header class="wrap">
+  <div class="top">
+    <p class="brand">Metal Designer <span>· песочница</span></p>
+    <a class="back" href="index.html">← Что это за продукт</a>
+  </div>
+  <h1>Соберите изделие и отправьте в производство</h1>
+  <p class="private">Ваши проекты и фото никуда не отправляются — видите только вы.</p>
+
+  <nav class="tabs" role="tablist" aria-label="Изделия">
+    <button class="tab" role="tab" data-tab="naves">Навес</button>
+    <button class="tab" role="tab" data-tab="mangal">Мангал<small>скоро</small></button>
+    <button class="tab" role="tab" data-tab="pech">Печь<small>скоро</small></button>
+    <button class="tab" role="tab" data-tab="custom">Ваше изделие<small>скоро</small></button>
+  </nav>
+</header>
+
+<main class="wrap">
+  <section class="panel" data-panel="naves" role="tabpanel">
+    <div class="work">
+      <div class="params">
+        <div class="field">
+          <label for="naves-width">Ширина <output id="naves-width-out"></output></label>
+          <input type="range" id="naves-width">
+        </div>
+        <div class="field">
+          <label for="naves-height">Высота <output id="naves-height-out"></output></label>
+          <input type="range" id="naves-height">
+          <p class="hint" id="naves-height-hint"></p>
+        </div>
+        <p class="fixed" id="naves-fixed"></p>
+        <button class="btn" id="naves-produce" type="button">В производство</button>
+      </div>
+      <figure class="sketch">
+        <div id="naves-sketch"></div>
+        <figcaption>Навес. Вид спереди. Размеры в мм.</figcaption>
+      </figure>
+    </div>
+    <div class="result" id="naves-result"></div>
+  </section>
+
+  <section class="panel" data-panel="mangal" role="tabpanel" hidden>
+    <p class="soon"><b>Мангал — скоро.</b></p>
+  </section>
+  <section class="panel" data-panel="pech" role="tabpanel" hidden>
+    <p class="soon"><b>Печь под казан — скоро.</b></p>
+  </section>
+  <section class="panel" data-panel="custom" role="tabpanel" hidden>
+    <p class="soon"><b>Ваше изделие — скоро.</b></p>
+  </section>
+</main>
+
+<script src="js/metal.js"></script>
+<script src="js/naves.js"></script>
+<script src="js/sketch-naves.js"></script>
+<script src="js/demo.js"></script>
+</body>
+</html>
