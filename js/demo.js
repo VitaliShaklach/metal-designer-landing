@@ -174,6 +174,20 @@
         + renderUnfolds(r.sheets, r.thickness) + renderCutting(r.bars) + renderBuy(r.buy) + renderStock(r, MD.pech.FIXED.stock),
       dxf: sheetsDxf,
     },
+    custom: {
+      model: MD.custom,
+      // Обводка по фото живёт на странице, расчёт берёт из неё линии. Эскиза-картинки нет: вместо него фото с линиями.
+      init: (panel, onChange) => MD.trace.setup(panel, onChange),
+      sketch: r => MD.sketch.custom(r),
+      caption: 'Каркас по фото',
+      noLink: true,   // фото в адрес не положишь
+      texts: () => ({}),
+      result: r => (r.parts.length
+        ? renderParts({ ...r, parts: r.parts.map(p => ({ ...p, meta: partMeta(p) })) }, 'Длины реза')
+          + (r.missing.length ? `<p class="warn">Без длины, в расчёт не вошли: линии ${r.missing.join(', ')}. Впишите длину одной линии — масштаб посчитает остальные.</p>` : '')
+          + renderCutting(r.parts)
+        : '<p class="warn">Пока нечего резать: поставьте линии на фото и впишите длину одной из них.</p>'),
+    },
   };
 
   // Адрес в строке браузера показывает открытую вкладку.
@@ -189,6 +203,7 @@
     let result = null;  // расчёт, показанный под «В производство»
 
     q('.result').append($('#result-tpl').content.cloneNode(true));
+    const ctx = product.init ? product.init(panel, () => update()) : null;
     const texts = product.texts(product.model.FIXED);
     panel.querySelectorAll('[data-text]').forEach(el => { el.textContent = texts[el.dataset.text]; });
 
@@ -201,13 +216,13 @@
     }
 
     function update() {
-      const r = product.model.calc(state);
+      const r = product.model.calc(state, ctx);
       const sketch = product.sketch(r);
       panel.querySelectorAll('[data-out]').forEach(el => { el.textContent = fmt(state[el.dataset.out]) + ' мм'; });
       panel.querySelectorAll('.choice button').forEach(b => {
         b.setAttribute('aria-pressed', String(String(state[b.closest('.choice').dataset.key]) === b.value));
       });
-      q('.sketch-box').innerHTML = sketch;
+      if (q('.sketch-box')) q('.sketch-box').innerHTML = sketch;
       q('.result').hidden = !state.produced;
       if (state.produced) {
         result = r;
@@ -275,6 +290,7 @@
 
     // «Ссылка на вариант»: копируем адрес. Не дал браузер — показываем ссылку в поле, выделенной, чтобы скопировать руками.
     const status = q('.link-status'), field = q('.link-field');
+    q('.js-link').hidden = status.hidden = Boolean(product.noLink);
     q('.js-link').addEventListener('click', () => {
       const url = MD.link.make(name, state, limits);
       const manual = () => {
@@ -317,8 +333,8 @@
     if (tabs[name] && tabs[name].sheetUrl()) $('#print-sheet').src = tabs[name].sheetUrl();
   }
 
-  // Вкладки и их параметры для ссылки на вариант. У вкладок без изделия параметров нет.
-  const LINK_TABS = Object.fromEntries([...document.querySelectorAll('.tab')].map(b => [b.dataset.tab, tabs[b.dataset.tab] ? tabs[b.dataset.tab].limits : {}]));
+  // Вкладки и их параметры для ссылки на вариант. Вкладка без ссылки открывается только по имени.
+  const LINK_TABS = Object.fromEntries(Object.keys(tabs).map(n => [n, PRODUCTS[n].noLink ? {} : tabs[n].limits]));
 
   // Открыть то, что записано в адресе: вариант по ссылке сразу с результатом, иначе готовый пример.
   function openFromAddress() {

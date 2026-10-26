@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Песочница — Metal Designer для цехов</title>
 <link rel="icon" href="data:,">
-<meta name="description" content="Соберите навес, мангал или печь под казан и сразу получите эскиз с размерами, длины реза, развёртки, DXF и массу металла.">
+<meta name="description" content="Соберите навес, мангал, печь под казан или обведите свой каркас по фото и сразу получите эскиз с размерами, длины реза, раскрой, развёртки, DXF и массу металла.">
 <style>
   :root {
     --paper: #f6f7f3;
@@ -81,7 +81,7 @@
   .sketch { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 10px; }
   .sketch svg { display: block; width: 100%; height: auto; max-height: 62vh; }
   .sketch figcaption { font-family: var(--mono); font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 6px; margin-top: 6px; }
-  .params { display: grid; gap: 18px; align-content: start; }
+  .params { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-content: start; }
   .field label { display: flex; justify-content: space-between; font-weight: 700; }
   .field output { font-family: var(--mono); font-weight: 700; color: var(--accent-dark); }
   .field input[type="range"] { width: 100%; height: 36px; accent-color: var(--accent); }
@@ -169,7 +169,7 @@
   .choice { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; }
   .choice legend { float: left; width: 100%; padding: 0; margin-bottom: 4px; font-weight: 700; }
   .choice button {
-    flex: 1 1 0;
+    flex: 1 1 auto;   /* не 0: иначе много вариантов встают в одну строку и распирают колонку */
     min-height: 44px;
     padding: 8px 10px;
     border: 2px solid var(--line);
@@ -187,8 +187,33 @@
   .unfold { padding: 10px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
   .unfold svg { display: block; width: 100%; height: auto; max-height: 170px; margin: 6px 0; }
 
-  .soon { padding: 32px 0; color: var(--muted); }
-  .soon b { color: var(--ink); }
+  /* Ваше изделие: фото с линиями, инструменты, список линий, заказ в Telegram */
+  .trace-open { text-align: center; }
+  .trace-private { margin: 6px 0 10px; }
+  .trace-stage { position: relative; height: min(60vh, 520px); background: #fff; border: 1px solid var(--line); overflow: hidden; }
+  .sketch .trace-svg { display: block; width: 100%; height: 100%; max-height: none; touch-action: none; cursor: crosshair; user-select: none; }
+  .trace-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 16px; text-align: center; color: var(--muted); pointer-events: none; }
+  .has-photo .trace-empty { display: none; }
+  .trace-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .trace-tools button, .trace-row button {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 6px 12px;
+    border: 2px solid var(--line);
+    border-radius: 4px;
+    background: var(--paper);
+    font: 700 16px var(--sans);
+    color: var(--line);
+    cursor: pointer;
+  }
+  .trace-row { display: flex; gap: 6px; margin-top: 6px; }
+  .trace-row input { flex: 1; width: 0; min-width: 0; padding: 8px 10px; border: 2px solid var(--line); border-radius: 4px; background: #fff; font: 16px var(--mono); color: var(--ink); }
+  .trace-row .trace-ref[aria-pressed="true"] { background: var(--line); color: #fff; }
+  .trace-lines:empty { display: none; }
+  .order { display: grid; gap: 12px; margin-top: 24px; padding: 18px; background: var(--card); border: 2px dashed var(--line); border-radius: 4px; }
+  .order h3 { margin: 0; }
+  a.btn { text-align: center; text-decoration: none; }
+
 
   @media (min-width: 860px) {
     .wrap { padding: 0 32px; }
@@ -235,7 +260,7 @@
     <button class="tab" role="tab" data-tab="naves">Навес</button>
     <button class="tab" role="tab" data-tab="mangal">Мангал</button>
     <button class="tab" role="tab" data-tab="pech">Печь</button>
-    <button class="tab" role="tab" data-tab="custom">Ваше изделие<small>скоро</small></button>
+    <button class="tab" role="tab" data-tab="custom">Ваше изделие</button>
   </nav>
 </header>
 
@@ -320,7 +345,36 @@
     <div class="result" hidden></div>
   </section>
   <section class="panel" data-panel="custom" role="tabpanel" hidden>
-    <p class="soon"><b>Ваше изделие — скоро.</b></p>
+    <div class="work">
+      <div class="params">
+        <p class="hint">Обводка работает для плоской рамы, снятой прямо в лоб: ворота, фасад, стенка. На компьютере удобнее.</p>
+        <fieldset class="field choice" data-key="profile"><legend>Профиль трубы</legend></fieldset>
+        <p class="hint trace-status" role="status"></p>
+        <ol class="parts trace-lines"></ol>
+        <button class="btn produce" type="button">В производство</button>
+      </div>
+      <figure class="sketch">
+        <label class="btn btn-ghost trace-open">Открыть фото<input type="file" accept="image/*" class="trace-file" hidden></label>
+        <p class="hint trace-private">Фото остаётся на вашем телефоне, никуда не отправляется.</p>
+        <div class="trace-stage">
+          <svg class="trace-svg" aria-label="Фото и линии труб"></svg>
+          <p class="trace-empty">Здесь появится ваше фото. Поверх него тапами ставятся линии труб.</p>
+        </div>
+        <div class="trace-tools">
+          <button type="button" class="trace-out" aria-label="Уменьшить">−</button>
+          <button type="button" class="trace-in" aria-label="Увеличить">+</button>
+          <button type="button" class="trace-fit">Всё фото</button>
+          <button type="button" class="trace-cancel" hidden>Отменить точку</button>
+        </div>
+        <figcaption>Тап — точка, две точки — линия. Протяжка двигает фото, щипок или ± увеличивают.</figcaption>
+      </figure>
+    </div>
+    <div class="result" hidden></div>
+    <div class="order">
+      <h3>Нужного нет или есть 3D-модель?</h3>
+      <p>Пришлите модель (STL, OBJ, STEP), фото или описание — сделаю развёртки, DXF под лазер и чертежи в PDF. Или добавлю это изделие в ваш конфигуратор, и дальше размеры будете менять сами.</p>
+      <a class="btn" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Написать в Telegram</a>
+    </div>
   </section>
 </main>
 
@@ -364,6 +418,9 @@
 <script src="js/sketch-mangal.js?v=2026-10-27"></script>
 <script src="js/pech.js?v=2026-10-27"></script>
 <script src="js/sketch-pech.js?v=2026-10-27"></script>
+<script src="js/custom.js?v=2026-10-27"></script>
+<script src="js/sketch-custom.js?v=2026-10-27"></script>
+<script src="js/trace.js?v=2026-10-27"></script>
 <script src="js/unfold.js?v=2026-10-27"></script>
 <script src="js/dxf.js?v=2026-10-27"></script>
 <script src="js/shop.js?v=2026-10-27"></script>
