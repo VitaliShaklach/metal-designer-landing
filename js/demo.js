@@ -82,6 +82,57 @@
       </div>`;
   }
 
+  // Развёртки листовых деталей: на каждую карточку с размером, количеством, картинкой и пометками для цеха.
+  function renderUnfolds(sheets, thickness) {
+    const cards = sheets.map(p => `
+      <li class="unfold">
+        <p class="part-name">${p.name} · ${p.qty} шт</p>
+        <p class="part-meta">${p.size} мм</p>
+        ${MD.unfold.svg(p)}
+        ${p.notes.map(n => `<p class="hint">${n}</p>`).join('')}
+      </li>`).join('');
+    return `
+      <div class="calc-block">
+        <h3>Развёртки, лист ${thickness} мм</h3>
+        <ul class="unfolds">${cards}</ul>
+      </div>`;
+  }
+
+  // Покупки и оценка листа для изделий из листа.
+  function renderBuy(buy) {
+    if (!buy.length) return '';
+    return `
+      <div class="calc-block">
+        <h3>Купить</h3>
+        <ul class="parts">${buy.map(b => `
+          <li>
+            <span class="part-name">${b.name} — ${b.qty} шт</span>
+            <span class="part-meta">${b.note}</span>
+          </li>`).join('')}
+        </ul>
+      </div>`;
+  }
+
+  function renderStock(r, stock) {
+    return `
+      <div class="calc-block">
+        <h3>Металл</h3>
+        <ul class="parts">
+          <li>
+            <span class="part-name">Площадь листовых деталей: ${fmt(r.area, 2)} м²</span>
+            <span class="part-meta">с учётом количества, за вычетом отверстий</span>
+          </li>
+          <li>
+            <span class="part-name">Листов ${fmt(stock.h)} × ${fmt(stock.w)}: ${r.stockSheets} — оценка</span>
+            <span class="part-meta">по площади при заполнении листа ${fmt(stock.fill * 100)} %, раскрой листа не считался</span>
+          </li>
+        </ul>
+      </div>`;
+  }
+
+  // Строка детали: лист — размер, труба — профиль и длина.
+  const partMeta = p => (p.profile ? `${p.profile.name} · ${fmt(p.length)} мм` : `${p.size} мм`);
+
   // Чем вкладки отличаются: расчёт, эскиз, подписи и что показать в результате.
   const PRODUCTS = {
     naves: {
@@ -92,8 +143,19 @@
         heightHint: `По переднему краю, до верха балки. Скат назад, задний край ниже на ${fmt(F.drop)} мм.`,
         fixed: `Глубина ${fmt(F.depth)} мм. Хозблок ${fmt(F.shed)} мм с дверью, дровница ${fmt(F.wood)} мм, остальное — под мангал. Открытая часть шире ${fmt(F.maxSpan)} мм получает промежуточные стойки.`,
       }),
-      result: r => renderParts({ ...r, parts: r.parts.map(p => ({ ...p, meta: `${p.profile.name} · ${fmt(p.length)} мм` })) }, 'Длины реза')
+      result: r => renderParts({ ...r, parts: r.parts.map(p => ({ ...p, meta: partMeta(p) })) }, 'Длины реза')
         + renderCutting(r.parts) + renderAreas(r.areas),
+    },
+    mangal: {
+      model: MD.mangal,
+      sketch: r => MD.sketch.mangal(r),
+      caption: 'Мангал. Вид спереди и сбоку',
+      texts: F => ({
+        heightHint: `От земли до края жаровни. Глубина жаровни постоянная — ${fmt(F.depth)} мм.`,
+        fixed: `Ножки из трубы Ø40×3 по углам, центр в ${fmt(F.legInset)} мм от краёв. На болтах — ножка с шпилькой М16 вкручивается в патрубок под дном. Колёса — 4 поворотных Ø100, два с тормозом.`,
+      }),
+      result: r => renderParts({ ...r, parts: [...r.sheets, ...r.tubes].map(p => ({ ...p, meta: partMeta(p) })) }, 'Детали')
+        + renderUnfolds(r.sheets, r.thickness) + renderCutting(r.tubes) + renderBuy(r.buy) + renderStock(r, MD.mangal.FIXED.stock),
     },
   };
 

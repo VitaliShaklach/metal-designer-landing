@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Песочница — Metal Designer для цехов</title>
 <link rel="icon" href="data:,">
-<meta name="description" content="Соберите навес и сразу получите эскиз с размерами, длины реза и массу металла.">
+<meta name="description" content="Соберите навес или мангал и сразу получите эскиз с размерами, длины реза, развёртки и массу металла.">
 <style>
   :root {
     --paper: #f6f7f3;
@@ -164,6 +164,28 @@
   }
   .btn-soon:disabled { background: transparent; border-color: var(--muted); color: var(--muted); opacity: 1; cursor: not-allowed; }
 
+  /* Переключатели: кнопки в ряд, нажатая залита */
+  .choice { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .choice legend { float: left; width: 100%; padding: 0; margin-bottom: 4px; font-weight: 700; }
+  .choice button {
+    flex: 1 1 0;
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 2px solid var(--line);
+    border-radius: 4px;
+    background: var(--paper);
+    font: 600 15px var(--sans);
+    color: var(--line);
+    cursor: pointer;
+  }
+  .choice button[aria-pressed="true"] { background: var(--line); color: #fff; }
+  .choice button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* Развёртки */
+  .unfolds { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  .unfold { padding: 10px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+  .unfold svg { display: block; width: 100%; height: auto; max-height: 170px; margin: 6px 0; }
+
   .soon { padding: 32px 0; color: var(--muted); }
   .soon b { color: var(--ink); }
 
@@ -209,7 +231,7 @@
 
   <nav class="tabs" role="tablist" aria-label="Изделия">
     <button class="tab" role="tab" data-tab="naves">Навес</button>
-    <button class="tab" role="tab" data-tab="mangal">Мангал<small>скоро</small></button>
+    <button class="tab" role="tab" data-tab="mangal">Мангал</button>
     <button class="tab" role="tab" data-tab="pech">Печь<small>скоро</small></button>
     <button class="tab" role="tab" data-tab="custom">Ваше изделие<small>скоро</small></button>
   </nav>
@@ -240,7 +262,34 @@
   </section>
 
   <section class="panel" data-panel="mangal" role="tabpanel" hidden>
-    <p class="soon"><b>Мангал — скоро.</b></p>
+    <div class="work">
+      <div class="params">
+        <div class="field">
+          <label for="mangal-length">Длина <output data-out="length"></output></label>
+          <input type="range" id="mangal-length" data-key="length">
+        </div>
+        <div class="field">
+          <label for="mangal-width">Ширина <output data-out="width"></output></label>
+          <input type="range" id="mangal-width" data-key="width">
+        </div>
+        <div class="field">
+          <label for="mangal-height">Высота <output data-out="height"></output></label>
+          <input type="range" id="mangal-height" data-key="height">
+          <p class="hint" data-text="heightHint"></p>
+        </div>
+        <fieldset class="field choice" data-key="thickness"><legend>Толщина металла</legend></fieldset>
+        <fieldset class="field choice" data-key="blow"><legend>Дырочки поддува</legend></fieldset>
+        <fieldset class="field choice" data-key="legs"><legend>Ножки</legend></fieldset>
+        <fieldset class="field choice" data-key="wheels"><legend>Колёса</legend></fieldset>
+        <p class="fixed" data-text="fixed"></p>
+        <button class="btn produce" type="button">В производство</button>
+      </div>
+      <figure class="sketch">
+        <div class="sketch-box"></div>
+        <figcaption>Мангал. Вид спереди и сбоку. Размеры в мм.</figcaption>
+      </figure>
+    </div>
+    <div class="result" hidden></div>
   </section>
   <section class="panel" data-panel="pech" role="tabpanel" hidden>
     <p class="soon"><b>Печь под казан — скоро.</b></p>
@@ -282,6 +331,10 @@
 <script src="js/naves.js"></script>
 <script src="js/cutting.js"></script>
 <script src="js/sketch-naves.js"></script>
+<script src="js/sketch-kit.js"></script>
+<script src="js/mangal.js"></script>
+<script src="js/sketch-mangal.js"></script>
+<script src="js/unfold.js"></script>
 <script src="js/shop.js"></script>
 <script src="js/sheet.js"></script>
 <script src="js/link.js"></script>
