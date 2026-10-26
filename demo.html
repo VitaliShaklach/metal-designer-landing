@@ -21,6 +21,7 @@
     --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
   *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }   /* у кнопок свой display, без этого hidden их не прячет */
   html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
@@ -207,6 +208,7 @@
   }
   @media (min-width: 521px) {
     .save { grid-template-columns: 1fr 1fr; }
+    .save-wide { grid-column: 1 / -1; }
   }
 
   /* Печать: только лист, A4 альбомом. Поля страницы нулевые, чтобы браузер не печатал свои колонтитулы,
@@ -313,8 +315,9 @@
     <div class="save">
       <button class="btn js-png" type="button">Скачать картинку</button>
       <button class="btn btn-ghost js-pdf" type="button">PDF для печати</button>
+      <button class="btn btn-ghost js-dxf save-wide" type="button" hidden>DXF под лазер</button>
     </div>
-    <p class="hint ios-hint" hidden>Если картинка открылась вкладкой, нажмите «Поделиться» → «Сохранить изображение».</p>
+    <p class="hint ios-hint" hidden>Если картинка открылась вкладкой, нажмите «Поделиться» → «Сохранить изображение». DXF айфон кладёт в «Файлы» → «Загрузки».</p>
   </div>
   <div class="share-block">
     <button class="btn btn-ghost js-link" type="button">Ссылка на вариант</button>
@@ -335,6 +338,7 @@
 <script src="js/mangal.js"></script>
 <script src="js/sketch-mangal.js"></script>
 <script src="js/unfold.js"></script>
+<script src="js/dxf.js"></script>
 <script src="js/shop.js"></script>
 <script src="js/sheet.js"></script>
 <script src="js/link.js"></script>

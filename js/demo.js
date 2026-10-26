@@ -156,6 +156,7 @@
       }),
       result: r => renderParts({ ...r, parts: [...r.sheets, ...r.tubes].map(p => ({ ...p, meta: partMeta(p) })) }, 'Детали')
         + renderUnfolds(r.sheets, r.thickness) + renderCutting(r.tubes) + renderBuy(r.buy) + renderStock(r, MD.mangal.FIXED.stock),
+      dxf: r => ({ parts: r.sheets, name: `${MD.sheet.fileName(r.title)}-лист-${r.thickness}мм.dxf` }),
     },
   };
 
@@ -169,6 +170,7 @@
     const limits = product.model.LIMITS;
     const state = { ...MD.link.defaults(limits), produced: false };
     let sheet = null;   // текущий лист: { title, svg, url }
+    let result = null;  // расчёт, показанный под «В производство»
 
     q('.result').append($('#result-tpl').content.cloneNode(true));
     const texts = product.texts(product.model.FIXED);
@@ -192,6 +194,7 @@
       q('.sketch-box').innerHTML = sketch;
       q('.result').hidden = !state.produced;
       if (state.produced) {
+        result = r;
         q('.calc').innerHTML = product.result(r);
         renderSheet(r, sketch);
       }
@@ -243,6 +246,16 @@
       window.print();
     });
     q('.ios-hint').hidden = !isIOS;
+
+    // DXF листовых деталей под лазер — только у изделий из листа.
+    const dxf = q('.js-dxf');
+    dxf.hidden = !product.dxf;
+    if (product.dxf) {
+      dxf.addEventListener('click', () => {
+        const file = product.dxf(result);
+        MD.dxf.download(MD.dxf.text(file.parts), file.name);
+      });
+    }
 
     // «Ссылка на вариант»: копируем адрес. Не дал браузер — показываем ссылку в поле, выделенной, чтобы скопировать руками.
     const status = q('.link-status'), field = q('.link-field');
