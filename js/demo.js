@@ -1,43 +1,15 @@
-// Интерфейс песочницы: вкладки, ползунки, живой эскиз, кнопка «В производство», лист чертежа и его сохранение.
+// Интерфейс песочницы: вкладки, параметры, живой эскиз, кнопка «В производство», лист чертежа, сохранение и ссылка на вариант.
+// Вкладка с изделием устроена одинаково: параметры [data-key] → расчёт → эскиз → результат из шаблона #result-tpl.
+// Чем изделия отличаются, описано в PRODUCTS.
 (function (MD) {
   const $ = sel => document.querySelector(sel);
   const fmt = (v, d = 0) => v.toLocaleString('ru-RU', { minimumFractionDigits: d, maximumFractionDigits: d });
 
-  const L = MD.naves.LIMITS;
-  const state = { ...MD.link.defaults(L), produced: false };
-  let sheet = null;   // текущий лист: { title, svg }
-
   // Адрес полной версии. Пока пусто — кнопка «Полная версия — скоро» и не нажимается. Вписали адрес — кнопка ожила.
   const FULL_VERSION_URL = '';
 
-  // Вкладки и их параметры для ссылки на вариант. У вкладок «скоро» параметров пока нет.
-  const TABS = { naves: L, mangal: {}, pech: {}, custom: {} };
-
   // Айфон и айпад: там картинка может открыться вкладкой вместо скачивания. Айпад притворяется Маком, выдаёт его тач.
   const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-  function setTab(name) {
-    document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
-    document.querySelectorAll('.panel').forEach(p => { p.hidden = p.dataset.panel !== name; });
-  }
-
-  // Адрес в строке браузера показывает открытую вкладку. Параметры из открытой ссылки после правки уже не те, их убираем.
-  const showTabInAddress = name => history.replaceState(null, '', MD.link.make(name));
-
-  function renderResult(r) {
-    const rows = r.parts.map(p => `
-      <li>
-        <span class="part-name">${p.name}</span>
-        <span class="part-meta">${p.profile.name} · ${fmt(p.length)} мм × ${p.qty} шт · ${fmt(p.mass, 1)} кг</span>
-      </li>`).join('');
-    $('#naves-parts').innerHTML = `
-      <h3>Длины реза</h3>
-      <ul class="parts">${rows}</ul>
-      <p class="total">Масса металла: <b>${fmt(r.mass, 1)} кг</b></p>
-      <p class="note">${r.note}</p>
-      ${renderCutting(r.parts)}
-      ${renderAreas(r.areas)}`;
-  }
 
   // 1 хлыст, 2 хлыста, 5 хлыстов.
   function plural(n, one, few, many) {
@@ -45,6 +17,20 @@
     return t > 10 && t < 20 ? many : u === 1 ? one : u >= 2 && u <= 4 ? few : many;
   }
   const barsWord = n => plural(n, 'хлыст', 'хлыста', 'хлыстов');
+
+  // Список деталей: у каждой строка meta (профиль и длина или размер листа), количество и масса; внизу общая масса.
+  function renderParts(r, title) {
+    const rows = r.parts.map(p => `
+      <li>
+        <span class="part-name">${p.name}</span>
+        <span class="part-meta">${p.meta} × ${p.qty} шт · ${fmt(p.mass, 1)} кг</span>
+      </li>`).join('');
+    return `
+      <h3>${title}</h3>
+      <ul class="parts">${rows}</ul>
+      <p class="total">Масса металла: <b>${fmt(r.mass, 1)} кг</b></p>
+      <p class="note">${r.note}</p>`;
+  }
 
   // Раскрой по профилям: на каждый хлыст полоска с кусками в масштабе (заштрихован обрезок) и строка длин.
   // Одинаково разрезанные хлысты идут одной строкой.
@@ -96,56 +82,110 @@
       </div>`;
   }
 
-  function renderSheet(r, sketch) {
-    const svg = MD.sheet.svg({ ...r, sketch, caption: 'Навес. Вид спереди', shop: MD.shop.get(), date: new Date().toLocaleDateString('ru-RU') });
-    sheet = { title: r.title, svg };
-    $('#naves-sheet').src = $('#print-sheet').src = MD.sheet.url(svg);
-  }
+  // Чем вкладки отличаются: расчёт, эскиз, подписи и что показать в результате.
+  const PRODUCTS = {
+    naves: {
+      model: MD.naves,
+      sketch: r => MD.sketch.naves(r),
+      caption: 'Навес. Вид спереди',
+      texts: F => ({
+        heightHint: `По переднему краю, до верха балки. Скат назад, задний край ниже на ${fmt(F.drop)} мм.`,
+        fixed: `Глубина ${fmt(F.depth)} мм. Хозблок ${fmt(F.shed)} мм с дверью, дровница ${fmt(F.wood)} мм, остальное — под мангал. Открытая часть шире ${fmt(F.maxSpan)} мм получает промежуточные стойки.`,
+      }),
+      result: r => renderParts({ ...r, parts: r.parts.map(p => ({ ...p, meta: `${p.profile.name} · ${fmt(p.length)} мм` })) }, 'Длины реза')
+        + renderCutting(r.parts) + renderAreas(r.areas),
+    },
+  };
 
-  function renderFixed() {
-    const F = MD.naves.FIXED;
-    $('#naves-height-hint').textContent = `По переднему краю, до верха балки. Скат назад, задний край ниже на ${fmt(F.drop)} мм.`;
-    $('#naves-fixed').textContent = `Глубина ${fmt(F.depth)} мм. Хозблок ${fmt(F.shed)} мм с дверью, дровница ${fmt(F.wood)} мм, остальное — под мангал. Открытая часть шире ${fmt(F.maxSpan)} мм получает промежуточные стойки.`;
-  }
+  // Адрес в строке браузера показывает открытую вкладку.
+  const showTabInAddress = name => history.replaceState(null, '', MD.link.make(name));
 
-  function update() {
-    const r = MD.naves.calc(state);
-    const sketch = MD.sketch.naves(r);
-    $('#naves-width-out').textContent = fmt(state.width) + ' мм';
-    $('#naves-height-out').textContent = fmt(state.height) + ' мм';
-    $('#naves-sketch').innerHTML = sketch;
-    $('#naves-result').hidden = !state.produced;
-    if (state.produced) {
-      renderResult(r);
-      renderSheet(r, sketch);
+  // Одна вкладка с изделием: свои параметры, эскиз, результат и лист. Наружу — open(values) для ссылки и лист для печати.
+  function setupTab(name, product) {
+    const panel = $(`[data-panel="${name}"]`);
+    const q = sel => panel.querySelector(sel);
+    const limits = product.model.LIMITS;
+    const state = { ...MD.link.defaults(limits), produced: false };
+    let sheet = null;   // текущий лист: { title, svg, url }
+
+    q('.result').append($('#result-tpl').content.cloneNode(true));
+    const texts = product.texts(product.model.FIXED);
+    panel.querySelectorAll('[data-text]').forEach(el => { el.textContent = texts[el.dataset.text]; });
+
+    function renderSheet(r, sketch) {
+      const svg = MD.sheet.svg({ ...r, sketch, caption: product.caption, shop: MD.shop.get(), date: new Date().toLocaleDateString('ru-RU') });
+      sheet = { title: r.title, svg, url: MD.sheet.url(svg) };
+      q('.sheet-preview').src = sheet.url;
+      q('.sheet-preview').alt = `Лист чертежа: ${r.title}, эскиз, спецификация, масса и штамп`;
+      if (!panel.hidden) $('#print-sheet').src = sheet.url;
     }
-  }
 
-  function slider(id, key) {
-    const el = $(id);
-    Object.assign(el, { min: L[key].min, max: L[key].max, step: L[key].step, value: state[key] });
-    el.addEventListener('input', () => {
-      state[key] = Number(el.value);
-      showTabInAddress('naves');
+    function update() {
+      const r = product.model.calc(state);
+      const sketch = product.sketch(r);
+      panel.querySelectorAll('[data-out]').forEach(el => { el.textContent = fmt(state[el.dataset.out]) + ' мм'; });
+      panel.querySelectorAll('.choice button').forEach(b => {
+        b.setAttribute('aria-pressed', String(String(state[b.closest('.choice').dataset.key]) === b.value));
+      });
+      q('.sketch-box').innerHTML = sketch;
+      q('.result').hidden = !state.produced;
+      if (state.produced) {
+        q('.calc').innerHTML = product.result(r);
+        renderSheet(r, sketch);
+      }
+    }
+
+    // Параметр поменяли руками: адрес больше не совпадает с открытой ссылкой, оставляем в нём только вкладку.
+    function change(key, value) {
+      state[key] = value;
+      showTabInAddress(name);
       update();
+    }
+
+    // Ползунки: диапазон и шаг из LIMITS.
+    panel.querySelectorAll('input[type="range"][data-key]').forEach(el => {
+      const l = limits[el.dataset.key];
+      Object.assign(el, { min: l.min, max: l.max, step: l.step, value: state[el.dataset.key] });
+      el.addEventListener('input', () => change(el.dataset.key, Number(el.value)));
     });
-  }
+    // Переключатели: кнопки из вариантов LIMITS, подписи — labels.
+    panel.querySelectorAll('.choice[data-key]').forEach(box => {
+      const l = limits[box.dataset.key];
+      l.options.forEach((option, i) => {
+        const b = document.createElement('button');
+        Object.assign(b, { type: 'button', value: String(option), textContent: l.labels[i] });
+        b.addEventListener('click', () => change(box.dataset.key, option));
+        box.append(b);
+      });
+    });
 
-  // Открыть то, что записано в адресе: вариант по ссылке сразу с результатом, иначе готовый пример.
-  function openFromAddress() {
-    const { tab, values } = MD.link.read(location.hash, TABS);
-    Object.assign(state, MD.link.defaults(L), tab === 'naves' && values ? values : {}, { produced: Boolean(tab === 'naves' && values) });
-    $('#naves-width').value = state.width;
-    $('#naves-height').value = state.height;
-    setTab(tab || 'naves');
-    update();
-  }
+    q('.produce').addEventListener('click', () => {
+      state.produced = true;
+      update();
+      q('.result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
 
-  // «Ссылка на вариант»: копируем адрес. Не дал браузер — показываем ссылку в поле, выделенной, чтобы скопировать руками.
-  function linkButtons() {
-    const status = $('#naves-link-status'), field = $('#naves-link-field');
-    $('#naves-link').addEventListener('click', () => {
-      const url = MD.link.make('naves', state, L);
+    const png = q('.js-png');
+    png.addEventListener('click', () => {
+      png.disabled = true;
+      MD.sheet.png(sheet.svg, MD.sheet.fileName(sheet.title) + '.png')
+        .catch(err => alert(err.message))
+        .finally(() => { png.disabled = false; });
+    });
+    // Печать браузера: на странице печати виден только лист (стили @media print). Заголовок вкладки станет именем PDF.
+    q('.js-pdf').addEventListener('click', () => {
+      const title = document.title;
+      $('#print-sheet').src = sheet.url;
+      document.title = MD.sheet.fileName(sheet.title);
+      window.addEventListener('afterprint', () => { document.title = title; }, { once: true });
+      window.print();
+    });
+    q('.ios-hint').hidden = !isIOS;
+
+    // «Ссылка на вариант»: копируем адрес. Не дал браузер — показываем ссылку в поле, выделенной, чтобы скопировать руками.
+    const status = q('.link-status'), field = q('.link-field');
+    q('.js-link').addEventListener('click', () => {
+      const url = MD.link.make(name, state, limits);
       const manual = () => {
         field.hidden = false;
         field.value = url;
@@ -158,61 +198,65 @@
       navigator.clipboard.writeText(url).then(() => { status.textContent = 'Ссылка скопирована.'; }, manual);
     });
 
-    const full = $('#naves-full');
+    const full = q('.js-full');
     if (FULL_VERSION_URL) {
       full.disabled = false;
       full.textContent = 'Открыть полную версию';
       full.addEventListener('click', () => { location.href = FULL_VERSION_URL; });
     }
+
+    return {
+      limits,
+      update,
+      // Вариант по ссылке — сразу с результатом; без values — готовый пример.
+      open(values) {
+        Object.assign(state, MD.link.defaults(limits), values || {}, { produced: Boolean(values) });
+        panel.querySelectorAll('input[type="range"][data-key]').forEach(el => { el.value = state[el.dataset.key]; });
+        update();
+      },
+      sheetUrl: () => (sheet ? sheet.url : ''),
+    };
+  }
+
+  const tabs = Object.fromEntries(Object.entries(PRODUCTS).map(([name, product]) => [name, setupTab(name, product)]));
+
+  function setTab(name) {
+    document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+    document.querySelectorAll('.panel').forEach(p => { p.hidden = p.dataset.panel !== name; });
+    if (tabs[name] && tabs[name].sheetUrl()) $('#print-sheet').src = tabs[name].sheetUrl();
+  }
+
+  // Вкладки и их параметры для ссылки на вариант. У вкладок без изделия параметров нет.
+  const LINK_TABS = Object.fromEntries([...document.querySelectorAll('.tab')].map(b => [b.dataset.tab, tabs[b.dataset.tab] ? tabs[b.dataset.tab].limits : {}]));
+
+  // Открыть то, что записано в адресе: вариант по ссылке сразу с результатом, иначе готовый пример.
+  function openFromAddress() {
+    const { tab, values } = MD.link.read(location.hash, LINK_TABS);
+    const name = tab || 'naves';
+    Object.entries(tabs).forEach(([n, t]) => t.open(n === name ? values : null));
+    setTab(name);
   }
 
   // «Цех и телефон» общий на всю песочницу: вписали в одном поле — появилось во всех и в штампе.
   function shopField() {
     const inputs = document.querySelectorAll('.shop-input');
-    inputs.forEach(el => {
+    inputs.forEach((el, i) => {
+      el.id = `shop-${i}`;
+      el.closest('.field').querySelector('label').htmlFor = el.id;
       el.value = MD.shop.get();
       el.addEventListener('input', () => {
         MD.shop.set(el.value.trim());
         inputs.forEach(other => { if (other !== el) other.value = el.value; });
-        update();
+        Object.values(tabs).forEach(t => t.update());
       });
     });
-  }
-
-  function saveButtons() {
-    const png = $('#naves-png');
-    png.addEventListener('click', () => {
-      png.disabled = true;
-      MD.sheet.png(sheet.svg, MD.sheet.fileName(sheet.title) + '.png')
-        .catch(err => alert(err.message))
-        .finally(() => { png.disabled = false; });
-    });
-    // Печать браузера: на странице печати виден только лист (стили @media print). Заголовок вкладки станет именем PDF.
-    $('#naves-pdf').addEventListener('click', () => {
-      const title = document.title;
-      document.title = MD.sheet.fileName(sheet.title);
-      window.addEventListener('afterprint', () => { document.title = title; }, { once: true });
-      window.print();
-    });
-    document.querySelectorAll('.ios-hint').forEach(el => { el.hidden = !isIOS; });
   }
 
   document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
     setTab(b.dataset.tab);
     showTabInAddress(b.dataset.tab);
   }));
-  slider('#naves-width', 'width');
-  slider('#naves-height', 'height');
-  $('#naves-produce').addEventListener('click', () => {
-    state.produced = true;
-    update();
-    $('#naves-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
   shopField();
-  saveButtons();
-  linkButtons();
-
-  renderFixed();
   openFromAddress();
   // Ссылку вставили в адрес уже открытой страницы: браузер её не перезагружает, открываем сами.
   window.addEventListener('hashchange', openFromAddress);

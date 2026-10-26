@@ -220,45 +220,23 @@
     <div class="work">
       <div class="params">
         <div class="field">
-          <label for="naves-width">Ширина <output id="naves-width-out"></output></label>
-          <input type="range" id="naves-width">
+          <label for="naves-width">Ширина <output data-out="width"></output></label>
+          <input type="range" id="naves-width" data-key="width">
         </div>
         <div class="field">
-          <label for="naves-height">Высота <output id="naves-height-out"></output></label>
-          <input type="range" id="naves-height">
-          <p class="hint" id="naves-height-hint"></p>
+          <label for="naves-height">Высота <output data-out="height"></output></label>
+          <input type="range" id="naves-height" data-key="height">
+          <p class="hint" data-text="heightHint"></p>
         </div>
-        <p class="fixed" id="naves-fixed"></p>
-        <button class="btn" id="naves-produce" type="button">В производство</button>
+        <p class="fixed" data-text="fixed"></p>
+        <button class="btn produce" type="button">В производство</button>
       </div>
       <figure class="sketch">
-        <div id="naves-sketch"></div>
+        <div class="sketch-box"></div>
         <figcaption>Навес. Вид спереди. Размеры в мм.</figcaption>
       </figure>
     </div>
-    <div class="result" id="naves-result" hidden>
-      <div id="naves-parts"></div>
-      <div class="sheet-block">
-        <h3>Лист чертежа</h3>
-        <div class="field">
-          <label for="naves-shop">Цех и телефон</label>
-          <input type="text" class="shop-input" id="naves-shop" maxlength="80" autocomplete="organization" placeholder="Лазер-Мастер, +7 900 123-45-67">
-          <p class="hint">Впишите один раз: браузер запомнит и поставит в штамп каждого листа.</p>
-        </div>
-        <img class="sheet-preview" id="naves-sheet" alt="Лист чертежа: эскиз навеса, спецификация, масса и штамп">
-        <div class="save">
-          <button class="btn" id="naves-png" type="button">Скачать картинку</button>
-          <button class="btn btn-ghost" id="naves-pdf" type="button">PDF для печати</button>
-        </div>
-        <p class="hint ios-hint" hidden>Если картинка открылась вкладкой, нажмите «Поделиться» → «Сохранить изображение».</p>
-      </div>
-      <div class="share-block">
-        <button class="btn btn-ghost" id="naves-link" type="button">Ссылка на вариант</button>
-        <input type="text" class="link-field" id="naves-link-field" readonly hidden aria-label="Ссылка на вариант">
-        <p class="hint" id="naves-link-status" role="status">Кто откроет ссылку, увидит этот же навес с теми же размерами.</p>
-        <button class="btn btn-soon" id="naves-full" type="button" disabled>Полная версия — скоро</button>
-      </div>
-    </div>
+    <div class="result" hidden></div>
   </section>
 
   <section class="panel" data-panel="mangal" role="tabpanel" hidden>
@@ -271,6 +249,31 @@
     <p class="soon"><b>Ваше изделие — скоро.</b></p>
   </section>
 </main>
+
+<!-- Результат вкладки под расчётом: лист чертежа, сохранение, ссылка на вариант. Копируется в каждую вкладку с изделием. -->
+<template id="result-tpl">
+  <div class="calc"></div>
+  <div class="sheet-block">
+    <h3>Лист чертежа</h3>
+    <div class="field">
+      <label>Цех и телефон</label>
+      <input type="text" class="shop-input" maxlength="80" autocomplete="organization" placeholder="Лазер-Мастер, +7 900 123-45-67">
+      <p class="hint">Впишите один раз: браузер запомнит и поставит в штамп каждого листа.</p>
+    </div>
+    <img class="sheet-preview" alt="">
+    <div class="save">
+      <button class="btn js-png" type="button">Скачать картинку</button>
+      <button class="btn btn-ghost js-pdf" type="button">PDF для печати</button>
+    </div>
+    <p class="hint ios-hint" hidden>Если картинка открылась вкладкой, нажмите «Поделиться» → «Сохранить изображение».</p>
+  </div>
+  <div class="share-block">
+    <button class="btn btn-ghost js-link" type="button">Ссылка на вариант</button>
+    <input type="text" class="link-field" readonly hidden aria-label="Ссылка на вариант">
+    <p class="hint link-status" role="status">Кто откроет ссылку, увидит этот же вариант с теми же размерами.</p>
+    <button class="btn btn-soon js-full" type="button" disabled>Полная версия — скоро</button>
+  </div>
+</template>
 
 <!-- Лист для «PDF для печати»: на экране скрыт, при печати виден только он -->
 <div class="print-sheet"><img id="print-sheet" alt=""></div>
