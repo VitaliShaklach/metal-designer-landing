@@ -1,4 +1,4 @@
-// Расчёт навеса: параметры с экрана → описание изделия (геометрия для эскиза, трубы с длинами реза, масса).
+// Расчёт навеса: параметры с экрана → описание изделия (название, геометрия для эскиза, трубы с длинами реза, масса).
 // Навес по фото в docs/superpowers/specs/assets/naves-photo.png: односкатный, скат назад,
 // слева направо хозблок, дровница, открытая часть под мангал. Все размеры в мм.
 (function (MD) {
@@ -91,9 +91,16 @@
       { name: 'Дровница: обвязка сзади', profile: PROFILE.rail, length: woodSpan, qty: 1 },
       { name: 'Дровница: прутки', profile: PROFILE.bar, length: backPost - F.rail, qty: barCount },
     ].filter(part => part.qty > 0)
-     .map(part => ({ ...part, mass: part.profile.kgPerM * part.length / 1000 * part.qty }));
+     .map(part => ({
+       ...part,
+       size: `${part.profile.name} · L ${part.length}`,
+       mass: part.profile.kgPerM * part.length / 1000 * part.qty,
+     }));
 
     return {
+      // Общие поля описания изделия, по ним собирается лист чертежа (js/sheet.js).
+      title: `Навес ${width} × ${height}`,
+      note: 'Масса профильной трубы по ГОСТ 8639-82 и 8645-68.',
       width, height,
       sections: { shed: F.shed, wood: F.wood, open: width - F.shed - F.wood },
       axes, postLeft,

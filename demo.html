@@ -84,7 +84,7 @@
   .field label { display: flex; justify-content: space-between; font-weight: 700; }
   .field output { font-family: var(--mono); font-weight: 700; color: var(--accent-dark); }
   .field input[type="range"] { width: 100%; height: 36px; accent-color: var(--accent); }
-  .field .hint { font-size: 14px; color: var(--muted); }
+  .hint { font-size: 14px; color: var(--muted); }
   .fixed { font-size: 14px; color: var(--muted); }
   .btn {
     display: block;
@@ -101,7 +101,6 @@
   .btn:focus-visible, .tab:focus-visible { outline: 3px solid var(--line); outline-offset: 2px; }
 
   /* Результат */
-  .result:empty { display: none; }
   .result { margin-top: 24px; background: var(--card); border: 2px solid var(--line); border-radius: 4px; padding: 18px; scroll-margin-top: 12px; }
   .parts { list-style: none; margin: 0; padding: 0; }
   .parts li { padding: 8px 0; border-top: 1px dashed rgba(42, 61, 94, .35); }
@@ -110,6 +109,27 @@
   .part-meta { display: block; font-family: var(--mono); font-size: 14px; color: var(--muted); }
   .total { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--line); font-size: 19px; }
   .note { margin-top: 10px; font-size: 14px; color: var(--muted); }
+
+  /* Лист чертежа и сохранение */
+  .sheet-block { display: grid; gap: 14px; margin-top: 24px; padding-top: 18px; border-top: 2px solid var(--line); }
+  .sheet-block h3 { margin: 0; }
+  .field input[type="text"] {
+    width: 100%;
+    margin-top: 4px;
+    padding: 11px 12px;
+    border: 2px solid var(--line);
+    border-radius: 4px;
+    background: #fff;
+    font: 17px var(--sans);   /* не меньше 16 px, иначе айфон приближает страницу при вводе */
+    color: var(--ink);
+  }
+  .field input[type="text"]:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+  .sheet-preview { display: block; width: 100%; height: auto; border: 1px solid var(--line); background: #fff; }
+  .save { display: grid; gap: 10px; }
+  .btn-ghost { background: transparent; color: var(--accent-dark); }
+  .btn-ghost:hover { color: #fff; }
+  .btn:disabled { opacity: .6; cursor: progress; }
+  .print-sheet { display: none; }
 
   .soon { padding: 32px 0; color: var(--muted); }
   .soon b { color: var(--ink); }
@@ -129,6 +149,19 @@
   @media (max-width: 859px) {
     .work .sketch { order: 0; }
     .work .params { order: 1; }
+  }
+  @media (min-width: 521px) {
+    .save { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* Печать: только лист, A4 альбомом. Поля страницы нулевые, чтобы браузер не печатал свои колонтитулы,
+     отступ от края даёт сам блок. Высота листа ограничена, чтобы он влез на одну страницу и при книжной ориентации. */
+  @page { size: A4 landscape; margin: 0; }
+  @media print {
+    body { background: #fff; }
+    body > :not(.print-sheet) { display: none !important; }
+    .print-sheet { display: block; padding: 6mm; }
+    .print-sheet img { display: block; width: 100%; height: auto; max-height: 190mm; object-fit: contain; break-inside: avoid; }
   }
 </style>
 </head>
@@ -170,7 +203,23 @@
         <figcaption>Навес. Вид спереди. Размеры в мм.</figcaption>
       </figure>
     </div>
-    <div class="result" id="naves-result"></div>
+    <div class="result" id="naves-result" hidden>
+      <div id="naves-parts"></div>
+      <div class="sheet-block">
+        <h3>Лист чертежа</h3>
+        <div class="field">
+          <label for="naves-shop">Цех и телефон</label>
+          <input type="text" class="shop-input" id="naves-shop" maxlength="80" autocomplete="organization" placeholder="Лазер-Мастер, +7 900 123-45-67">
+          <p class="hint">Впишите один раз: браузер запомнит и поставит в штамп каждого листа.</p>
+        </div>
+        <img class="sheet-preview" id="naves-sheet" alt="Лист чертежа: эскиз навеса, спецификация, масса и штамп">
+        <div class="save">
+          <button class="btn" id="naves-png" type="button">Скачать картинку</button>
+          <button class="btn btn-ghost" id="naves-pdf" type="button">PDF для печати</button>
+        </div>
+        <p class="hint ios-hint" hidden>Если картинка открылась вкладкой, нажмите «Поделиться» → «Сохранить изображение».</p>
+      </div>
+    </div>
   </section>
 
   <section class="panel" data-panel="mangal" role="tabpanel" hidden>
@@ -184,9 +233,14 @@
   </section>
 </main>
 
+<!-- Лист для «PDF для печати»: на экране скрыт, при печати виден только он -->
+<div class="print-sheet"><img id="print-sheet" alt=""></div>
+
 <script src="js/metal.js"></script>
 <script src="js/naves.js"></script>
 <script src="js/sketch-naves.js"></script>
+<script src="js/shop.js"></script>
+<script src="js/sheet.js"></script>
 <script src="js/demo.js"></script>
 </body>
 </html>
