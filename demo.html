@@ -110,6 +110,26 @@
   .total { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--line); font-size: 19px; }
   .note { margin-top: 10px; font-size: 14px; color: var(--muted); }
 
+  /* Раскрой хлыстов и площади */
+  .calc-block { margin-top: 24px; padding-top: 18px; border-top: 2px solid var(--line); }
+  .calc-block .hint { margin-bottom: 6px; }
+  .stock { margin-top: 14px; }
+  .stock-head { font-family: var(--mono); font-size: 14px; }
+  .stock-head b { font-size: 16px; }
+  .bars { list-style: none; margin: 6px 0 0; padding: 0; }
+  .bars li { padding: 5px 0; }
+  /* Хлыст целиком — заштрихованный обрезок, поверх куски в масштабе, между ними зазор реза */
+  .bar {
+    display: flex;
+    height: 14px;
+    border: 1px solid var(--line);
+    background: repeating-linear-gradient(-45deg, transparent 0 3px, rgba(196, 72, 12, .45) 3px 4px);
+  }
+  .bar span { background: var(--line); border-right: 2px solid var(--paper); }
+  .bar-text { font-family: var(--mono); font-size: 14px; color: var(--muted); }
+  .bar-text b { color: var(--ink); }
+  .warn { margin-top: 6px; font-size: 14px; font-weight: 700; color: var(--accent-dark); }
+
   /* Лист чертежа и сохранение */
   .sheet-block { display: grid; gap: 14px; margin-top: 24px; padding-top: 18px; border-top: 2px solid var(--line); }
   .sheet-block h3 { margin: 0; }
@@ -238,6 +258,7 @@
 
 <script src="js/metal.js"></script>
 <script src="js/naves.js"></script>
+<script src="js/cutting.js"></script>
 <script src="js/sketch-naves.js"></script>
 <script src="js/shop.js"></script>
 <script src="js/sheet.js"></script>

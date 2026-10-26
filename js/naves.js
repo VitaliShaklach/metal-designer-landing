@@ -16,6 +16,7 @@
   const FIXED = {
     depth: 2000,      // глубина навеса
     drop: 300,        // задний край ниже переднего: уклон ≈ 8,5°, минимум для профлиста
+    overhang: 100,    // боковой свес профлиста за крайние стойки
     shed: 1000,       // ширина хозблока (по осям стоек)
     wood: 600,        // ширина дровницы
     post: 60,         // сечение стойки и балки
@@ -97,6 +98,15 @@
        mass: part.profile.kgPerM * part.length / 1000 * part.qty,
      }));
 
+    // Площади в м²: кровля — профлист по скату с боковыми свесами, обшивка хозблока — доска от земли до балок:
+    // фасад вместе с дверью (полотно тоже из доски), задняя стенка и два бока трапецией по скату:
+    // наружный и стенка к дровнице, под обе стоит каркас «стойки под обшивку по бокам».
+    const shedOuter = postLeft[1] + p;
+    const areas = {
+      roof: (width + 2 * F.overhang) * rafter / 1e6,
+      cladding: (shedOuter + F.depth) * (frontPost + backPost) / 1e6,
+    };
+
     return {
       // Общие поля описания изделия, по ним собирается лист чертежа (js/sheet.js).
       title: `Навес ${width} × ${height}`,
@@ -108,6 +118,7 @@
       door: { x0: doorX0, width: D.width, height: doorHeight, jambs },
       bars,
       parts,
+      areas,
       mass: parts.reduce((sum, part) => sum + part.mass, 0),
     };
   }

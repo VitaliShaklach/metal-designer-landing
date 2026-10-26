@@ -8,7 +8,7 @@
 
   function naves(r) {
     const { width, height, frontPost, backPost, sections, axes, postLeft, door, bars } = r;
-    const { post, rail, door: { gap } } = MD.naves.FIXED;
+    const { post, rail, overhang, door: { gap } } = MD.naves.FIXED;
     const fontSize = Math.max(150, width * 0.05);
     const stroke = fontSize * 0.07, thin = stroke * 0.5;
     const ground = height;                       // ось Y вниз, верх балки — 0
@@ -45,7 +45,7 @@
     // Стойки, передняя балка, кромка кровли
     postLeft.forEach(x => out.push(`<rect x="${x}" y="${post}" width="${post}" height="${frontPost}" fill="none" stroke="${INK}" stroke-width="${stroke}"/>`));
     out.push(`<rect x="0" y="0" width="${width}" height="${post}" fill="none" stroke="${INK}" stroke-width="${stroke}"/>`);
-    out.push(`<line x1="-100" y1="${-stroke * 2}" x2="${width + 100}" y2="${-stroke * 2}" stroke="${LINE}" stroke-width="${stroke * 2.5}"/>`);
+    out.push(`<line x1="${-overhang}" y1="${-stroke * 2}" x2="${width + overhang}" y2="${-stroke * 2}" stroke="${LINE}" stroke-width="${stroke * 2.5}"/>`);
 
     // Подписи секций: моноширинная буква ≈ 0,6 кегля, подпись не шире своей секции
     const label = (x, span, text) => {

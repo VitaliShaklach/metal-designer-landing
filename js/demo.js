@@ -25,7 +25,66 @@
       <h3>Длины реза</h3>
       <ul class="parts">${rows}</ul>
       <p class="total">Масса металла: <b>${fmt(r.mass, 1)} кг</b></p>
-      <p class="note">${r.note}</p>`;
+      <p class="note">${r.note}</p>
+      ${renderCutting(r.parts)}
+      ${renderAreas(r.areas)}`;
+  }
+
+  // 1 хлыст, 2 хлыста, 5 хлыстов.
+  function plural(n, one, few, many) {
+    const t = n % 100, u = n % 10;
+    return t > 10 && t < 20 ? many : u === 1 ? one : u >= 2 && u <= 4 ? few : many;
+  }
+  const barsWord = n => plural(n, 'хлыст', 'хлыста', 'хлыстов');
+
+  // Раскрой по профилям: на каждый хлыст полоска с кусками в масштабе (заштрихован обрезок) и строка длин.
+  // Одинаково разрезанные хлысты идут одной строкой.
+  function renderCutting(parts) {
+    const { STOCK, KERF } = MD.cutting;
+    const groups = MD.cutting.plan(parts).map(g => {
+      const layouts = new Map();
+      g.bars.forEach(bar => {
+        const key = bar.cuts.map(c => fmt(c)).join(' + ');
+        layouts.set(key, { bar, n: (layouts.has(key) ? layouts.get(key).n : 0) + 1 });
+      });
+      const rows = [...layouts].map(([key, { bar, n }]) => `
+        <li>
+          <div class="bar" aria-hidden="true">${bar.cuts.map(c => `<span style="width:${c / STOCK * 100}%"></span>`).join('')}</div>
+          <p class="bar-text">${n > 1 ? `<b>${n} ${barsWord(n)}:</b> ` : ''}${key} · обрезок&nbsp;${fmt(bar.waste)}</p>
+        </li>`).join('');
+      const tooLong = g.tooLong.length
+        ? `<p class="warn">Длиннее хлыста, варить из двух: ${g.tooLong.map(l => fmt(l)).join(', ')} мм</p>` : '';
+      return `
+        <div class="stock">
+          <p class="stock-head"><b>${g.profileName}</b> — ${g.count} ${barsWord(g.count)} · нарезать&nbsp;${fmt(g.totalLength)}&nbsp;мм · обрезки&nbsp;${fmt(g.waste)}&nbsp;мм</p>
+          <ul class="bars">${rows}</ul>
+          ${tooLong}
+        </div>`;
+    }).join('');
+    return `
+      <div class="calc-block">
+        <h3>Раскрой хлыстов по ${fmt(STOCK / 1000)} м</h3>
+        <p class="hint">Длины в мм, каждая длина из списка выше — ровно один кусок. Обрезок — что остаётся после всех резов, каждый рез съедает ${KERF} мм, поэтому строка не добирает до ${fmt(STOCK)} несколько мм.</p>
+        ${groups}
+      </div>`;
+  }
+
+  function renderAreas(areas) {
+    const F = MD.naves.FIXED;
+    return `
+      <div class="calc-block">
+        <h3>Площади</h3>
+        <ul class="parts">
+          <li>
+            <span class="part-name">Кровля, профлист: ${fmt(areas.roof, 2)} м²</span>
+            <span class="part-meta">по скату, со свесом ${fmt(F.overhang)} мм с боков</span>
+          </li>
+          <li>
+            <span class="part-name">Обшивка хозблока, доска: ${fmt(areas.cladding, 2)} м²</span>
+            <span class="part-meta">фасад вместе с дверью, задняя стенка, наружный бок и стенка к дровнице</span>
+          </li>
+        </ul>
+      </div>`;
   }
 
   function renderSheet(r, sketch) {
