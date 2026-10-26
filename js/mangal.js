@@ -2,6 +2,7 @@
 // трубы ножек, покупки, площадь металла и масса). Конструкция и формулы — из Metal Designer Виталия, переведены в мм.
 // Жаровня: дно, на нём две боковины по длине и два торца между боковинами. Ножки из трубы по углам. Все размеры в мм.
 (function (MD) {
+  const { row, rect } = MD.parts;
   const LEG = MD.metal.pipe(40, 3);   // ножка и патрубок под неё
   const fmt = v => v.toLocaleString('ru-RU', { maximumFractionDigits: 1 });
 
@@ -33,15 +34,6 @@
     wheels: { options: [0, 1], labels: ['нет', 'есть'], def: 0 },
   };
 
-  // Ряд одинаковых элементов с шагом step по центру длины, крайние не ближе margin к краю.
-  function row(length, step, margin) {
-    const n = Math.floor((length - 2 * margin) / step) + 1;
-    const start = (length - (n - 1) * step) / 2;
-    return Array.from({ length: n }, (_, i) => start + i * step);
-  }
-
-  const rect = (w, h) => [[0, 0], [w, 0], [w, h], [0, h], [0, 0]];
-
   // Боковина: прямоугольник с прорезями под шампуры по верхнему краю (обход против часовой, начало в левом нижнем углу).
   function sideLoop(w, h, slots, S) {
     const top = [];
@@ -63,7 +55,7 @@
     const legLength = under - bottomPart - (bolted ? t + F.socket : 0);
 
     // Листовые детали: развёртка в мм, начало в левом нижнем углу. Все из листа выбранной толщины.
-    const sheets = [
+    const sheets = MD.parts.finish([
       {
         key: 'side', name: 'Боковина', qty: 2, w: length, h: wallH,
         loops: [sideLoop(length, wallH, slots, F.slot)],
@@ -82,21 +74,12 @@
       wheels
         ? { key: 'pad', name: 'Площадка под колесо', qty: 4, w: F.pad, h: F.pad, loops: [rect(F.pad, F.pad)], circles: [], notes: ['к низу ножки; 4 отв. под колесо сверлить по факту'] }
         : { key: 'foot', name: 'Пятка ножки', qty: 4, w: F.foot, h: F.foot, loops: [rect(F.foot, F.foot)], circles: [], notes: ['к низу ножки'] },
-    ];
+    ], t);
 
-    // Площадь детали в м²: у заглушки контура нет, она сама круг; у остальных круги — отверстия, ещё вычитаем прорези.
-    sheets.forEach(p => {
-      const circles = p.circles.reduce((sum, [, , r]) => sum + Math.PI * r * r, 0);
-      const slotArea = p.key === 'side' ? slots.length * F.slot.w * F.slot.d : 0;
-      p.area = (p.loops.length ? p.w * p.h - circles - slotArea : circles) / 1e6;
-      p.size = p.key === 'cap' ? `Ø${p.w} × ${t}` : `${p.w} × ${p.h} × ${t}`;
-      p.mass = p.area * MD.metal.sheetKgPerM2(t) * p.qty;
-    });
-
-    const tubes = [
+    const tubes = MD.parts.finishBars([
       { name: 'Ножка', profile: LEG, length: legLength, qty: 4 },
       ...(bolted ? [{ name: 'Патрубок ножки с гайкой М16', profile: LEG, length: F.socket, qty: 4 }] : []),
-    ].map(p => ({ ...p, size: `${p.profile.name} · L ${p.length}`, mass: p.profile.kgPerM * p.length / 1000 * p.qty }));
+    ]);
 
     const buy = [
       ...(bolted ? [
@@ -110,8 +93,6 @@
       ] : []),
     ];
 
-    const area = sheets.reduce((s, p) => s + p.area * p.qty, 0);
-    const stockArea = F.stock.w * F.stock.h / 1e6;
     const parts = [...sheets.map(({ name, size, qty, mass }) => ({ name, size, qty, mass })), ...tubes];
 
     return {
@@ -121,8 +102,7 @@
       length, width, height, thickness: t, blow, legs, wheels,
       depth: F.depth, wallH, holes, holeY, slots, legLength, under,
       sheets, tubes, buy, parts,
-      area,
-      stockSheets: Math.ceil(area / (stockArea * F.stock.fill)),
+      ...MD.parts.stockEstimate(sheets, F.stock),
       mass: parts.reduce((sum, p) => sum + p.mass, 0),
     };
   }

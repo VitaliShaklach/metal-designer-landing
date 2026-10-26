@@ -153,8 +153,8 @@
     });
   }
 
-  // Имя файла из названия изделия: «Навес 3000 × 2000» → «Навес-3000x2000».
-  const fileName = title => title.replace(/\s*×\s*/g, 'x').replace(/[\\/:*?"<>|]/g, '').trim().replace(/\s+/g, '-');
+  // Имя файла из названия изделия: «Навес 3000 × 2000» → «Навес-3000x2000», запятые выбрасываются.
+  const fileName = title => title.replace(/\s*×\s*/g, 'x').replace(/[\\/:*?"<>|,]/g, '').trim().replace(/\s+/g, '-');
 
   MD.sheet = { svg, url, png, fileName };
 })(window.MD = window.MD || {});

@@ -130,6 +130,9 @@
       </div>`;
   }
 
+  // DXF изделия из листа: все листовые детали, имя файла из названия и толщины.
+  const sheetsDxf = r => ({ parts: r.sheets, name: `${MD.sheet.fileName(r.title)}-лист-${r.thickness}мм.dxf` });
+
   // Строка детали: лист — размер, труба — профиль и длина.
   const partMeta = p => (p.profile ? `${p.profile.name} · ${fmt(p.length)} мм` : `${p.size} мм`);
 
@@ -156,7 +159,20 @@
       }),
       result: r => renderParts({ ...r, parts: [...r.sheets, ...r.tubes].map(p => ({ ...p, meta: partMeta(p) })) }, 'Детали')
         + renderUnfolds(r.sheets, r.thickness) + renderCutting(r.tubes) + renderBuy(r.buy) + renderStock(r, MD.mangal.FIXED.stock),
-      dxf: r => ({ parts: r.sheets, name: `${MD.sheet.fileName(r.title)}-лист-${r.thickness}мм.dxf` }),
+      dxf: sheetsDxf,
+    },
+    pech: {
+      model: MD.pech,
+      sketch: r => MD.sketch.pech(r),
+      caption: 'Печь под казан. Вид сбоку и с торца топки',
+      texts: F => ({
+        heightHint: 'От земли до верха корпуса, плита ложится сверху.',
+        chimneyHint: `Вертикальный кусок от колена. Горизонтальный — ${fmt(F.chimney.out)} мм из задней боковины.`,
+        fixed: `Корпус ${fmt(F.length)} × ${fmt(F.width)} × ${fmt(F.body)} мм всегда под покупную плиту ${fmt(F.plate)} × ${fmt(F.plate)} (проём Ø390, кольца Ø300, Ø210, Ø120). Казан меняет только кольца. Дверца на петлях, колосник на уголках, поддувало с шибером, труба 60×60.`,
+      }),
+      result: r => renderParts({ ...r, parts: [...r.sheets, ...r.bars].map(p => ({ ...p, meta: partMeta(p) })) }, 'Детали')
+        + renderUnfolds(r.sheets, r.thickness) + renderCutting(r.bars) + renderBuy(r.buy) + renderStock(r, MD.pech.FIXED.stock),
+      dxf: sheetsDxf,
     },
   };
 
