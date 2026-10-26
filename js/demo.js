@@ -4,8 +4,14 @@
   const fmt = (v, d = 0) => v.toLocaleString('ru-RU', { minimumFractionDigits: d, maximumFractionDigits: d });
 
   const L = MD.naves.LIMITS;
-  const state = { width: L.width.def, height: L.height.def, produced: false };
+  const state = { ...MD.link.defaults(L), produced: false };
   let sheet = null;   // текущий лист: { title, svg }
+
+  // Адрес полной версии. Пока пусто — кнопка «Полная версия — скоро» и не нажимается. Вписали адрес — кнопка ожила.
+  const FULL_VERSION_URL = '';
+
+  // Вкладки и их параметры для ссылки на вариант. У вкладок «скоро» параметров пока нет.
+  const TABS = { naves: L, mangal: {}, pech: {}, custom: {} };
 
   // Айфон и айпад: там картинка может открыться вкладкой вместо скачивания. Айпад притворяется Маком, выдаёт его тач.
   const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -14,6 +20,9 @@
     document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
     document.querySelectorAll('.panel').forEach(p => { p.hidden = p.dataset.panel !== name; });
   }
+
+  // Адрес в строке браузера показывает открытую вкладку. Параметры из открытой ссылки после правки уже не те, их убираем.
+  const showTabInAddress = name => history.replaceState(null, '', MD.link.make(name));
 
   function renderResult(r) {
     const rows = r.parts.map(p => `
@@ -115,7 +124,46 @@
   function slider(id, key) {
     const el = $(id);
     Object.assign(el, { min: L[key].min, max: L[key].max, step: L[key].step, value: state[key] });
-    el.addEventListener('input', () => { state[key] = Number(el.value); update(); });
+    el.addEventListener('input', () => {
+      state[key] = Number(el.value);
+      showTabInAddress('naves');
+      update();
+    });
+  }
+
+  // Открыть то, что записано в адресе: вариант по ссылке сразу с результатом, иначе готовый пример.
+  function openFromAddress() {
+    const { tab, values } = MD.link.read(location.hash, TABS);
+    Object.assign(state, MD.link.defaults(L), tab === 'naves' && values ? values : {}, { produced: Boolean(tab === 'naves' && values) });
+    $('#naves-width').value = state.width;
+    $('#naves-height').value = state.height;
+    setTab(tab || 'naves');
+    update();
+  }
+
+  // «Ссылка на вариант»: копируем адрес. Не дал браузер — показываем ссылку в поле, выделенной, чтобы скопировать руками.
+  function linkButtons() {
+    const status = $('#naves-link-status'), field = $('#naves-link-field');
+    $('#naves-link').addEventListener('click', () => {
+      const url = MD.link.make('naves', state, L);
+      const manual = () => {
+        field.hidden = false;
+        field.value = url;
+        field.focus();
+        field.select();
+        status.textContent = 'Скопируйте ссылку вручную.';
+      };
+      field.hidden = true;
+      if (!navigator.clipboard) return manual();
+      navigator.clipboard.writeText(url).then(() => { status.textContent = 'Ссылка скопирована.'; }, manual);
+    });
+
+    const full = $('#naves-full');
+    if (FULL_VERSION_URL) {
+      full.disabled = false;
+      full.textContent = 'Открыть полную версию';
+      full.addEventListener('click', () => { location.href = FULL_VERSION_URL; });
+    }
   }
 
   // «Цех и телефон» общий на всю песочницу: вписали в одном поле — появилось во всех и в штампе.
@@ -149,7 +197,10 @@
     document.querySelectorAll('.ios-hint').forEach(el => { el.hidden = !isIOS; });
   }
 
-  document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+  document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+    setTab(b.dataset.tab);
+    showTabInAddress(b.dataset.tab);
+  }));
   slider('#naves-width', 'width');
   slider('#naves-height', 'height');
   $('#naves-produce').addEventListener('click', () => {
@@ -159,8 +210,10 @@
   });
   shopField();
   saveButtons();
+  linkButtons();
 
-  setTab('naves');
   renderFixed();
-  update();
+  openFromAddress();
+  // Ссылку вставили в адрес уже открытой страницы: браузер её не перезагружает, открываем сами.
+  window.addEventListener('hashchange', openFromAddress);
 })(window.MD = window.MD || {});
