@@ -1,0 +1,126 @@
+/* Лендинг «Metal Designer для цеха»: калька, шапка, первый экран, кнопка внизу на телефоне.
+   Только светлая тема. Блоки движка (цифры, таблицы, подписи на модели) — в md.css */
+:root {
+  --paper: #f6f7f3;
+  --ink: #1c2a40;
+  --blue: #2a3d5e;                       /* линии кальки и рамки */
+  --muted: #4b5a70;
+  --rule: rgba(42, 61, 94, .28);         /* тонкие рамки таблиц и плиток */
+  --grid-major: rgba(42, 61, 94, .11);
+  --grid-minor: rgba(42, 61, 94, .05);
+  --accent: #c4480c;
+  --accent-dark: #a33a08;
+  --panel: rgba(255, 255, 255, .82);
+  --soft: #eceee8;
+  --stage: #e3e7e1;
+  --f-display: "Oswald", "Arial Narrow", sans-serif;
+  --f-body: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: var(--f-body);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(var(--grid-minor) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+  background-size: 40px 40px, 40px 40px, 8px 8px, 8px 8px;
+}
+a { color: var(--blue); }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+
+/* Шапка: тонкая строка */
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding-top: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--blue);
+  font-family: var(--f-mono);
+  font-size: 13px;
+}
+.top .brand { font-weight: 500; color: var(--blue); white-space: nowrap; }
+.top .who { color: var(--muted); white-space: nowrap; }
+.top .who a { color: var(--accent); font-weight: 500; }
+
+/* Первый экран */
+.hero { padding-top: 14px; padding-bottom: 32px; display: flex; flex-direction: column; gap: 12px; }
+h1 {
+  margin: 0;
+  font-family: var(--f-display);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .01em;
+  line-height: 1.15;
+  white-space: nowrap;                   /* в одну строку: строка ≈ 16,6 кегля, кегль — от ширины колонки с запасом */
+  font-size: min(44px, calc((100vw - 32px) / 17.5));
+  overflow: hidden;                      /* пока Oswald грузится, запасной шрифт шире — без прокрутки вбок */
+}
+#stage {
+  position: relative;
+  height: min(60vh, 540px);
+  min-height: 320px;
+  background: var(--stage);
+  border: 1px solid var(--blue);
+  overflow: hidden;
+  touch-action: none;
+}
+#stage canvas { display: block; width: 100%; height: 100%; }
+.no3d {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  padding: 16px;
+  text-align: center;
+  font: 14px/1.4 var(--f-mono);
+  color: var(--muted);
+}
+.no3d[hidden] { display: none; }
+.cta-row { display: flex; align-items: center; justify-content: space-between; gap: 12px 24px; }
+.lead { margin: 0; color: var(--muted); max-width: 44em; }
+
+/* Кнопки */
+.btn {
+  display: block;
+  padding: 14px 20px;
+  border: 2px solid var(--blue);
+  border-radius: 4px;
+  font: 600 17px/1.2 var(--f-body);
+  text-align: center;
+  text-decoration: none;
+  color: var(--blue);
+  background: var(--paper);
+}
+.btn-main { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-main:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+.btn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.cta-row .btn-main { flex: none; }
+
+/* Главная кнопка всегда под рукой на телефоне */
+.cta-bar { display: none; }
+@media (max-width: 719px) {
+  #stage { height: min(55svh, 420px); min-height: 0; }
+  .cta-row { flex-direction: column; align-items: stretch; }
+  .cta-bar {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+    background: var(--paper);
+    border-top: 1px solid var(--blue);
+  }
+  body { padding-bottom: 72px; }         /* панель не закрывает конец страницы */
+}

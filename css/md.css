@@ -1,0 +1,89 @@
+/* Блоки движка мангала — правила из C:\dev\metal-designer\mangal\css\style.css под цвета кальки:
+   панель цифр, подписи размеров на модели, вкладки, таблицы, эскизы, список размеров, подсказка управления */
+
+/* Панель цифр */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--blue); background: var(--panel); }
+.stat { padding: 10px 16px; border-left: 1px solid var(--rule); border-top: 1px solid var(--rule); }
+.stat:nth-child(4n+1) { border-left: 0; }
+.stat:nth-child(-n+4) { border-top: 0; }
+.stat b { display: block; font-family: var(--f-mono); font-weight: 500; font-size: 18px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stat span { font-size: 12px; color: var(--muted); }
+@media (max-width: 719px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .stat:nth-child(n) { padding: 8px 12px; border-top: 1px solid var(--rule); border-left: 1px solid var(--rule); }   /* (n) — чтобы перебить правила для 4 колонок */
+  .stat:nth-child(2n+1) { border-left: 0; }
+  .stat:nth-child(-n+2) { border-top: 0; }
+  .stat b { font-size: 16px; }
+}
+
+/* Подписи размеров на модели */
+.d3 { font: 500 11px/1.2 var(--f-mono); background: #fff; color: var(--ink); border: 1px solid var(--accent); padding: 1px 5px; white-space: nowrap; }
+.n3 { font: 11px/1.25 var(--f-body); background: #fff; opacity: .92; color: var(--ink); padding: 2px 6px; border-left: 2px solid var(--accent); white-space: nowrap; }
+
+/* Вкладки */
+[role=tablist] { display: flex; border-bottom: 2px solid var(--ink); overflow-x: auto; scrollbar-width: none; }
+[role=tablist]::-webkit-scrollbar { display: none; }
+[role=tab] { font: 600 17px var(--f-display); text-transform: uppercase; letter-spacing: .05em; padding: 12px 20px; border: 0; background: transparent; color: var(--muted); cursor: pointer; white-space: nowrap; border-bottom: 4px solid transparent; margin-bottom: -2px; }
+[role=tab]:hover { color: var(--ink); }
+[role=tab][aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); background: var(--panel); }
+.tabpane { display: flex; flex-direction: column; gap: 14px; padding-top: 14px; }
+.tabpane[hidden] { display: none; }
+.tabnote { margin: 0; color: var(--muted); font-size: 13px; }
+
+/* Таблицы: прокрутка внутри своего блока */
+.tbl { overflow-x: auto; border: 1px solid var(--rule); background: var(--panel); }
+.tbl table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+.tbl th, .tbl td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.tbl th { font-family: var(--f-mono); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); background: var(--soft); }
+.tbl td.n { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl td.r, .tbl th.r { text-align: right; }
+.tbl tr.grp td { font-family: var(--f-display); text-transform: uppercase; letter-spacing: .05em; font-size: 14px; background: var(--paper); }
+.tbl tr.tot td { font-weight: 600; border-bottom: 0; }
+.tbl td small { color: var(--muted); display: block; font-size: 12px; }
+.tbl td small.fn { font-family: var(--f-mono); font-size: 11px; }
+#cut td:nth-child(2) { vertical-align: middle; width: 1%; }
+
+/* Эскизы деталей — та же геометрия, что в DXF */
+svg.dxfsk { display: block; fill: none; stroke: var(--accent); stroke-width: 1.2px; vector-effect: non-scaling-stroke; }
+svg.dxfsk * { vector-effect: non-scaling-stroke; }
+svg.dxfsk .bd { stroke: #2a7; stroke-dasharray: 3 2; }
+svg.cutsk .fl { fill: var(--accent); fill-opacity: .25; }
+.dxfbtn { font: 600 12px var(--f-mono); padding: 4px 10px; border: 1px solid var(--accent); background: #fff; color: var(--accent); cursor: pointer; }
+.dxfbtn:hover { background: var(--accent); color: #fff; }
+.dxfmsg { align-self: center; font-size: 13px; color: var(--muted); }
+
+/* Список размеров на модели */
+.chk { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; cursor: pointer; }
+.chk input { margin-top: 3px; accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
+.dimgrid { display: flex; flex-direction: column; padding: 6px 14px 14px; border: 1px solid var(--rule); background: var(--panel); }
+.dimgrid .dg { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 4px 18px; padding-top: 10px; border-top: 2px solid var(--ink); margin-top: 10px; }
+.dimgrid .dg:first-child { border-top: 0; margin-top: 0; }
+.dimgrid .dg.shut > *:not(h3) { display: none; }
+.dimgrid h3 { grid-column: 1 / -1; margin: 0; }
+.dimgrid h3 button { all: unset; cursor: pointer; display: flex; align-items: baseline; gap: 10px; font: 600 17px var(--f-display); text-transform: uppercase; letter-spacing: .05em; }
+.dimgrid h3 button:hover { color: var(--accent); }
+.dimgrid h3 small { font: 12px var(--f-mono); color: var(--muted); text-transform: none; letter-spacing: 0; }
+.dimgrid h4 { grid-column: 1 / -1; margin: 8px 0 2px; padding-top: 8px; border-top: 1px solid var(--rule); font: 700 12px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.dimgrid .dg h4:first-of-type { border-top: 0; padding-top: 0; margin-top: 6px; }
+.dimgrid .chk { padding: 3px 0; }
+.dimgrid .chk b { font-family: var(--f-mono); font-weight: 500; margin-left: 4px; }
+.dimbar { display: flex; gap: 8px; flex-wrap: wrap; }
+.dimbar button { font: inherit; font-size: 13px; padding: 6px 12px; border: 1px solid var(--rule); background: #fff; color: var(--ink); cursor: pointer; }
+.dimbar button:hover { border-color: var(--ink); }
+
+/* Список «Металл» */
+.buy { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.buy a { color: var(--accent); font-weight: 500; }
+
+/* Подсказка «? Управление» и имя детали под курсором */
+.helpbtn { position: absolute; right: 12px; top: 10px; z-index: 2; font: 500 12px var(--f-body); padding: 6px 10px; border: 1px solid var(--rule); background: #fff; color: var(--ink); cursor: pointer; }
+.helpbtn:hover, .helpbtn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+.help { position: absolute; right: 12px; top: 44px; z-index: 6; width: min(760px, calc(100% - 24px)); max-height: calc(100% - 60px); overflow: auto; background: #fff; border: 1.5px solid var(--ink); box-shadow: 0 10px 30px rgba(0, 0, 0, .25); padding: 14px 16px 16px; }
+.help[hidden] { display: none; }
+.help h4 { margin: 8px 0 4px; font: 700 12px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.help dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 13px; line-height: 1.35; }
+.help dt { font-weight: 600; white-space: nowrap; }
+.help dd { margin: 0; color: var(--muted); }
+kbd { display: inline-block; min-width: 20px; padding: 1px 5px; border: 1px solid var(--rule); border-bottom-width: 2px; background: var(--paper); font: 500 11px/1.4 var(--f-mono); text-align: center; color: var(--ink); }
+.hovtag { position: absolute; z-index: 3; pointer-events: none; font: 500 12px var(--f-body); padding: 3px 8px; background: var(--ink); color: #fff; white-space: nowrap; transform: translate(12px, 12px); }
+.hovtag[hidden] { display: none; }

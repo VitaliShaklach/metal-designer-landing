@@ -19,7 +19,7 @@
 - Телефон 390 px без горизонтальной прокрутки; блок модели не выше 55 % экрана телефона.
 - **`C:\dev\metal-designer` не трогаем**: только чтение и копирование. Никаких правок, коммитов и запусков, которые пишут туда файлы.
 - `master` сразу публикуется. Вся работа — в ветке `landing-v2-mangal`; в `master` — только по команде Виталия, целиком после этапа. Ветку можно пушить: сайт собирается только из `master`.
-- Автотесты: `node --test tests/unit/` (расчёты, ссылка, листы, карты) и `npx playwright test` (страница, проекты `desktop` 1440 × 900 и `phone` 390 × 844). `@playwright/test` — только в `devDependencies`; `node_modules/`, `test-results/`, `playwright-report/` — в `.gitignore`.
+- Автотесты: `npm test` = `node --test tests/unit/*.test.js` (папку целиком Node 24 не принимает; расчёты, ссылка, листы, карты) и `npx playwright test` (страница, проекты `desktop` 1440 × 900 и `phone` 390 × 844). `@playwright/test` — только в `devDependencies`; `node_modules/`, `test-results/`, `playwright-report/` — в `.gitignore`.
 - У всех `<script>` и `<link rel="stylesheet">` страницы метка `?v=2026-10-29`; при правке файла — новая дата во всех тегах.
 - Настройки по умолчанию: 800 × 420 × 970, 5 мм, без крыши, с колёсами, глубокие прорези включены. Цифры при них совпадают с `C:\dev` при тех же настройках (эталон `tests/golden.json`).
 - Тексты: русский, на «вы», цеховой тон, без «революций» и «AI». Название — «Metal Designer для цеха». Telegram — `https://t.me/SHVA_1984`. Ссылки на `demo.html` на странице нет.
@@ -79,7 +79,7 @@
   - Склеивает в один исходник (как `C:\dev\metal-designer\mangal\tools\smoke.js`) файлы движка из `dir` (`params, parts, model, dims, cut, dxf`), затем `md/defaults.js`, `md/stats.js` и файлы из `extra` (имена из `md/`, их добавляют следующие задачи). Выполняет всё в `vm` вместе с настоящим `vendor/three/three.min.js`.
   - DOM — заглушки: `getElementById` отдаёт объект с `innerHTML`, `appendChild`, `addEventListener`, `style`, `classList`; `querySelectorAll() → []`. У `<canvas>` (`createElement`/`createElementNS`) `getContext` возвращает `null`, поэтому `model.js` ловит ошибку WebGL и ставит `ok = false`.
   - `localStorage` читает и пишет `storage`.
-- Produces в `md/defaults.js` — настройки лендинга, выполняются после движка: `S.rain = false`; у детали `tubes` в `PARTS` (группа `roof`) флаги `{rain: true}`, чтобы без крыши не было и трубок под стойки; затем `recompute()`.
+- Produces в `md/defaults.js` — настройки лендинга, выполняются после движка: `S.rain = false`; деталям группы `roof` в `PARTS` режим `d[3] = 'none'` (`partOk()` ложно — их нет в раскрое и размерах); `S.parts` — все части `PDF_PART`, кроме `roof` (`model.js` прячет их на 3D); затем `recompute()`. *(Сделано так в задаче 1: флаги `{rain: true}` в `PARTS` ничего не прячут — трубки движок строит и считает всегда. Поэтому эталон — движок `C:\dev` с этими же настройками: 63 кг; сайт `C:\dev` со снятой «Защитой от дождя» показывает ≈ 69 кг, потому что считает стойки и лист крыши.)*
 - Produces в `md/stats.js`:
   - `cutList() -> Array<{grp: string} | {n: string, s: string, q: number, kg: number, note: string, pt: string[]}>` — строки раскроя с тем же отбором, что в `drawCut()` (`elOk`, `partOk`, `q > 0`); заголовок группы — перед первой видимой строкой группы; `kg = m * q`, округление до 0,001; `pt` — всегда массив;
   - `laserList() -> Array<{file, name, mm, q, w, h, cutMm, pierce, loops, circles, bends}>` из `laserParts()` и `partMM()`; `cutMm` — рез одной детали в мм до 0,1; `loops`, `circles`, `bends` — количества;
@@ -89,8 +89,8 @@
   - `fitView()` — цель камеры в центр рамки `group`, расстояние — чтобы модель целиком влезала в `#stage`; направление взгляда — как у начальной камеры `model.js`.
 - Разметка: шапка «Metal Designer для цеха · Виталий · Telegram»; заголовок первого экрана в одну строку (смысл «подогнали размер — проект готов», текст на исполнителе); `#stage` (при `!ok` внутри надпись «3D не открылось на этом устройстве — цифры и чертежи ниже работают»); `#lstats`; `a.btn-main` «Прислать описание изделия» → `https://t.me/SHVA_1984` (`target="_blank" rel="noopener"`); `.cta-bar` — та же кнопка, закреплена внизу экрана на ширине до 719 px.
 - `#lstats` из `statsData()`: `800 × 420`, `верх 970`, `сталь 5 мм`, `≈ N кг`, `N деталей под лазер`, `рез N м`, `отверстий / прорезей 34 / 52`, `DXF готов`.
-- `package.json`: `{"private": true, "scripts": {"test": "node --test tests/unit/", "test:e2e": "playwright test"}, "devDependencies": {"@playwright/test": "<точная версия>"}}`.
-- `playwright.config.js`: `testDir: 'tests/e2e'`, `webServer: {command: 'python -m http.server 8000', url: 'http://localhost:8000/', reuseExistingServer: true}`, `use.baseURL: 'http://localhost:8000/'`, проекты `desktop` (`viewport 1440 × 900`) и `phone` (`390 × 844`, `isMobile`, `hasTouch`), Chromium с WebGL через SwiftShader (`launchOptions.args: ['--enable-unsafe-swiftshader']`; если в тесте `ok === false` — подобрать флаги так, чтобы WebGL работал).
+- `package.json`: `{"private": true, "scripts": {"test": "node --test tests/unit/*.test.js", "test:e2e": "playwright test"}, "devDependencies": {"@playwright/test": "<точная версия>"}}`.
+- `playwright.config.js`: `testDir: 'tests/e2e'`, `webServer: {command: 'python tests/serve.py', url: 'http://localhost:8000/', reuseExistingServer: true}`, `use.baseURL: 'http://localhost:8000/'`, проекты `desktop` (`viewport 1440 × 900`) и `phone` (`390 × 844`, `isMobile`, `hasTouch`), Chromium с WebGL через SwiftShader (`launchOptions.args: ['--enable-unsafe-swiftshader']`; если в тесте `ok === false` — подобрать флаги так, чтобы WebGL работал).
 
 - [ ] **Step 1: Ветка**
 
@@ -126,16 +126,16 @@ Expected: `128`
 //        в cut есть {n: 'Дно жаровни', s: '800 × 420'}; нет строк с pt 'tubes', 'bars', 'sheet' и строк печи
 ```
 
-Эталон записывается один раз: `UPDATE_GOLDEN=1 node --test tests/unit/` пишет `tests/golden.json` из снимка `C:\dev`.
+Эталон записывается один раз: `UPDATE_GOLDEN=1 npm test` пишет `tests/golden.json` из снимка `C:\dev`.
 
 - [ ] **Step 5: Тест падает**
 
-Run: `node --test tests/unit/`
+Run: `npm test`
 Expected: FAIL `Cannot find module '../engine.js'`
 
 - [ ] **Step 6: Написать `md/defaults.js`, `md/stats.js`, `tests/engine.js`, `package.json`; записать эталон**
 
-Run: `UPDATE_GOLDEN=1 node --test tests/unit/`, затем `node --test tests/unit/`
+Run: `UPDATE_GOLDEN=1 npm test`, затем `npm test`
 Expected: оба запуска `pass`; в `tests/golden.json` нет «Трубка Ø26×3».
 
 - [ ] **Step 7: Playwright и тест первого экрана**
@@ -172,7 +172,7 @@ Expected: `0`
 
 - [ ] **Step 10: Тесты проходят**
 
-Run: `node --test tests/unit/ && npx playwright test`
+Run: `npm test && npx playwright test`
 Expected: `pass` / `passed` в обоих проектах.
 
 - [ ] **Step 11: Commit**
@@ -229,7 +229,7 @@ git commit -m "Лендинг v2: мангал из C:\dev на новой ст�
 
 - [ ] **Step 2: Тесты падают**
 
-Run: `node --test tests/unit/`
+Run: `npm test`
 Expected: FAIL `setSize is not defined`
 
 - [ ] **Step 3: Переменные размеры в `md/params.js`**
@@ -257,9 +257,11 @@ AIR_HOOK = [h, L1-h];                              // скобы: 10,8 и 69,2
 
 Ползунок → `state` → `renderAll()` → `fitView()`.
 
+*Заметка из задачи 1:* на телефоне 390 × 844 первый экран уже занят: `#stage` 420 px + `#lstats` ≈ 260 px, низ последнего ряда цифр закрывает `.cta-bar`. Ползункам нужно место — уменьшить `#stage` на телефоне или ужать `#lstats` (тест: блок модели не выше 55 % экрана остаётся).
+
 - [ ] **Step 5: Тесты проходят**
 
-Run: `node --test tests/unit/ && npx playwright test`
+Run: `npm test && npx playwright test`
 Expected: `pass` / `passed`, включая эталон по умолчанию.
 
 - [ ] **Step 6: Commit**
@@ -303,7 +305,7 @@ git commit -m "Лендинг v2: длина, ширина, высота пол�
 
 - [ ] **Step 2: Тесты падают**
 
-Run: `node --test tests/unit/`
+Run: `npm test`
 Expected: FAIL (`setSize` не меняет толщину)
 
 - [ ] **Step 3: Толщина в движке**
@@ -314,7 +316,7 @@ Expected: FAIL (`setSize` не меняет толщину)
 
 - [ ] **Step 5: Тесты проходят**
 
-Run: `node --test tests/unit/ && npx playwright test`
+Run: `npm test && npx playwright test`
 Expected: `pass` / `passed`
 
 - [ ] **Step 6: Commit**
@@ -355,14 +357,14 @@ git commit -m "Лендинг v2: толщина металла 2–6 мм и г
 
 - [ ] **Step 2: Тесты падают**
 
-Run: `node --test tests/unit/`
+Run: `npm test`
 Expected: FAIL `readLink is not defined`
 
 - [ ] **Step 3: Написать `md/link.js`, подключить на странице**
 
 - [ ] **Step 4: Тесты проходят**
 
-Run: `node --test tests/unit/ && npx playwright test`
+Run: `npm test && npx playwright test`
 Expected: `pass` / `passed`
 
 - [ ] **Step 5: Commit**
@@ -389,6 +391,7 @@ git commit -m "Лендинг v2: ссылка с размерами манга�
   - `fitSel()`, `flyTo(p, target)` — камера к выбранной детали, как в `C:\dev`;
   - клик по детали — `applySel(part)`; двойной клик по пустому — `applySel(null)`; наведение — имя детали в подсказке у курсора; касание на телефоне — выбор;
   - подсказка «? Управление» — тот же текст, что в `C:\dev\metal-designer\mangal\index.html` (мышь, телефон), без строк про «Поделиться видом» и «Настройки».
+- *Заметка из задачи 1:* детали крыши (трубки под стойки и др.) остаются в `group` и в `PARTS`, только скрыты (`visible = false`, `partOk()` ложно). Raycaster в three.js r128 не смотрит на `visible` — в `partAt` отбрасывать невидимые меши; в списках и подсказках — только детали, для которых `partOk()`.
 
 - [ ] **Step 1: Тесты**
 
@@ -451,7 +454,7 @@ git commit -m "Лендинг v2: управление как в C:\dev — зу
 
 - [ ] **Step 2: Тесты падают**
 
-Run: `node --test tests/unit/ && npx playwright test tests/e2e/tabs.spec.js`
+Run: `npm test && npx playwright test tests/e2e/tabs.spec.js`
 Expected: юнит-тесты `pass` (движок это умеет); e2e FAIL (вкладок нет)
 
 - [ ] **Step 3: Разметка и обработчики**
@@ -515,14 +518,14 @@ git commit -m "Лендинг v2: вкладки «Размеры», «Раск�
 
 - [ ] **Step 2: Тесты падают**
 
-Run: `node --test tests/unit/`
+Run: `npm test`
 Expected: FAIL `renderView is not defined`
 
 - [ ] **Step 3: Написать `md/views.js`, вынести `metalRows()`, написать `sheet-kit.js` и `sheets.js`, вкладку «Чертежи»**
 
 - [ ] **Step 4: Тесты проходят**
 
-Run: `node --test tests/unit/ && npx playwright test`
+Run: `npm test && npx playwright test`
 Expected: `pass` / `passed`
 
 - [ ] **Step 5: Commit**
@@ -570,14 +573,14 @@ git commit -m "Лендинг v2: чертежи — виды модели, об
 
 - [ ] **Step 2: Тесты падают**
 
-Run: `node --test tests/unit/`
+Run: `npm test`
 Expected: FAIL `asmSteps is not defined`
 
 - [ ] **Step 3: Дописать `md/sheets.js`**
 
 - [ ] **Step 4: Тесты проходят**
 
-Run: `node --test tests/unit/ && npx playwright test tests/e2e/sheets.spec.js`
+Run: `npm test && npx playwright test tests/e2e/sheets.spec.js`
 Expected: `pass` / `passed`
 
 - [ ] **Step 5: Commit**
@@ -615,14 +618,14 @@ git commit -m "Лендинг v2: чертежи — порядок сборки
 
 - [ ] **Step 2: Тесты падают**
 
-Run: `node --test tests/unit/`
+Run: `npm test`
 Expected: FAIL `nest is not defined`
 
 - [ ] **Step 3: Написать `md/nest.js`, листы «Раскрой», подключить скрипт**
 
 - [ ] **Step 4: Тесты проходят**
 
-Run: `node --test tests/unit/ && npx playwright test`
+Run: `npm test && npx playwright test`
 Expected: `pass` / `passed`
 
 - [ ] **Step 5: Commit**
@@ -663,14 +666,14 @@ git commit -m "Лендинг v2: чертежи — раскрой на лис�
 
 - [ ] **Step 2: Тесты падают**
 
-Run: `node --test tests/unit/`
+Run: `npm test`
 Expected: FAIL `buildCards is not defined`
 
 - [ ] **Step 3: Написать `md/cards.js` и вкладку**
 
 - [ ] **Step 4: Тесты проходят**
 
-Run: `node --test tests/unit/ && npx playwright test`
+Run: `npm test && npx playwright test`
 Expected: `pass` / `passed`
 
 - [ ] **Step 5: Commit**
