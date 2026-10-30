@@ -2,9 +2,9 @@
 // Движок (md/params … dxf), defaults.js и stats.js уже загружены;
 // stage, ok, renderer, scene, camera, controls, labels, group — из model.js.
 
-// Размеры мангала, мм, толщина стенок, мм, и глубокие прорези (1 — есть):
-// ползунки, кнопки и галочка меняют их, renderAll() пересчитывает по ним всё
-const state = {len: SIZE.len.def, wid: SIZE.wid.def, top: SIZE.top.def, t: SIZE.t.def, deep: SIZE.deep.def};
+// Размеры мангала, мм, толщина стенок, мм, и глубокие прорези (1 — есть): берутся из ссылки после #
+// (битая — пример по умолчанию); ползунки, кнопки и галочка меняют их, renderAll() пересчитывает по ним всё
+const state = readLink(location.hash);
 
 // 1 деталь, 2 детали, 5 деталей
 function plural(n, one, few, many) {
@@ -35,6 +35,15 @@ function renderAll() {
   setSize(state);
   build3D();
   drawStats();
+  writeLink();
+}
+
+// Адрес — всегда текущий мангал, без новых шагов «Назад». Пишется через 0,3 с после последнего изменения:
+// ползунок перерисовывает по кадру, а Safari бросает ошибку, если менять адрес чаще 100 раз за 10 с
+let linkTimer = 0;
+function writeLink() {
+  clearTimeout(linkTimer);
+  linkTimer = setTimeout(() => history.replaceState(null, '', linkHash(state)), 300);
 }
 
 // Камера: цель — центр рамки модели, расстояние — чтобы все 8 углов рамки влезли в #stage.
@@ -79,8 +88,7 @@ function redraw() {
 const SLIDERS = [['len', 'sLen', 'oLen'], ['wid', 'sWid', 'oWid'], ['top', 'sTop', 'oTop']];
 SLIDERS.forEach(([k, id, out]) => {
   const el = document.getElementById(id), o = document.getElementById(out);
-  Object.assign(el, {min: SIZE[k].min, max: SIZE[k].max, step: SIZE[k].step, value: state[k]});
-  o.textContent = `${state[k]} мм`;
+  Object.assign(el, {min: SIZE[k].min, max: SIZE[k].max, step: SIZE[k].step});
   el.addEventListener('input', () => {
     state[k] = +el.value;
     o.textContent = `${state[k]} мм`;
@@ -95,19 +103,31 @@ SIZE.t.options.forEach(v => {
   b.type = 'button';
   b.textContent = `${v} мм`;
   b.dataset.t = v;
-  b.setAttribute('aria-pressed', v === state.t);
-  b.addEventListener('click', () => {
-    state.t = v;
-    thick.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', +x.dataset.t === v));
-    redraw();
-  });
+  b.addEventListener('click', () => { state.t = v; showState(); redraw(); });
   thick.appendChild(b);
 });
 
 // Глубокие прорези: галочка снята — прорезей нет ни на модели, ни в цифрах
 const deep = document.getElementById('cDeep');
-deep.checked = !!state.deep;
 deep.addEventListener('change', () => { state.deep = deep.checked ? 1 : 0; redraw(); });
+
+// Ползунки, кнопки толщины и галочка показывают state
+function showState() {
+  SLIDERS.forEach(([k, id, out]) => {
+    document.getElementById(id).value = state[k];
+    document.getElementById(out).textContent = `${state[k]} мм`;
+  });
+  thick.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.t === state.t));
+  deep.checked = !!state.deep;
+}
+showState();
+
+// Новая ссылка в уже открытой вкладке (вставили в адресную строку, открыли из мессенджера) — мангал по ней
+window.addEventListener('hashchange', () => {
+  Object.assign(state, readLink(location.hash));
+  showState();
+  redraw();
+});
 
 if (ok) {
   new ResizeObserver(sizeStage).observe(stage);

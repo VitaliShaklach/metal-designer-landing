@@ -337,7 +337,7 @@ git commit -m "Лендинг v2: толщина металла 2–6 мм и г
 **Interfaces:**
 - Consumes: `SIZE`, `state`, `renderAll` (задачи 2, 3).
 - Produces в `md/link.js` (чистые функции, по образцу `js/link.js` песочницы):
-  - `readLink(hash: string) -> {len, wid, top, t, deep}` — каждое значение проверяется по `SIZE`: целое, в диапазоне и кратно шагу, либо из `options`; иначе берётся `def`;
+  - `readLink(hash: string) -> {len, wid, top, t, deep}` — каждое значение проверяется по `SIZE`: целое, в диапазоне и кратно шагу, либо из `options`. Ссылка срабатывает только целиком: нет ключа или хоть одно значение неверное — весь пример по умолчанию, а не «почти ваш» мангал из обрезанной ссылки; лишние ключи не мешают (решение 31.10, #28);
   - `linkHash(state) -> string` — `'#len=1000&wid=500&top=900&t=4&deep=0'`, ключи всегда в этом порядке.
 - В `md/landing.js`: при загрузке `state = readLink(location.hash)`; `renderAll()` в конце делает `history.replaceState(null, '', linkHash(state))`.
 
@@ -348,7 +348,7 @@ git commit -m "Лендинг v2: толщина металла 2–6 мм и г
 // roundTrip: readLink(linkHash({len:1000,wid:500,top:900,t:4,deep:0})) deepEqual тому же объекту
 // exact: linkHash({len:1000,wid:500,top:900,t:4,deep:0}) === '#len=1000&wid=500&top=900&t=4&deep=0'
 // badLink: readLink('#len=abc&wid=99999&top=905&t=7&deep=2') deepEqual {len:800,wid:420,top:970,t:5,deep:1}
-// partial: readLink('#len=600') deepEqual {len:600,wid:420,top:970,t:5,deep:1}; readLink('') — всё по умолчанию
+// truncated: readLink('#len=1000&wid=500&top=900&t=4'), readLink('#len=600'), readLink('') — всё по умолчанию
 // tests/e2e/link.spec.js
 // link: открыть '/#len=600&wid=280&top=900&t=4&deep=0' — ползунки 600, 280, 900; толщина 4 мм; галочка снята; колёс нет
 // write: #sLen → 1200 — адрес содержит 'len=1200'
