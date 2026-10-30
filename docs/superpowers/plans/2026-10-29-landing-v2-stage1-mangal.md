@@ -437,6 +437,7 @@ git commit -m "Лендинг v2: управление как в C:\dev — зу
 - Produces в `md/landing.js`: `showTab(name: 'dims' | 'cut' | 'dxf' | 'sheets' | 'cards')`; `renderAll()` дополняется вызовами `dimList()` и `drawCut()` (`drawDxf()` уже вызывает `build3D()`).
 - Разметка (id — как ждёт движок): `#dimList`, `#dAll`, `#dNone`; `#cut`, `#metal`, скрытый `#stats` (его заполняет `drawCut`, на странице цифры берутся из `#lstats`); `#dxfAll` («Скачать все (ZIP)»), `#dxfMsg`, `#dxfTbl`.
 - На модели по умолчанию три размера — по ползункам: `S.dims = new Set(['l80', 'w39', 'top'])`.
+- Кнопка и полоска (спека, раздел 3, решение 31.10): `#getBtn` под `#lstats` — «Показать чертежи и DXF ↓» / «Скрыть чертежи ↑»; раздел `#get` по умолчанию `hidden`, по кнопке раскрывается и прокручивается в вид. `#lenBar` — прилипшая внизу полоска с `#sLen2` (тот же диапазон и шаг, что `#sLen`, значения синхронны в обе стороны, `renderAll()` как от `#sLen`); видна, только пока `#get` раскрыт и пересекает экран (`IntersectionObserver`). На ширине до 719 px стоит над `.cta-bar`.
 
 - [ ] **Step 1: Тесты**
 
@@ -450,6 +451,9 @@ git commit -m "Лендинг v2: управление как в C:\dev — зу
 // sel: после applySel('gBot') в #cut только строки дна и итог
 // zip: «Скачать все (ZIP)» → загрузка 'mangal_dxf_8_detaley.zip'
 // layout (phone): таблицы прокручиваются внутри своего блока, documentElement.scrollWidth <= innerWidth
+// fold: при загрузке #get скрыт, #lenBar не виден; клик #getBtn → #get виден, текст кнопки 'Скрыть чертежи'
+// lenBar: #get раскрыт и в экране → #lenBar виден; #sLen2 → 1000 даёт #sLen = 1000 и в #cut '1000'; прокрутка к шапке → #lenBar скрыт
+// lenBar (phone): #lenBar и .cta-bar видны одновременно и не перекрываются
 ```
 
 - [ ] **Step 2: Тесты падают**
