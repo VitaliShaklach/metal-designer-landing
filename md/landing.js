@@ -2,8 +2,9 @@
 // Движок (md/params … dxf), defaults.js и stats.js уже загружены;
 // stage, ok, renderer, scene, camera, controls, labels, group — из model.js.
 
-// Размеры мангала, мм: ползунки меняют их, renderAll() пересчитывает по ним всё
-const state = {len: SIZE.len.def, wid: SIZE.wid.def, top: SIZE.top.def};
+// Размеры мангала, мм, толщина стенок, мм, и глубокие прорези (1 — есть):
+// ползунки, кнопки и галочка меняют их, renderAll() пересчитывает по ним всё
+const state = {len: SIZE.len.def, wid: SIZE.wid.def, top: SIZE.top.def, t: SIZE.t.def, deep: SIZE.deep.def};
 
 // 1 деталь, 2 детали, 5 деталей
 function plural(n, one, few, many) {
@@ -66,9 +67,16 @@ function sizeStage() {
   camera.updateProjectionMatrix();
 }
 
-// Ползунки: min/max/step — из SIZE; перерисовка — не чаще кадра, пока ползунок тянут
-const SLIDERS = [['len', 'sLen', 'oLen'], ['wid', 'sWid', 'oWid'], ['top', 'sTop', 'oTop']];
+// Перерисовка — не чаще кадра, пока ползунок тянут
 let pending = false;
+function redraw() {
+  if (pending) return;
+  pending = true;
+  requestAnimationFrame(() => { pending = false; renderAll(); fitView(); });
+}
+
+// Ползунки: min/max/step — из SIZE
+const SLIDERS = [['len', 'sLen', 'oLen'], ['wid', 'sWid', 'oWid'], ['top', 'sTop', 'oTop']];
 SLIDERS.forEach(([k, id, out]) => {
   const el = document.getElementById(id), o = document.getElementById(out);
   Object.assign(el, {min: SIZE[k].min, max: SIZE[k].max, step: SIZE[k].step, value: state[k]});
@@ -76,11 +84,30 @@ SLIDERS.forEach(([k, id, out]) => {
   el.addEventListener('input', () => {
     state[k] = +el.value;
     o.textContent = `${state[k]} мм`;
-    if (pending) return;
-    pending = true;
-    requestAnimationFrame(() => { pending = false; renderAll(); fitView(); });
+    redraw();
   });
 });
+
+// Толщина: кнопка на каждое значение из SIZE.t, нажатая — aria-pressed
+const thick = document.getElementById('sT');
+SIZE.t.options.forEach(v => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = `${v} мм`;
+  b.dataset.t = v;
+  b.setAttribute('aria-pressed', v === state.t);
+  b.addEventListener('click', () => {
+    state.t = v;
+    thick.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', +x.dataset.t === v));
+    redraw();
+  });
+  thick.appendChild(b);
+});
+
+// Глубокие прорези: галочка снята — прорезей нет ни на модели, ни в цифрах
+const deep = document.getElementById('cDeep');
+deep.checked = !!state.deep;
+deep.addEventListener('change', () => { state.deep = deep.checked ? 1 : 0; redraw(); });
 
 if (ok) {
   new ResizeObserver(sizeStage).observe(stage);

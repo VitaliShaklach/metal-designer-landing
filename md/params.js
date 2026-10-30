@@ -1,8 +1,9 @@
 const S={mode:'grill',legTw:true,cgr:true,cgrPlate1:true,cgrPlate2:true,cgrAng:true,hook:true,logo:false,man:false,sheet:true,bolt:true,wsh1:true,wsh2:true,nut:true,pitch:4.5,rain:true,wood:true,skew:false,skewD:false,lift:false,plate:true,kazan:true,wheels:true,legs:true,grate:true,tie:true,lintel:true,chim:true,chimX:true,fb:true,airSl:true,div:false,divPos:30,air:'half',damper:true,obe:false,grType:'plate',angles:true,draft:true,sh:'half',deep:true,gAng:true,grates2:false,grillGrate:false,door:true,doorOpen:true,dims:new Set(),sel:{el:null,part:null}};
 // все размеры в модели — в см (на экран — через u(): мм или см)
 // L1, W — длина и ширина жаровни (ползунки лендинга): всё, что от них зависит, — в deriveSize()
-let L1=80,W=42;
-const t=0.5,L2=60,PLX=45,PLZ=45,TIE_W=15,PL_GAP=.5,PCX=t-PLX/2,STR=L2+PCX-PLX/2,NX=2.8,NZ=.7,HOLE=1.5,HOLE_Y=2.5,SLOT=3,SLOT_D=1,SLOT_W=0.2;   // прорези под шампуры: 2 × 10 мм, шаг 30
+// t — толщина боковин, дна и торцов (кнопки лендинга 2–6 мм); от неё — тоже в deriveSize()
+let L1=80,W=42,t=0.5,PCX,STR;
+const L2=60,PLX=45,PLZ=45,TIE_W=15,PL_GAP=.5,NX=2.8,NZ=.7,HOLE=1.5,HOLE_Y=2.5,SLOT=3,SLOT_D=1,SLOT_W=0.2;   // прорези под шампуры: 2 × 10 мм, шаг 30
 const TUBE_H=12, WH=12.6, WR=5;                     // колесо TOR SC 42 / SCb 42: поворотное Ø100, высота 126, площадка 101×84, отверстия 80×60
 // TOPH — верх жаровни от земли (ползунок). Глубина жаровни H1: 13; с колосником от верха решётки до верха бортов те же 13 — жаровня растёт вниз (18,25), верх не меняется
 let H1=13,TOPH=97,H2=50,LEG=84,BAR_F=55,T,B,KB,HY,BAR_B,BAR_TOP_F,BAR_TOP_B,GA_H;
@@ -38,7 +39,7 @@ const slopeY=z=>BAR_TOP_B+(z-RZ0)*(BAR_TOP_F-BAR_TOP_B)/(RZ1-RZ0);
 const PADX=15, PADZ=15, PADT=0.6;                    // площадка под колесо 150×150×6
 const LX=PADX/2, LZ=PADZ/2;                          // ножки отступают так, чтобы площадка не выходила за корпус
 // колосник: уголки 40×40×4 вдоль стенок печи, верх полки на GR_H от дна; решётка — арматура Ø20 поперёк, шаг 35
-const GR_H=6, GR_A=4, GR_BAR=2, GR_PITCH=3.5, GR_X0=-L2+2, GR_LEN=L2-4, ANG_X0=-L2+1.5, ANG_LEN=L2-t-1.5;
+const GR_H=6, GR_A=4, GR_BAR=2, GR_PITCH=3.5, GR_X0=-L2+2, GR_LEN=L2-4, ANG_X0=-L2+1.5; let ANG_LEN;
 const grBars=()=>{const n=Math.floor((GR_LEN-GR_BAR)/GR_PITCH)+1;return Array.from({length:n},(_,i)=>GR_X0+GR_BAR/2+i*GR_PITCH);};
 // поддувало: отверстия Ø20 в дне печи между ножками; снизу сплошной шибер 3 мм, вынимается целиком через открытый торец
 const DR_D=2, DR_X=Array.from({length:Math.floor((L2-11)/4.5)+1},(_,i)=>-L2+5.5+i*4.5); let DR_Z;
@@ -49,10 +50,10 @@ const SH_GAP=.6, SH_SP=.6, SH_GW=2, SH_CL=.2; let SH_ZL,SH_ZR;   // SH_ZL/SH_ZR 
 const shOff=()=>S.sh==='out'?null:-(S.sh==='in'?0:(SH_X0+SH_L-DR_X[DR_X.length-1]-DR_D/2)+(DR_X[DR_X.length-1]-DR_X[0]+DR_D)*SH_OPEN[S.sh]);   // насколько выдвинут (см)   // шибер 460×180×3, проходит между ножками
 function holedPlate(x0,x1,z0,z1){const sh=new THREE.Shape();sh.moveTo(x0,-z1);sh.lineTo(x1,-z1);sh.lineTo(x1,-z0);sh.lineTo(x0,-z0);sh.lineTo(x0,-z1);
   DR_X.forEach(x=>DR_Z.forEach(z=>{const h=new THREE.Path();h.absarc(x,-z,DR_D/2,0,Math.PI*2,true);sh.holes.push(h);}));return sh;}
-const GR_W=WK-2*t-2;                       // ширина колосника (по краевым пруткам)
+let GR_W;                       // ширина колосника (по краевым пруткам)
 let GR_RZ;             // оси краевых прутков — над полками уголков
 // колосник-лист: сталь 15 мм с отверстиями Ø20, шаг 40, лежит на полках уголков
-const GP_T=1.5, GP_W=WK-2*t-1, GP_D=2, GP_P=4;
+const GP_T=1.5, GP_D=2, GP_P=4; let GP_W;
 const gpX=()=>{const n=Math.floor((GR_LEN-6)/GP_P)+1,s0=GR_X0+(GR_LEN-(n-1)*GP_P)/2;return Array.from({length:n},(_,i)=>s0+i*GP_P);};
 const gpZ=()=>Array.from({length:9},(_,j)=>W/2+(j-4)*GP_P);
 const grTop=()=>KB+t+GR_H+(S.grType==='plate'?GP_T:2*GR_BAR);        // поверхность колосника
@@ -137,10 +138,12 @@ const u=(v,d)=>(UNIT==='mm'?v*10:v).toLocaleString('ru-RU',{maximumFractionDigit
 const UN=()=>UNIT==='mm'?'мм':'см';
 const us=(v,d)=>u(v,d)+' '+UN();                        // то же с подписью
 
-// размеры лендинга: длина, ширина, высота ползунками (мм)
-const SIZE={len:{min:400,max:1200,step:10,def:800},wid:{min:250,max:500,step:10,def:420},top:{min:800,max:1100,step:10,def:970}};
-// всё, что зависит от длины и ширины; при 800 × 420 — ровно прежние числа C:\dev
+// размеры лендинга: длина, ширина, высота ползунками (мм); толщина кнопками (мм); глубокие прорези галочкой (1 — есть)
+const SIZE={len:{min:400,max:1200,step:10,def:800},wid:{min:250,max:500,step:10,def:420},top:{min:800,max:1100,step:10,def:970},
+  t:{options:[2,3,4,5,6],def:5},deep:{options:[0,1],def:1}};
+// всё, что зависит от длины, ширины и толщины; при 800 × 420 × 5 — ровно прежние числа C:\dev
 function deriveSize(){
+  PCX=t-PLX/2; STR=L2+PCX-PLX/2; ANG_LEN=L2-t-1.5; GR_W=WK-2*t-2; GP_W=WK-2*t-1;
   const k=L1/80, toMm=v=>Math.round(v*10)/10;        // «слева» — пропорционально длине; toMm — см, округлённые до целых мм
   HBZ=[4,W-4]; ZK0=(W-WK)/2; ZK1=ZK0+WK; DR_Z=[-6.75,-2.25,2.25,6.75].map(d=>W/2+d);
   SH_ZL=W/2-SH_W/2-SH_CL-SH_SP; SH_ZR=W/2+SH_W/2+SH_CL+SH_SP; GR_RZ=[ZK0+t+2,ZK1-t-2];
@@ -158,6 +161,8 @@ function deriveSize(){
   AIR_HOOK=[h,toMm(L1-h)];                                 // скобы между 2-м и 3-м отверстием с каждого края
   MAN_Z=W+34;
   CG_W=W-2*t-2; CG_L=(L1-2*t-2*CG_END-CG_GAP)/2; CA_L=L1-2; CA_X0=(L1-CA_L)/2;}
-// мм → размеры движка (см); колёса — только при ширине от 300 мм, уже — ножки на пятках
-function setSize({len,wid,top}){L1=len/10; W=wid/10; TOPH=top/10; S.wheels=wid>=300; recompute();}
+// мм → размеры движка (см); колёса — только при ширине от 300 мм, уже — ножки на пятках.
+// Толщина и прорези не заданы — по умолчанию (5 мм, прорези есть)
+function setSize({len,wid,top,t:tm=SIZE.t.def,deep=SIZE.deep.def}){L1=len/10; W=wid/10; TOPH=top/10; t=tm/10; S.wheels=wid>=300; S.deep=!!deep; recompute();}
+const tMm=()=>Math.round(t*10);   // толщина стенок в целых мм: 0.3*10 в JS — 3.0000000000000004
 recompute();

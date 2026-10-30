@@ -26,11 +26,12 @@ const geoR=(w,h)=>({loops:[rect(w,h)],circles:[],bends:[]});
 // список листовых деталей текущего проекта (режим и галочки — как на модели)
 function laserParts(){const g=gOn(),k=sOn(),LL=legsList(),r=[];
   const add=(file,name,mm,q,pt,geo,note='')=>r.push({file,name,mm,q,pt,geo,note});
-  if(g){add('grill_side_back','Боковина жаровни задняя',5,1,'side0',()=>shapeGeo(grillWallShape(true)),'с вырезом под ручку решётки');
-    add('grill_side_front','Боковина жаровни передняя',5,1,'side1',()=>shapeGeo(grillWallShape(false)));
-    add('grill_bottom','Дно жаровни',5,1,'gBot',()=>geoR(L1,W));
-    add('grill_end_right','Торец жаровни правый',5,1,'gEnd',()=>geoR(W-2*t,H1-t));
-    if(S.mode==='grill')add('grill_end_left','Торец жаровни левый',5,1,'gEnd0',()=>logoWallGeo(t,W-2*t,B+t,H1-t),S.logo?'с логотипом':'');
+  // боковины, дно и торцы жаровни — текущей толщины (кнопки лендинга), остальное — своей
+  if(g){add('grill_side_back','Боковина жаровни задняя',tMm(),1,'side0',()=>shapeGeo(grillWallShape(true)),'с вырезом под ручку решётки');
+    add('grill_side_front','Боковина жаровни передняя',tMm(),1,'side1',()=>shapeGeo(grillWallShape(false)));
+    add('grill_bottom','Дно жаровни',tMm(),1,'gBot',()=>geoR(L1,W));
+    add('grill_end_right','Торец жаровни правый',tMm(),1,'gEnd',()=>geoR(W-2*t,H1-t));
+    if(S.mode==='grill')add('grill_end_left','Торец жаровни левый',tMm(),1,'gEnd0',()=>logoWallGeo(t,W-2*t,B+t,H1-t),S.logo?'с логотипом':'');
     if(S.div)add('grill_divider','Перегородка жаровни',5,1,'div',dividerGeo,'тело, ушки и ручка — одна деталь');
     if(S.airSl)add('grill_air_slider','Задвижка поддува',3,2,'air',airGeo,'отгибы по концам 20 мм — слой BEND');}
   if(k){add('stove_side_back','Боковина печи задняя',5,1,'sK0',()=>shapeGeo(stoveWallShape(true)),S.chim?'с отверстием трубы 60 × 60':'');

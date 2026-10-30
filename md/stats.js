@@ -39,7 +39,7 @@ function laserList() {
 function statsData() {
   const laser = laserList();
   return {
-    len: L1 * 10, wid: W * 10, top: T * 10, t: t * 10,
+    len: L1 * 10, wid: W * 10, top: T * 10, t: Math.round(t * 10),   // 0.3 * 10 в JS — 3.0000000000000004
     kg: Math.round(cutList().reduce((a, r) => a + (r.kg || 0), 0)),
     parts: laser.reduce((a, p) => a + p.q, 0),
     cutM: Math.round(laser.reduce((a, p) => a + p.cutMm * p.q, 0) / 100) / 10,
