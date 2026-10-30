@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Metal Designer для цеха</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="fonts/fonts.css?v=2026-10-29">
-<link rel="stylesheet" href="css/landing.css?v=2026-10-29">
-<link rel="stylesheet" href="css/md.css?v=2026-10-29">
+<link rel="stylesheet" href="fonts/fonts.css?v=2026-10-31">
+<link rel="stylesheet" href="css/landing.css?v=2026-10-31">
+<link rel="stylesheet" href="css/md.css?v=2026-10-31">
 </head>
 <body>
 <header class="top wrap">
@@ -21,6 +21,11 @@
     <div id="stage">
       <div class="no3d" id="no3d" hidden>3D не открылось на этом устройстве — цифры и чертежи ниже работают</div>
     </div>
+    <div class="sizes">
+      <label class="size"><span>Длина</span><input type="range" id="sLen"><output id="oLen"></output></label>
+      <label class="size"><span>Ширина</span><input type="range" id="sWid"><output id="oWid"></output></label>
+      <label class="size"><span>Высота</span><input type="range" id="sTop"><output id="oTop"></output></label>
+    </div>
     <div class="stats" id="lstats"></div>
     <div class="cta-row">
       <p class="lead">Мангал под размер клиента: детали, масса, длина реза и DXF посчитаны по этой модели. Пришлите описание своего изделия — сделаю такую же страницу под него.</p>
@@ -33,17 +38,17 @@
   <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать описание изделия</a>
 </div>
 
-<script src="vendor/three/three.min.js?v=2026-10-29"></script>
-<script src="vendor/three/OrbitControls.js?v=2026-10-29"></script>
-<script src="vendor/three/CSS2DRenderer.js?v=2026-10-29"></script>
-<script src="md/params.js?v=2026-10-29"></script>
-<script src="md/parts.js?v=2026-10-29"></script>
-<script src="md/model.js?v=2026-10-29"></script>
-<script src="md/dims.js?v=2026-10-29"></script>
-<script src="md/cut.js?v=2026-10-29"></script>
-<script src="md/dxf.js?v=2026-10-29"></script>
-<script src="md/defaults.js?v=2026-10-29"></script>
-<script src="md/stats.js?v=2026-10-29"></script>
-<script src="md/landing.js?v=2026-10-29"></script>
+<script src="vendor/three/three.min.js?v=2026-10-31"></script>
+<script src="vendor/three/OrbitControls.js?v=2026-10-31"></script>
+<script src="vendor/three/CSS2DRenderer.js?v=2026-10-31"></script>
+<script src="md/params.js?v=2026-10-31"></script>
+<script src="md/parts.js?v=2026-10-31"></script>
+<script src="md/model.js?v=2026-10-31"></script>
+<script src="md/dims.js?v=2026-10-31"></script>
+<script src="md/cut.js?v=2026-10-31"></script>
+<script src="md/dxf.js?v=2026-10-31"></script>
+<script src="md/defaults.js?v=2026-10-31"></script>
+<script src="md/stats.js?v=2026-10-31"></script>
+<script src="md/landing.js?v=2026-10-31"></script>
 </body>
 </html>

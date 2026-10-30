@@ -86,6 +86,12 @@ h1 {
   color: var(--muted);
 }
 .no3d[hidden] { display: none; }
+/* Ползунки размеров: подпись, ползунок, значение в мм */
+.sizes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 24px; }
+.size { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; font-size: 14px; }
+.size span { color: var(--muted); }
+.size input { width: 100%; min-width: 0; height: 28px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.size output { font: 500 15px var(--f-mono); font-variant-numeric: tabular-nums; min-width: 7ch; text-align: right; }
 .cta-row { display: flex; align-items: center; justify-content: space-between; gap: 12px 24px; }
 .lead { margin: 0; color: var(--muted); max-width: 44em; }
 
@@ -109,7 +115,9 @@ h1 {
 /* Главная кнопка всегда под рукой на телефоне */
 .cta-bar { display: none; }
 @media (max-width: 719px) {
-  #stage { height: min(55svh, 420px); min-height: 0; }
+  #stage { height: min(48svh, 380px); min-height: 0; }   /* под моделью на первом экране — ползунки */
+  .sizes { grid-template-columns: 1fr; gap: 2px; }
+  .size span { min-width: 4.6em; }
   .cta-row { flex-direction: column; align-items: stretch; }
   .cta-bar {
     display: block;

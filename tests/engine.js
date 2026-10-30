@@ -55,4 +55,7 @@ function loadEngine({dir = 'md', storage = {}, extra = []} = {}) {
   };
 }
 
-module.exports = {loadEngine};
+// снимок всех цифр: раскрой, детали под лазер, панель
+const snapshot = e => ({cut: e.ev('cutList()'), laser: e.ev('laserList()'), stats: e.ev('statsData()')});
+
+module.exports = {loadEngine, snapshot};

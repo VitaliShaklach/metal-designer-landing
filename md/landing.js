@@ -2,8 +2,8 @@
 // Движок (md/params … dxf), defaults.js и stats.js уже загружены;
 // stage, ok, renderer, scene, camera, controls, labels, group — из model.js.
 
-// Направление взгляда — как у начальной камеры движка: от цели к камере, до первой подгонки
-const VIEW_DIR = ok ? camera.position.clone().sub(controls.target).normalize() : null;
+// Размеры мангала, мм: ползунки меняют их, renderAll() пересчитывает по ним всё
+const state = {len: SIZE.len.def, wid: SIZE.wid.def, top: SIZE.top.def};
 
 // 1 деталь, 2 детали, 5 деталей
 function plural(n, one, few, many) {
@@ -31,18 +31,19 @@ function drawStats() {
 
 // Пересчитать всё по текущим настройкам; следующие задачи дописывают сюда свои шаги
 function renderAll() {
-  recompute();
+  setSize(state);
   build3D();
   drawStats();
 }
 
-// Камера: цель — центр рамки модели, расстояние — чтобы все 8 углов рамки влезли в #stage
+// Камера: цель — центр рамки модели, расстояние — чтобы все 8 углов рамки влезли в #stage.
+// Направление взгляда — текущее: если модель повернули, ползунок её не разворачивает обратно
 function fitView() {
   if (!ok) return;
   const box = new THREE.Box3();
   group.traverseVisible(o => { if (o.isMesh && !o.userData.dim) box.expandByObject(o); });
   const c = box.getCenter(new THREE.Vector3());
-  const back = VIEW_DIR;
+  const back = camera.position.clone().sub(controls.target).normalize();
   const right = new THREE.Vector3(0, 1, 0).cross(back).normalize();
   const up = back.clone().cross(right);
   const tanV = Math.tan(camera.fov * Math.PI / 360), tanH = tanV * camera.aspect;
@@ -64,6 +65,22 @@ function sizeStage() {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
+
+// Ползунки: min/max/step — из SIZE; перерисовка — не чаще кадра, пока ползунок тянут
+const SLIDERS = [['len', 'sLen', 'oLen'], ['wid', 'sWid', 'oWid'], ['top', 'sTop', 'oTop']];
+let pending = false;
+SLIDERS.forEach(([k, id, out]) => {
+  const el = document.getElementById(id), o = document.getElementById(out);
+  Object.assign(el, {min: SIZE[k].min, max: SIZE[k].max, step: SIZE[k].step, value: state[k]});
+  o.textContent = `${state[k]} мм`;
+  el.addEventListener('input', () => {
+    state[k] = +el.value;
+    o.textContent = `${state[k]} мм`;
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(() => { pending = false; renderAll(); fitView(); });
+  });
+});
 
 if (ok) {
   new ResizeObserver(sizeStage).observe(stage);
