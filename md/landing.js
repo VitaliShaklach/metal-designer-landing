@@ -46,12 +46,13 @@ function writeLink() {
   linkTimer = setTimeout(() => history.replaceState(null, '', linkHash(state)), 300);
 }
 
-// Камера: цель — центр рамки модели, расстояние — чтобы все 8 углов рамки влезли в #stage.
+// Вид на модель: цель — центр рамки видимых деталей (вся модель или выбранная деталь),
+// расстояние — чтобы все 8 углов рамки влезли в #stage.
 // Направление взгляда — текущее: если модель повернули, ползунок её не разворачивает обратно
-function fitView() {
-  if (!ok) return;
+function viewFor() {
   const box = new THREE.Box3();
   group.traverseVisible(o => { if (o.isMesh && !o.userData.dim) box.expandByObject(o); });
+  if (box.isEmpty()) return {pos: camera.position.clone(), target: controls.target.clone()};   // видеть нечего — камера на месте
   const c = box.getCenter(new THREE.Vector3());
   const back = camera.position.clone().sub(controls.target).normalize();
   const right = new THREE.Vector3(0, 1, 0).cross(back).normalize();
@@ -63,9 +64,31 @@ function fitView() {
     const near = p.dot(back);                                              // насколько угол ближе к камере, чем центр
     dist = Math.max(dist, near + Math.abs(p.dot(right)) / tanH, near + Math.abs(p.dot(up)) / tanV);
   }
-  controls.target.copy(c);
-  camera.position.copy(c).addScaledVector(back, dist * 1.08);              // небольшой запас по краям
+  return {pos: c.clone().addScaledVector(back, dist * 1.08), target: c};   // небольшой запас по краям
+}
+
+// Камера сразу на вид; начатый полёт камеры (flyTo) отменяется
+function fitView() {
+  if (!ok) return;
+  const v = viewFor();
+  camAnim = null;
+  controls.target.copy(v.target);
+  camera.position.copy(v.pos);
   controls.update();
+}
+
+// Плавный полёт камеры за 0,7 с, как в C:\dev; шаг полёта — в каждом кадре frameLoop
+function flyTo(p, tg) {
+  if (!ok) return;
+  camAnim = {p0: camera.position.clone(), t0: controls.target.clone(), p1: p, t1: tg, s: performance.now()};
+}
+
+function flyStep() {
+  if (!camAnim) return;
+  const k = Math.min(1, (performance.now() - camAnim.s) / 700), e = k < .5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+  camera.position.lerpVectors(camAnim.p0, camAnim.p1, e);
+  controls.target.lerpVectors(camAnim.t0, camAnim.t1, e);
+  if (k >= 1) camAnim = null;
 }
 
 function sizeStage() {
@@ -134,6 +157,7 @@ if (ok) {
   sizeStage();
   (function frameLoop() {
     requestAnimationFrame(frameLoop);
+    flyStep();
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);

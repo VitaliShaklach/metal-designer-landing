@@ -80,6 +80,10 @@ svg.cutsk .fl { fill: var(--accent); fill-opacity: .25; }
 .helpbtn:hover, .helpbtn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
 .help { position: absolute; right: 12px; top: 44px; z-index: 6; width: min(760px, calc(100% - 24px)); max-height: calc(100% - 60px); overflow: auto; background: #fff; border: 1.5px solid var(--ink); box-shadow: 0 10px 30px rgba(0, 0, 0, .25); padding: 14px 16px 16px; }
 .help[hidden] { display: none; }
+.helphead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font: 600 17px var(--f-display); text-transform: uppercase; letter-spacing: .05em; }
+.helphead button { font: 14px var(--f-body); border: 1px solid var(--rule); background: var(--paper); color: var(--ink); width: 30px; height: 30px; cursor: pointer; }
+.helpcols { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 6px 24px; }
+@media (max-width: 719px) { .help { left: 8px; right: 8px; width: auto; } .helpcols { grid-template-columns: 1fr; } }
 .help h4 { margin: 8px 0 4px; font: 700 12px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .help dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 13px; line-height: 1.35; }
 .help dt { font-weight: 600; white-space: nowrap; }
@@ -87,3 +91,11 @@ svg.cutsk .fl { fill: var(--accent); fill-opacity: .25; }
 kbd { display: inline-block; min-width: 20px; padding: 1px 5px; border: 1px solid var(--rule); border-bottom-width: 2px; background: var(--paper); font: 500 11px/1.4 var(--f-mono); text-align: center; color: var(--ink); }
 .hovtag { position: absolute; z-index: 3; pointer-events: none; font: 500 12px var(--f-body); padding: 3px 8px; background: var(--ink); color: #fff; white-space: nowrap; transform: translate(12px, 12px); }
 .hovtag[hidden] { display: none; }
+#stage.pickable canvas { cursor: pointer; }
+
+/* Плашка выбранной детали: левый нижний угол модели, ✕ — снова вся модель */
+.selbar { position: absolute; left: 12px; bottom: 12px; z-index: 2; max-width: calc(100% - 24px); display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 10px; font-size: 13px; background: #fff; border: 1px solid var(--ink); }
+.selbar[hidden] { display: none; }
+.selbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.selbar button { flex: none; font: 14px var(--f-body); width: 28px; height: 28px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); cursor: pointer; }
+.selbar button:hover { border-color: var(--accent); color: var(--accent); }

@@ -20,6 +20,26 @@
     <h1>Подогнали размер — проект готов</h1>
     <div id="stage">
       <div class="no3d" id="no3d" hidden>3D не открылось на этом устройстве — цифры и чертежи ниже работают</div>
+      <div class="hovtag" id="hovTag" hidden></div>
+      <div class="selbar" id="selBar" hidden><span>Показана деталь: <b id="selName"></b></span><button type="button" aria-label="Показать всю модель" title="Вся модель">✕</button></div>
+      <button class="helpbtn" id="helpBtn" type="button" aria-haspopup="dialog" aria-controls="help" aria-expanded="false">? Управление</button>
+      <div class="help" id="help" role="dialog" aria-modal="false" aria-labelledby="helpT" hidden>
+        <div class="helphead"><b id="helpT">Управление</b><button type="button" id="helpClose" aria-label="Закрыть">✕</button></div>
+        <div class="helpcols">
+          <div><h4>Мышь</h4><dl>
+            <dt>ЛКМ + тянуть</dt><dd>вращать модель</dd>
+            <dt>Колесо</dt><dd>приблизить / отдалить</dd>
+            <dt>ПКМ + тянуть</dt><dd>двигать модель</dd>
+            <dt><kbd>Пробел</kbd> + тянуть</dt><dd>двигать (как в Figma)</dd>
+            <dt>Клик по детали</dt><dd>показать только её — размеры и раскрой тоже</dd>
+            <dt>Двойной клик по пустому</dt><dd>снова вся модель</dd>
+            <dt>Наведение</dt><dd>имя детали под курсором</dd></dl></div>
+          <div><h4>Телефон</h4><dl>
+            <dt>Один палец</dt><dd>вращать</dd>
+            <dt>Два пальца</dt><dd>щипок — масштаб, сдвиг — двигать</dd>
+            <dt>Касание детали</dt><dd>выбрать её</dd></dl></div>
+        </div>
+      </div>
     </div>
     <div class="sizes">
       <label class="size"><span>Длина</span><input type="range" id="sLen"><output id="oLen"></output></label>
@@ -55,5 +75,6 @@
 <script src="md/stats.js?v=2026-10-31"></script>
 <script src="md/link.js?v=2026-10-31"></script>
 <script src="md/landing.js?v=2026-10-31"></script>
+<script src="md/controls.js?v=2026-10-31"></script>
 </body>
 </html>
