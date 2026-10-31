@@ -151,6 +151,25 @@ test('nest: во вкладке DXF сначала листы — размер �
   for (const lay of ['SHEET', 'CUT', 'MARK']) expect(text).toContain(`\r\n8\r\n${lay}\r\n`);
 });
 
+test('gap: зазор между деталями — 5 мм по умолчанию, 10 мм перекладывает лист, меньше 3 не бывает', async ({page}) => {
+  test.setTimeout(60000);
+  await page.goto('/');
+  await open(page, 'Лазер · DXF');
+  const inp = page.getByLabel('Между деталями, мм'), cap = page.locator('#nestBox figcaption').first();
+  await expect(inp).toHaveValue('5');
+  await expect(cap).toContainText('зазор 5 мм');
+  const svg0 = await page.locator('#nestBox svg.nestsk').first().innerHTML();
+  await inp.fill('10');
+  await expect(cap).toContainText('зазор 10 мм');
+  expect(await page.locator('#nestBox svg.nestsk').first().innerHTML()).not.toBe(svg0);
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.locator('#nestBox').getByRole('button', {name: 'DXF листа'}).first().click()]);
+  expect(fs.readFileSync(await dl.path(), 'utf8')).toContain('GAP 10 MM');
+  await inp.fill('1');
+  await inp.blur();
+  await expect(inp).toHaveValue('3');
+  await expect(cap).toContainText('зазор 3 мм');
+});
+
 test('noLenBar: полоски с ползунком длины внизу нет (решение 31.10) — длина только на первом экране', async ({page}) => {
   await page.goto('/');
   await open(page, 'Раскрой и масса');

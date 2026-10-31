@@ -278,7 +278,7 @@ function drawNest() {
   nestBox.innerHTML = nestNow.map((s, k) => {
     const names = [...new Map(s.items.map(it => [it.no, it.p.name])).entries()].sort((a, b) => a[0] - b[0]);
     return `<figure class="nestsh">
-      <figcaption><b>Лист ${s.mm} мм · ${s.W} × ${s.L}</b> · ${s.i} из ${s.n} · детали в полосе ${s.W} × ${s.len} мм · заполнение ${Math.round(s.fill * 100)} %</figcaption>
+      <figcaption><b>Лист ${s.mm} мм · ${s.W} × ${s.L}</b> · ${s.i} из ${s.n} · детали в полосе ${s.W} × ${s.len} мм · зазор ${String(NEST_GAP).replace('.', ',')} мм · заполнение ${Math.round(s.fill * 100)} %</figcaption>
       ${sheetSvg(s)}
       <div class="nestfoot"><ol class="nestno">${names.map(([no, n]) => `<li><b>${no}</b> ${n}</li>`).join('')}</ol>
         <button type="button" class="dxfbtn" data-k="${k}">DXF листа</button></div>
@@ -286,6 +286,22 @@ function drawNest() {
     </figure>`;
   }).join('');
 }
+// Зазор между деталями (setNestGap из nest.js): пока вводят — перекладываем по каждому верному числу,
+// по выходу из поля — показываем то, что встало (3–20 мм, шаг 0,5). Лист «Раскрой» в чертежах — тоже с ним,
+// их кэш по state зазора не видит, поэтому сбрасываем. Как и размер листа — не в ссылке и не в localStorage
+const gapInp = document.getElementById('nestGap');
+function setGap(fix) {
+  const v = gapInp.value.trim() === '' ? NaN : gapInp.valueAsNumber;
+  if (!Number.isFinite(v) && !fix) return;
+  const was = NEST_GAP, now = setNestGap(Number.isFinite(v) ? v : NEST_GAP);
+  if (fix) gapInp.value = now;
+  if (now === was) return;
+  drawNest();
+  sheetsFor = '';
+  drawSheets();
+}
+gapInp.addEventListener('input', () => setGap(false));
+gapInp.addEventListener('change', () => setGap(true));
 nestBox.addEventListener('click', e => {
   const b = e.target.closest('.dxfbtn');
   if (b) { const s = nestNow[+b.dataset.k]; saveOut(sheetFile(s), sheetDxf(s)); }

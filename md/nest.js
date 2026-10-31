@@ -1,11 +1,19 @@
 // Раскрой на лист металла: детали под лазер каждой толщины — на свой лист, компактно к одному краю,
-// остаток листа — целый кусок. Размеры листов и зазоры — как у собаки (C:\dev\metal-designer\art).
+// остаток листа — целый кусок. Размеры листов и зазоры — как у собаки (C:\dev\metal-designer\art, поле «Между деталями на листе»).
 // Детали мангала — прямоугольники, поэтому раскладываются их рамки (MaxRects), контуры рисуются внутри рамок.
 
 // Листы, мм: [ширина, длина]; по умолчанию — 1250 × 2500
 const SHEETS = [[1000, 2000], [1250, 2500], [1500, 3000], [1500, 6000]];
-const NEST_GAP = 5;    // между деталями: лазеру хватает 3–5 мм
+// Зазор между деталями — под ширину реза, настраивается во вкладке «Лазер · DXF»: лазеру хватает 3–5 мм, плазме нужно 6–8
+const NEST_GAP_MIN = 3, NEST_GAP_MAX = 20, NEST_GAP_DEF = 5;
+let NEST_GAP = NEST_GAP_DEF;
 const NEST_EDGE = 10;  // от края листа
+// Новый зазор: шаг 0,5 мм, в пределах 3–20; не число — по умолчанию. Возвращает то, что встало
+function setNestGap(v) {
+  v = Math.round(Number(v) * 2) / 2;
+  NEST_GAP = Number.isFinite(v) ? Math.min(NEST_GAP_MAX, Math.max(NEST_GAP_MIN, v)) : NEST_GAP_DEF;
+  return NEST_GAP;
+}
 
 // Свободные прямоугольники листа: рамка детали занимает w + зазор, поэтому рабочее поле шире на зазор
 const freshSheet = (L, W) => [{x: NEST_EDGE, y: NEST_EDGE, w: L - 2 * NEST_EDGE + NEST_GAP, h: W - 2 * NEST_EDGE + NEST_GAP}];
@@ -93,7 +101,7 @@ function sheetDxf(s) {
   const text = (x, y, h, t, lay) => extra.push('0', 'TEXT', '8', lay, '10', r2(x), '20', r2(y), '30', 0, '40', r2(h), '1', t, '72', 1, '73', 2, '11', r2(x), '21', r2(y), '31', 0);
   const frame = [[0, 0], [s.L, 0], [s.L, s.W], [0, s.W], [0, 0]];
   frame.slice(1).forEach((b, i) => extra.push('0', 'LINE', '8', 'SHEET', '10', frame[i][0], '20', frame[i][1], '30', 0, '11', b[0], '21', b[1], '31', 0));
-  text(s.L / 2, s.W + 40, 30, `SHEET ${s.mm} MM ${s.W}x${s.L} ${s.i}/${s.n}`, 'SHEET');
+  text(s.L / 2, s.W + 40, 30, `SHEET ${s.mm} MM ${s.W}x${s.L} ${s.i}/${s.n} GAP ${NEST_GAP} MM`, 'SHEET');
   s.items.forEach(it => {
     const P = onSheet(it), p2 = q => P(q).map(r2);
     it.m.loops.forEach(l => loops.push(l.map(p2)));

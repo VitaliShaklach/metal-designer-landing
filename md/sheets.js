@@ -238,7 +238,7 @@ function sheetsNest() {
     const P = it => q => { const [x, y] = onSheet(it)(q); return [x0 + x / n, y0 + (W - y) / n]; };
     const pt = ([x, y]) => `${r2(x)},${r2(y)}`;
     let s = `<text class="h2" x="25" y="26">${shEsc(`Лист ${sh.mm} мм, ${W} × ${L}, № ${sh.i} из ${sh.n} · заполнение ${Math.round(sh.fill * 100)} %`)}</text>`
-      + `<text class="td" x="25" y="31.5">${shEsc(`Детали в полосе ${W} × ${sh.len} мм, остальное — целый кусок. Зазор между деталями ${NEST_GAP} мм, от края листа ${NEST_EDGE} мм.`)}</text>`
+      + `<text class="td" x="25" y="31.5">${shEsc(`Детали в полосе ${W} × ${sh.len} мм, остальное — целый кусок. Зазор между деталями ${String(NEST_GAP).replace('.', ',')} мм, от края листа ${NEST_EDGE} мм.`)}</text>`
       + `<rect class="l" x="${x0}" y="${y0}" width="${r2(L / n)}" height="${r2(W / n)}"/>`;
     if (sh.len < L - NEST_EDGE) s += `<path class="dash" d="M${r2(x0 + sh.len / n)},${y0}V${r2(y0 + W / n)}"/>`;
     sh.items.forEach(it => {

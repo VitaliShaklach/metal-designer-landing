@@ -10,7 +10,7 @@ const sheets = (sz = 1) => e.ev(`laserSheets(${sz})`);
 const want = () => e.ev('laserParts()').reduce((a, p) => ({...a, [p.mm]: (a[p.mm] || 0) + p.q}), {});
 
 // проверки раскладки, общие для всех размеров мангала и листа
-function check(ss, where) {
+function check(ss, where, gap = 5) {
   const got = {};
   for (const s of ss) {
     got[s.mm] = (got[s.mm] || 0) + s.items.length;
@@ -21,8 +21,8 @@ function check(ss, where) {
         `${where}: ${it.p.file} вылезает за край листа`);
     }
     s.items.forEach((a, i) => s.items.slice(i + 1).forEach(b => {
-      const apart = a.x + a.w + 5 <= b.x + 1e-6 || b.x + b.w + 5 <= a.x + 1e-6 || a.y + a.h + 5 <= b.y + 1e-6 || b.y + b.h + 5 <= a.y + 1e-6;
-      assert.ok(apart, `${where}: ${a.p.file} и ${b.p.file} ближе 5 мм`);
+      const apart = a.x + a.w + gap <= b.x + 1e-6 || b.x + b.w + gap <= a.x + 1e-6 || a.y + a.h + gap <= b.y + 1e-6 || b.y + b.h + gap <= a.y + 1e-6;
+      assert.ok(apart, `${where}: ${a.p.file} и ${b.p.file} ближе ${gap} мм`);
     }));
     assert.ok(s.fill > 0 && s.fill <= 1, `${where}: заполнение ${s.fill}`);
   }
@@ -69,4 +69,33 @@ test('dxf: лист — R12, рамка SHEET, контуры CUT, номера 
     assert.ok(text.endsWith('EOF\r\n'));
     assert.ok(!/NaN|undefined/.test(text), `${s.mm} мм: NaN в DXF`);
   }
+});
+
+// Зазор между деталями — настройка вкладки «Лазер · DXF»: по умолчанию 5, от 3 до 20 мм, шаг 0,5
+test('gap: по умолчанию 5 мм; 3, 10 и 20 мм держатся на всех листах и крайних размерах; DXF пишет зазор в подпись', () => {
+  assert.equal(e.ev('NEST_GAP'), 5);
+  for (const gap of [3, 10, 20]) {
+    assert.equal(e.ev(`setNestGap(${gap})`), gap);
+    for (const [len, wid] of [[400, 250], [800, 420], [1200, 500]]) for (let sz = 0; sz < 4; sz++) {
+      at({len, wid});
+      check(sheets(sz), `зазор ${gap}, ${len} × ${wid}, лист ${sz}`, gap);
+    }
+    at();
+    assert.match(e.ev('sheetDxf(laserSheets(1)[0])'), new RegExp(`GAP ${gap} MM`));
+  }
+  e.ev('setNestGap(5)');
+});
+
+test('gapClamp: меньше 3 — 3, больше 20 — 20, шаг 0,5, не число — 5', () => {
+  for (const [v, want] of [[0, 3], [1, 3], [2.9, 3], [3.2, 3], [3.3, 3.5], [7.5, 7.5], [25, 20], ['abc', 5], [NaN, 5]])
+    assert.equal(e.ev(`setNestGap(${Number.isNaN(v) ? 'NaN' : JSON.stringify(v)})`), want, `ввели ${v}`);
+  e.ev('setNestGap(5)');
+});
+
+test('gapWide: зазор шире — полоса на листе не короче', () => {
+  at({len: 1200, wid: 500});
+  const len = gap => { e.ev(`setNestGap(${gap})`); return Math.max(...sheets().map(s => s.len)); };
+  const a = len(3), b = len(20);
+  e.ev('setNestGap(5)');
+  assert.ok(b >= a, `3 мм — ${a}, 20 мм — ${b}`);
 });

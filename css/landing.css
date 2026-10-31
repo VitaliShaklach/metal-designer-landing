@@ -125,8 +125,8 @@ h1 {
 .btn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 
 /* Кнопка «Показать чертежи и DXF ↓» под цифрами — вторичная, во всю ширину колонки */
-.getbtn { width: 100%; font-size: 16px; cursor: pointer; background: var(--panel); }
-.getbtn:hover { background: var(--blue); color: #fff; }
+.getbtn { width: 100%; font-size: 16px; cursor: pointer; background: var(--accent); border-color: var(--accent); color: #fff; }
+.getbtn:hover { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
 
 /* Блок «Что получаете» */
 .get { padding-top: 24px; padding-bottom: 32px; scroll-margin-top: 8px; }

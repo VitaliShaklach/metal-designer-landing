@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Metal Designer для цеха</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="fonts/fonts.css?v=2026-10-31j">
-<link rel="stylesheet" href="css/landing.css?v=2026-10-31j">
-<link rel="stylesheet" href="css/md.css?v=2026-10-31j">
+<link rel="stylesheet" href="fonts/fonts.css?v=2026-10-31n">
+<link rel="stylesheet" href="css/landing.css?v=2026-10-31n">
+<link rel="stylesheet" href="css/md.css?v=2026-10-31n">
 </head>
 <body>
 <header class="top wrap">
@@ -79,8 +79,9 @@
     </div>
 
     <div class="tabpane" id="tab-dxf" role="tabpanel" aria-labelledby="t-dxf" hidden>
-      <p class="tabnote">Все детали мангала — из одного листа толщины, выбранной на первом экране: зазор между деталями 5 мм, от края 10 мм, остаток листа — целым куском. В DXF листа контуры — слой CUT, гибы — BEND, рамка листа — SHEET, номера деталей — MARK (не резать)</p>
+      <p class="tabnote">Все детали мангала — из одного листа толщины, выбранной на первом экране: зазор между деталями — под ширину реза (по умолчанию 5 мм: лазеру хватает 3–5, плазме нужно 6–8), от края 10 мм, остаток листа — целым куском. В DXF листа контуры — слой CUT, гибы — BEND, рамка листа — SHEET, номера деталей — MARK (не резать)</p>
       <div class="sheetsz" id="sheetSz" role="group" aria-label="Размер листа металла"><span>Лист металла</span></div>
+      <label class="nestgap">Между деталями, мм <input id="nestGap" type="number" value="5" min="3" max="20" step="0.5" inputmode="decimal"></label>
       <div class="nest" id="nestBox"></div>
       <h3 class="sub">Детали по отдельности</h3>
       <p class="tabnote">Каждая листовая деталь — отдельный файл DXF (R12): контур и отверстия в мм в слое CUT, линии гиба — в слое BEND</p>
@@ -102,23 +103,23 @@
   <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать описание изделия</a>
 </div>
 
-<script src="vendor/three/three.min.js?v=2026-10-31j"></script>
-<script src="vendor/three/OrbitControls.js?v=2026-10-31j"></script>
-<script src="vendor/three/CSS2DRenderer.js?v=2026-10-31j"></script>
-<script src="md/params.js?v=2026-10-31j"></script>
-<script src="md/parts.js?v=2026-10-31j"></script>
-<script src="md/model.js?v=2026-10-31j"></script>
-<script src="md/dims.js?v=2026-10-31j"></script>
-<script src="md/cut.js?v=2026-10-31j"></script>
-<script src="md/dxf.js?v=2026-10-31j"></script>
-<script src="md/defaults.js?v=2026-10-31j"></script>
-<script src="md/stats.js?v=2026-10-31j"></script>
-<script src="md/views.js?v=2026-10-31j"></script>
-<script src="md/sheet-kit.js?v=2026-10-31j"></script>
-<script src="md/sheets.js?v=2026-10-31j"></script>
-<script src="md/nest.js?v=2026-10-31j"></script>
-<script src="md/link.js?v=2026-10-31j"></script>
-<script src="md/landing.js?v=2026-10-31j"></script>
-<script src="md/controls.js?v=2026-10-31j"></script>
+<script src="vendor/three/three.min.js?v=2026-10-31n"></script>
+<script src="vendor/three/OrbitControls.js?v=2026-10-31n"></script>
+<script src="vendor/three/CSS2DRenderer.js?v=2026-10-31n"></script>
+<script src="md/params.js?v=2026-10-31n"></script>
+<script src="md/parts.js?v=2026-10-31n"></script>
+<script src="md/model.js?v=2026-10-31n"></script>
+<script src="md/dims.js?v=2026-10-31n"></script>
+<script src="md/cut.js?v=2026-10-31n"></script>
+<script src="md/dxf.js?v=2026-10-31n"></script>
+<script src="md/defaults.js?v=2026-10-31n"></script>
+<script src="md/stats.js?v=2026-10-31n"></script>
+<script src="md/views.js?v=2026-10-31n"></script>
+<script src="md/sheet-kit.js?v=2026-10-31n"></script>
+<script src="md/sheets.js?v=2026-10-31n"></script>
+<script src="md/nest.js?v=2026-10-31n"></script>
+<script src="md/link.js?v=2026-10-31n"></script>
+<script src="md/landing.js?v=2026-10-31n"></script>
+<script src="md/controls.js?v=2026-10-31n"></script>
 </body>
 </html>
