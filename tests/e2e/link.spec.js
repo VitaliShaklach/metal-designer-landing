@@ -37,10 +37,10 @@ test('link: ссылка выставляет ползунки, толщину �
 test('write: ползунок, толщина и галочка сразу меняют адрес, без новых записей в истории', async ({page}) => {
   const w = watch(page);
   await page.goto('/');
-  await hashIs(page, '#len=800&wid=420&top=970&t=5&deep=1');
+  await hashIs(page, '#len=800&wid=420&top=970&t=4&deep=1');
   const steps = await page.evaluate(() => history.length);
   await page.locator('#sLen').fill('1200');
-  await hashIs(page, '#len=1200&wid=420&top=970&t=5&deep=1');
+  await hashIs(page, '#len=1200&wid=420&top=970&t=4&deep=1');
   await page.locator('#sT button', {hasText: '3 мм'}).click();
   await hashIs(page, '#len=1200&wid=420&top=970&t=3&deep=1');
   await page.locator('#cDeep').uncheck();
@@ -62,10 +62,10 @@ for (const bad of ['#len=abc', '#wid=99999', '#t=7', '#len=1000&wid=500&top=900&
     await expect(page.locator('#sLen')).toHaveValue('800');
     await expect(page.locator('#sWid')).toHaveValue('420');
     await expect(page.locator('#sTop')).toHaveValue('970');
-    await expect(page.locator('#sT button', {hasText: '5 мм'})).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#sT button', {hasText: '4 мм'})).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#cDeep')).toBeChecked();
     await expect(page.locator('#lstats')).toContainText('800 × 420');
-    await hashIs(page, '#len=800&wid=420&top=970&t=5&deep=1');
+    await hashIs(page, '#len=800&wid=420&top=970&t=4&deep=1');
     expect(w.pageErrors).toEqual([]);
     expect(w.errors).toEqual([]);
   });
@@ -84,7 +84,7 @@ test('sameTab: новая ссылка в открытой вкладке — м
   await page.evaluate(() => { location.hash = '#t=7'; });
   await expect(page.locator('#sLen')).toHaveValue('800');
   await expect(page.locator('#lstats')).toContainText('800 × 420');
-  await hashIs(page, '#len=800&wid=420&top=970&t=5&deep=1');
+  await hashIs(page, '#len=800&wid=420&top=970&t=4&deep=1');
   expect(w.pageErrors).toEqual([]);
   expect(w.errors).toEqual([]);
 });
@@ -97,7 +97,7 @@ test('drag: пока тянут ползунок, адрес не перепис
     history.replaceState = (...a) => { window.replaceCalls++; return replace(...a); };
   });
   await page.goto('/');
-  await hashIs(page, '#len=800&wid=420&top=970&t=5&deep=1');
+  await hashIs(page, '#len=800&wid=420&top=970&t=4&deep=1');
   const before = await page.evaluate(() => replaceCalls);
   // 9 кадров перетаскивания подряд: каждый кадр — renderAll() с новой длиной
   const during = await page.evaluate(() => {
@@ -105,7 +105,7 @@ test('drag: пока тянут ползунок, адрес не перепис
     return replaceCalls;
   });
   expect(during - before).toBe(0);
-  await hashIs(page, '#len=1200&wid=420&top=970&t=5&deep=1');
+  await hashIs(page, '#len=1200&wid=420&top=970&t=4&deep=1');
   expect(await page.evaluate(() => replaceCalls) - before).toBe(1);
   expect(w.pageErrors).toEqual([]);
   expect(w.errors).toEqual([]);

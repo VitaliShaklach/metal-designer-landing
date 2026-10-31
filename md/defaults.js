@@ -11,4 +11,7 @@ PARTS.find(e => e.id === 'roof').d.forEach(d => { d[3] = 'none'; });
 // …и на 3D: движок показывает только детали из этих частей (PDF_PART), крыши среди них нет
 S.parts = new Set(['grill', 'stove', 'legs', 'wheels', 'env']);
 
+// Размеры на модели по умолчанию — те, что меняют ползунки: длина, ширина, высота
+S.dims = new Set(['l80', 'w39', 'top']);
+
 recompute();

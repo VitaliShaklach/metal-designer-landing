@@ -1,6 +1,7 @@
-// Цифры лендинга при настройках по умолчанию: копия движка в md/ считает так же, как C:\dev,
-// кроме перегородки жаровни — на лендинге её нет (решение Виталия 31.10): ни листа, ни прорезей под неё.
-// Эталон tests/golden.json снимается с md/ после сверки с C:\dev (только чтение): UPDATE_GOLDEN=1 npm test
+// Цифры лендинга: копия движка в md/ при 5 мм считает так же, как C:\dev, кроме двух решений Виталия 31.10 —
+// нет перегородки жаровни (ни листа, ни прорезей под неё) и все листовые детали одной толщины.
+// Эталон tests/golden.json — снимок md/ при настройках лендинга по умолчанию (4 мм), пишется после сверки
+// с C:\dev (только чтение): UPDATE_GOLDEN=1 npm test
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -16,17 +17,35 @@ const nums = ({cut, laser, stats}) => ({
   laser, stats,
 });
 
-test('golden: копия в md/ считает как C:\\dev, без перегородки', {skip: !fs.existsSync(DEV) && 'нет C:\\dev на этой машине'}, () => {
-  const dev = nums(snapshot(loadEngine({dir: DEV}))), md = nums(snapshot(loadEngine()));
+// Сверка с C:\dev — при 5 мм, как там. Отличия лендинга:
+// - перегородки жаровни нет (решение 31.10, задача 2);
+// - все листовые детали одной толщины (решение 31.10): задвижки и площадки под колёса — 5 мм, а не 3 и 6;
+//   отсюда площадка колеса тоньше — ножка с колесом на 1 мм длиннее, а скоба задвижки шире под планку 5 мм
+const SAME_T = r => /^(Задвижка поддува|Площадка под колесо|Скоба задвижки|Ножка .* с колесом)/.test(r.n || '');
+const SAME_T_LASER = ['grill_air_slider', 'wheel_pad'];
+
+test('golden: при 5 мм копия в md/ считает как C:\\dev — без перегородки, все детали одной толщины', {skip: !fs.existsSync(DEV) && 'нет C:\\dev на этой машине'}, () => {
+  const e5 = loadEngine();
+  e5.ev('setSize({len: 800, wid: 420, top: 970, t: 5, deep: 1})');
+  const dev = nums(snapshot(loadEngine({dir: DEV}))), md = nums(snapshot(e5));
   const div = dev.cut.find(r => r.n === 'Перегородка жаровни');
   assert.ok(div, 'в C:\\dev перегородка в раскрое есть');
-  // лист перегородки уходит из раскроя и массы
-  assert.deepEqual(md.cut, dev.cut.filter(r => r !== div));
-  const kgDev = dev.cut.reduce((s, r) => s + (r.kg || 0), 0);
-  assert.equal(md.stats.kg, Math.round(kgDev - div.kg));
-  // прорези под перегородку уходят из боковин: рез короче, остальные детали — как в C:\dev
-  const side = p => /^grill_side/.test(p.file);
-  assert.deepEqual(md.laser.filter(p => !side(p)), dev.laser.filter(p => !side(p)));
+  // лист перегородки уходит из раскроя
+  assert.deepEqual(md.cut.filter(r => !SAME_T(r)), dev.cut.filter(r => r !== div && !SAME_T(r)));
+  // задвижки и площадки колёс — из того же листа 5 мм; строки те же, другие толщина, масса, длина ножки, ширина скобы
+  assert.deepEqual(md.cut.filter(SAME_T).map(r => r.n), dev.cut.filter(SAME_T).map(r => r.n));
+  const row = (s, n) => s.cut.find(r => r.n === n);
+  assert.equal(row(dev, 'Площадка под колесо (низ ножки)').s, '150 × 150 × 6');
+  assert.equal(row(md, 'Площадка под колесо (низ ножки)').s, '150 × 150 × 5');
+  assert.match(row(dev, 'Задвижка поддува (планка)').s, / × 3$/);
+  assert.match(row(md, 'Задвижка поддува (планка)').s, / × 5$/);
+  // прорези под перегородку уходят из боковин: рез короче; задвижки и площадки колёс — 5 мм; остальные детали — как в C:\dev
+  const side = p => /^grill_side/.test(p.file), sameT = p => SAME_T_LASER.includes(p.file);
+  assert.deepEqual(md.laser.filter(p => !side(p) && !sameT(p)), dev.laser.filter(p => !side(p) && !sameT(p)));
+  md.laser.filter(sameT).forEach((p, i) => {
+    assert.equal(p.mm, 5, p.file);
+    assert.deepEqual({...p, mm: 0}, {...dev.laser.filter(sameT)[i], mm: 0});
+  });
   md.laser.filter(side).forEach((p, i) => {
     const d = dev.laser.filter(side)[i];
     assert.deepEqual({...p, cutMm: 0}, {...d, cutMm: 0});
@@ -49,7 +68,7 @@ test('shape: детали под лазер и панель цифр по умо
   ]);
   const {len, wid, top, t, kg, parts, cutM, holes, slots, wheels} = stats;
   assert.deepEqual({len, wid, top, t, kg, parts, cutM, holes, slots, wheels},
-    {len: 800, wid: 420, top: 970, t: 5, kg: 61, parts: 15, cutM: 21, holes: 34, slots: 52, wheels: true});
+    {len: 800, wid: 420, top: 970, t: 4, kg: 53, parts: 15, cutM: 21, holes: 34, slots: 52, wheels: true});
   assert.ok(cut.some(r => r.n === 'Дно жаровни' && r.s === '800 × 420'));
 });
 

@@ -19,7 +19,7 @@ function drawStats() {
   const tiles = [
     [`${d.len} × ${d.wid}`, 'жаровня, мм'],
     [`верх ${d.top}`, 'от земли, мм'],
-    [`сталь ${d.t} мм`, 'боковины, дно, торцы'],
+    [`сталь ${d.t} мм`, 'все детали — один лист'],
     [`≈ ${d.kg} кг`, 'металла'],
     [`${d.parts} ${plural(d.parts, 'деталь', 'детали', 'деталей')}`, 'под лазер'],
     [`рез ${fmt(d.cutM)} м`, 'длина реза'],
@@ -30,10 +30,15 @@ function drawStats() {
     tiles.map(([b, s]) => `<div class="stat"><b>${b}</b><span>${s}</span></div>`).join('');
 }
 
-// Пересчитать всё по текущим настройкам; следующие задачи дописывают сюда свои шаги
+// Пересчитать всё по текущим настройкам; следующие задачи дописывают сюда свои шаги.
+// Таблицу DXF рисует build3D(), но без WebGL он сразу выходит — тогда её рисуем сами
 function renderAll() {
   setSize(state);
   build3D();
+  if (!ok) drawDxf();
+  drawNest();
+  dimList();
+  drawCut();
   drawStats();
   writeLink();
 }
@@ -109,12 +114,12 @@ function redraw() {
 
 // Ползунки: min/max/step — из SIZE
 const SLIDERS = [['len', 'sLen', 'oLen'], ['wid', 'sWid', 'oWid'], ['top', 'sTop', 'oTop']];
-SLIDERS.forEach(([k, id, out]) => {
-  const el = document.getElementById(id), o = document.getElementById(out);
+SLIDERS.forEach(([k, id]) => {
+  const el = document.getElementById(id);
   Object.assign(el, {min: SIZE[k].min, max: SIZE[k].max, step: SIZE[k].step});
   el.addEventListener('input', () => {
     state[k] = +el.value;
-    o.textContent = `${state[k]} мм`;
+    showState();
     redraw();
   });
 });
@@ -150,6 +155,102 @@ window.addEventListener('hashchange', () => {
   Object.assign(state, readLink(location.hash));
   showState();
   redraw();
+});
+
+// Блок «Что получаете» свёрнут; кнопка под цифрами раскрывает его и прокручивает к нему, повторно — сворачивает.
+// Всё посчитано и без неё: renderAll() рисует таблицы и в скрытом блоке
+const getSec = document.getElementById('get'), getBtn = document.getElementById('getBtn');
+getBtn.addEventListener('click', () => {
+  getSec.hidden = !getSec.hidden;
+  getBtn.textContent = getSec.hidden ? 'Показать чертежи и DXF ↓' : 'Скрыть чертежи ↑';
+  getBtn.setAttribute('aria-expanded', String(!getSec.hidden));
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;   // кому мешает анимация — без плавной прокрутки
+  if (!getSec.hidden) getSec.scrollIntoView({behavior: calm ? 'auto' : 'smooth', block: 'start'});
+});
+
+// Вкладки как в C:\dev: клик или стрелки ←/→. Выбор не запоминаем — localStorage общий с хобби-сайтом
+const TABS = [...getSec.querySelectorAll('[role=tab]')];
+function showTab(name) {
+  TABS.forEach(b => {
+    const on = b.dataset.tab === name;
+    b.setAttribute('aria-selected', String(on));
+    b.tabIndex = on ? 0 : -1;
+    document.getElementById('tab-' + b.dataset.tab).hidden = !on;
+  });
+}
+TABS.forEach(b => {
+  b.addEventListener('click', () => showTab(b.dataset.tab));
+  b.addEventListener('keydown', e => {
+    const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (!d) return;
+    const vis = TABS.filter(t => !t.hidden), n = vis[(vis.indexOf(b) + d + vis.length) % vis.length];
+    n.focus();
+    showTab(n.dataset.tab);
+  });
+});
+
+// Без 3D размерам негде появиться — вкладки «Размеры» нет, блок открывается на раскрое
+if (!ok) {
+  document.getElementById('t-dims').hidden = true;
+  showTab('cut');
+}
+
+// Размеры на модели: галочки, «Показать все», «Скрыть все», свернуть группу по заголовку (как в C:\dev).
+// Свёрнутое помним в dimFold движка до перезагрузки — dimList() перерисовывает список при каждом ползунке.
+// Движок читает dimFold из localStorage хобби-сайта (домен общий) — здесь его не слушаем и туда не пишем:
+// раскрыты «Габариты» (ширина и высота по умолчанию) и «Жаровня» (длина), остальное свёрнуто
+for (const k in dimFold) delete dimFold[k];
+Object.assign(dimFold, {all: false, grill: false});
+const dimEl = document.getElementById('dimList');
+dimEl.addEventListener('change', e => {
+  const id = e.target.dataset.id;
+  if (!id) return;
+  e.target.checked ? S.dims.add(id) : S.dims.delete(id);
+  build3D();
+});
+dimEl.addEventListener('click', e => {
+  const bt = e.target.closest('h3 button');
+  if (!bt) return;
+  const dg = bt.closest('.dg'), shut = dg.classList.toggle('shut');
+  bt.setAttribute('aria-expanded', String(!shut));
+  dimFold[dg.dataset.el] = shut;
+});
+function allDims(on) {
+  dimVisible().forEach(r => on ? S.dims.add(r.id) : S.dims.delete(r.id));
+  build3D();
+  dimList();
+}
+document.getElementById('dAll').addEventListener('click', () => allDims(true));
+document.getElementById('dNone').addEventListener('click', () => allDims(false));
+
+// Раскрой на лист во вкладке «Лазер · DXF»: размер листа — кнопками (SHEETS из nest.js, по умолчанию 1250 × 2500),
+// на каждый лист — подпись с толщиной, превью, список позиций и свой DXF. Размер листа не в ссылке и не в localStorage
+let sheetSz = 1, nestNow = [];
+const nestBox = document.getElementById('nestBox'), sheetBtns = document.getElementById('sheetSz');
+SHEETS.forEach(([w, l], i) => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = `${w} × ${l}`;
+  b.addEventListener('click', () => { sheetSz = i; drawNest(); });
+  sheetBtns.appendChild(b);
+});
+function drawNest() {
+  sheetBtns.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', String(i === sheetSz)));
+  nestNow = laserSheets(sheetSz);
+  nestBox.innerHTML = nestNow.map((s, k) => {
+    const names = [...new Map(s.items.map(it => [it.no, it.p.name])).entries()].sort((a, b) => a[0] - b[0]);
+    return `<figure class="nestsh">
+      <figcaption><b>Лист ${s.mm} мм · ${s.W} × ${s.L}</b> · ${s.i} из ${s.n} · детали в полосе ${s.W} × ${s.len} мм · заполнение ${Math.round(s.fill * 100)} %</figcaption>
+      ${sheetSvg(s)}
+      <div class="nestfoot"><ol class="nestno">${names.map(([no, n]) => `<li><b>${no}</b> ${n}</li>`).join('')}</ol>
+        <button type="button" class="dxfbtn" data-k="${k}">DXF листа</button></div>
+      ${s.too.length ? `<p class="tabnote">Не влезают в лист: ${s.too.join(', ')} — выберите лист больше</p>` : ''}
+    </figure>`;
+  }).join('');
+}
+nestBox.addEventListener('click', e => {
+  const b = e.target.closest('.dxfbtn');
+  if (b) { const s = nestNow[+b.dataset.k]; saveOut(sheetFile(s), sheetDxf(s)); }
 });
 
 if (ok) {

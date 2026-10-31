@@ -1,4 +1,4 @@
-// Толщина боковин, дна и торцов 2–6 мм и галочка «Глубокие прорези»
+// Толщина всех листовых деталей 2–6 мм (решение 31.10: одна на мангал, по умолчанию 4) и галочка «Глубокие прорези»
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -8,14 +8,14 @@ const {loadEngine, snapshot: snap} = require('../engine.js');
 const GOLDEN = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'golden.json'), 'utf8'));
 const e = loadEngine();
 const at = (o = {}) => {
-  const s = {len: 800, wid: 420, top: 970, t: 5, deep: 1, ...o};
+  const s = {len: 800, wid: 420, top: 970, t: 4, deep: 1, ...o};
   e.ev(`setSize(${JSON.stringify(s)})`);
   return snap(e);
 };
 const row = (cut, n) => cut.find(r => r.n === n);
 const part = (laser, file) => laser.find(p => p.file === file);
 
-test('default: 5 мм и прорези — цифры как в эталоне', () => {
+test('default: 4 мм и прорези — цифры как в эталоне', () => {
   assert.deepEqual(at(), GOLDEN);
 });
 
@@ -39,19 +39,19 @@ test('grid: 2 и 6 мм, с прорезями и без, на крайних р
   }
 });
 
-test('thick: при 3 мм дно 7,913 кг, файлы боковин, дна и торцов — 3 мм; площадки и задвижки своей толщины', () => {
+test('thick: при 3 мм дно 7,913 кг, все детали под лазер — 3 мм, площадки и задвижки тоже', () => {
   const {cut, laser, stats} = at({t: 3});
   assert.equal(row(cut, 'Дно жаровни').kg, 7.913);
   assert.equal(e.ev("dxfName(laserParts().find(p => p.file === 'grill_bottom'))"), 'grill_bottom_3mm_x1.dxf');
-  for (const f of ['grill_side_back', 'grill_side_front', 'grill_bottom', 'grill_end_right', 'grill_end_left'])
-    assert.equal(part(laser, f).mm, 3, f);
-  assert.equal(part(laser, 'leg_mount_plate').mm, 5);
-  assert.equal(part(laser, 'wheel_pad').mm, 6);
-  assert.equal(part(laser, 'grill_air_slider').mm, 3);
+  assert.deepEqual(laser.filter(p => p.mm !== 3).map(p => p.file), [], 'детали не 3 мм');
   assert.equal(stats.t, 3);
-  // площадка под ножку весит как при 5 мм
-  const plate = r => row(r, 'Площадка под ножку (на дно)').kg;
-  assert.equal(plate(cut), plate(GOLDEN.cut));
+  // площадки, задвижки и пятки — из того же листа: размер «× 3», масса как у листа 3 мм
+  assert.equal(row(cut, 'Площадка под ножку (на дно)').s, '80 × 80 × 3');
+  assert.equal(row(cut, 'Площадка под колесо (низ ножки)').s, '150 × 150 × 3');
+  assert.match(row(cut, 'Задвижка поддува (планка)').s, / × 30 × 3$/);
+  assert.ok(Math.abs(row(cut, 'Площадка под колесо (низ ножки)').kg - 15 * 15 * .3 * 7.85 / 1000 * 4) < .001);   // 2,1195 — на границе округления
+  const noWheels = at({t: 3, wid: 280}).cut;
+  assert.equal(row(noWheels, 'Пятка ножки без колеса').s, '100 × 100 × 3');
 });
 
 test('thick: толщина меняет внутренние размеры — боковина ниже, торец между боковинами шире', () => {
@@ -74,7 +74,7 @@ test('deep: без галочки у боковины нет глубоких п
   assert.ok(!e.ev("dimVisible().some(r => /^deep/.test(r.id))"), 'размеры глубоких прорезей остались в списке');
 });
 
-test('back: после 2 мм без прорезей 5 мм с прорезями снова даёт эталон', () => {
+test('back: после 2 мм без прорезей 4 мм с прорезями снова даёт эталон', () => {
   at({len: 400, wid: 250, t: 2, deep: 0});
   assert.deepEqual(at(), GOLDEN);
 });

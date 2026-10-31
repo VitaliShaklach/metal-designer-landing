@@ -26,14 +26,14 @@ const geoR=(w,h)=>({loops:[rect(w,h)],circles:[],bends:[]});
 // список листовых деталей текущего проекта (режим и галочки — как на модели)
 function laserParts(){const g=gOn(),k=sOn(),LL=legsList(),r=[];
   const add=(file,name,mm,q,pt,geo,note='')=>r.push({file,name,mm,q,pt,geo,note});
-  // боковины, дно и торцы жаровни — текущей толщины (кнопки лендинга), остальное — своей
+  // все детали мангала — текущей толщины (кнопки лендинга; решение 31.10: один лист на мангал); печь — своей
   if(g){add('grill_side_back','Боковина жаровни задняя',tMm(),1,'side0',()=>shapeGeo(grillWallShape(true)),'с вырезом под ручку решётки');
     add('grill_side_front','Боковина жаровни передняя',tMm(),1,'side1',()=>shapeGeo(grillWallShape(false)));
     add('grill_bottom','Дно жаровни',tMm(),1,'gBot',()=>geoR(L1,W));
     add('grill_end_right','Торец жаровни правый',tMm(),1,'gEnd',()=>geoR(W-2*t,H1-t));
     if(S.mode==='grill')add('grill_end_left','Торец жаровни левый',tMm(),1,'gEnd0',()=>logoWallGeo(t,W-2*t,B+t,H1-t),S.logo?'с логотипом':'');
     if(S.div)add('grill_divider','Перегородка жаровни',5,1,'div',dividerGeo,'тело, ушки и ручка — одна деталь');
-    if(S.airSl)add('grill_air_slider','Задвижка поддува',3,2,'air',airGeo,'отгибы по концам 20 мм — слой BEND');}
+    if(S.airSl)add('grill_air_slider','Задвижка поддува',tMm(),2,'air',airGeo,'отгибы по концам 20 мм — слой BEND');}
   if(k){add('stove_side_back','Боковина печи задняя',5,1,'sK0',()=>shapeGeo(stoveWallShape(true)),S.chim?'с отверстием трубы 60 × 60':'');
     add('stove_side_front','Боковина печи передняя',5,1,'sK1',()=>shapeGeo(stoveWallShape(false)));
     add('stove_bottom','Дно печи',5,1,'sBot',()=>S.draft?shapeGeo(holedPlate(-L2,0,ZK0,ZK1)):geoR(L2,WK),S.draft?`${DR_X.length*DR_Z.length} отв. Ø20`:'');
@@ -44,8 +44,8 @@ function laserParts(){const g=gOn(),k=sOn(),LL=legsList(),r=[];
     if(S.door)add('stove_door','Дверца топки',3,1,'door',()=>geoR(WK,DH()));
     if(S.draft)add('stove_shiber','Шибер поддувала',3,1,'shib',()=>geoR(SH_L,SH_W),'край отогнуть вниз на 25 мм — ручка');
     if(S.grate&&S.grType==='plate')add('stove_grate','Колосник печи',15,1,'grate',stoveGrateGeo);}
-  if(S.legs){add('leg_mount_plate','Площадка под ножку (на дно)',5,LL.length,'legs',()=>geoR(8,8));
-    const nW=LL.filter(l=>l[3]).length;if(nW)add('wheel_pad','Площадка под колесо',6,nW,'pads',()=>geoR(PADX,PADZ),'4 отверстия под колесо — сверлить по факту');}
+  if(S.legs){add('leg_mount_plate','Площадка под ножку (на дно)',tMm(),LL.length,'legs',()=>geoR(8,8));
+    const nW=LL.filter(l=>l[3]).length;if(nW)add('wheel_pad','Площадка под колесо',tMm(),nW,'pads',()=>geoR(PADX,PADZ),'4 отверстия под колесо — сверлить по факту');}
   return r;}
 
 // деталь → мм, сдвиг в (0,0), длина реза и врезки

@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Metal Designer для цеха</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="fonts/fonts.css?v=2026-10-31">
-<link rel="stylesheet" href="css/landing.css?v=2026-10-31">
-<link rel="stylesheet" href="css/md.css?v=2026-10-31">
+<link rel="stylesheet" href="fonts/fonts.css?v=2026-10-31e">
+<link rel="stylesheet" href="css/landing.css?v=2026-10-31e">
+<link rel="stylesheet" href="css/md.css?v=2026-10-31e">
 </head>
 <body>
 <header class="top wrap">
@@ -47,13 +47,44 @@
       <label class="size"><span>Высота</span><input type="range" id="sTop"><output id="oTop"></output></label>
     </div>
     <div class="metal">
-      <div class="thick" id="sT" role="group" aria-label="Толщина боковин, дна и торцов"><span>Металл</span></div>
+      <div class="thick" id="sT" role="group" aria-label="Толщина металла всех деталей"><span>Металл</span></div>
       <label class="deep"><input type="checkbox" id="cDeep"><span>Глубокие прорези</span></label>
     </div>
     <div class="stats" id="lstats"></div>
-    <div class="cta-row">
-      <p class="lead">Мангал под размер клиента: детали, масса, длина реза и DXF посчитаны по этой модели. Пришлите описание своего изделия — сделаю такую же страницу под него.</p>
-      <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать описание изделия</a>
+    <button class="btn getbtn" id="getBtn" type="button" aria-expanded="false" aria-controls="get">Показать чертежи и DXF ↓</button>
+  </section>
+
+  <section class="get wrap" id="get" aria-labelledby="getT" hidden>
+    <h2 id="getT">Что получаете</h2>
+    <p class="lead">Всё ниже посчитано по мангалу с первого экрана. Двигаете размеры — таблицы и файлы меняются вместе с моделью.</p>
+    <div class="tabbar" role="tablist" aria-label="Что получаете">
+      <button role="tab" id="t-dims" data-tab="dims" aria-controls="tab-dims" aria-selected="true"><b>Размеры</b><small>какие показать на модели</small></button>
+      <button role="tab" id="t-cut" data-tab="cut" aria-controls="tab-cut" aria-selected="false" tabindex="-1"><b>Раскрой и масса</b><small>заготовки, вес, металл</small></button>
+      <button role="tab" id="t-dxf" data-tab="dxf" aria-controls="tab-dxf" aria-selected="false" tabindex="-1"><b>Лазер · DXF</b><small>лист раскроя и файлы</small></button>
+    </div>
+
+    <div class="tabpane" id="tab-dims" role="tabpanel" aria-labelledby="t-dims">
+      <p class="tabnote">Отметьте нужные размеры — они появятся на 3D-модели. Клик по детали на модели оставляет только её размеры</p>
+      <div class="dimbar"><button type="button" id="dAll">Показать все</button><button type="button" id="dNone">Скрыть все</button></div>
+      <div class="dimgrid" id="dimList"></div>
+    </div>
+
+    <div class="tabpane" id="tab-cut" role="tabpanel" aria-labelledby="t-cut" hidden>
+      <p class="tabnote">Размеры заготовок — в мм. Стенки стоят на дне, торцы — между боковинами. Выбранная на модели деталь — только её строки</p>
+      <div class="tbl"><table id="cut"></table></div>
+      <h3 class="sub">Металл</h3>
+      <ul class="buy" id="metal"></ul>
+      <div id="stats" hidden></div>
+    </div>
+
+    <div class="tabpane" id="tab-dxf" role="tabpanel" aria-labelledby="t-dxf" hidden>
+      <p class="tabnote">Все детали мангала — из одного листа толщины, выбранной на первом экране: зазор между деталями 5 мм, от края 10 мм, остаток листа — целым куском. В DXF листа контуры — слой CUT, гибы — BEND, рамка листа — SHEET, номера деталей — MARK (не резать)</p>
+      <div class="sheetsz" id="sheetSz" role="group" aria-label="Размер листа металла"><span>Лист металла</span></div>
+      <div class="nest" id="nestBox"></div>
+      <h3 class="sub">Детали по отдельности</h3>
+      <p class="tabnote">Каждая листовая деталь — отдельный файл DXF (R12): контур и отверстия в мм в слое CUT, линии гиба — в слое BEND</p>
+      <div class="dimbar"><button type="button" id="dxfAll">Скачать все (ZIP)</button><span class="dxfmsg" id="dxfMsg" role="status"></span></div>
+      <div class="tbl"><table id="dxfTbl"></table></div>
     </div>
   </section>
 </main>
@@ -62,19 +93,20 @@
   <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать описание изделия</a>
 </div>
 
-<script src="vendor/three/three.min.js?v=2026-10-31"></script>
-<script src="vendor/three/OrbitControls.js?v=2026-10-31"></script>
-<script src="vendor/three/CSS2DRenderer.js?v=2026-10-31"></script>
-<script src="md/params.js?v=2026-10-31"></script>
-<script src="md/parts.js?v=2026-10-31"></script>
-<script src="md/model.js?v=2026-10-31"></script>
-<script src="md/dims.js?v=2026-10-31"></script>
-<script src="md/cut.js?v=2026-10-31"></script>
-<script src="md/dxf.js?v=2026-10-31"></script>
-<script src="md/defaults.js?v=2026-10-31"></script>
-<script src="md/stats.js?v=2026-10-31"></script>
-<script src="md/link.js?v=2026-10-31"></script>
-<script src="md/landing.js?v=2026-10-31"></script>
-<script src="md/controls.js?v=2026-10-31"></script>
+<script src="vendor/three/three.min.js?v=2026-10-31e"></script>
+<script src="vendor/three/OrbitControls.js?v=2026-10-31e"></script>
+<script src="vendor/three/CSS2DRenderer.js?v=2026-10-31e"></script>
+<script src="md/params.js?v=2026-10-31e"></script>
+<script src="md/parts.js?v=2026-10-31e"></script>
+<script src="md/model.js?v=2026-10-31e"></script>
+<script src="md/dims.js?v=2026-10-31e"></script>
+<script src="md/cut.js?v=2026-10-31e"></script>
+<script src="md/dxf.js?v=2026-10-31e"></script>
+<script src="md/defaults.js?v=2026-10-31e"></script>
+<script src="md/stats.js?v=2026-10-31e"></script>
+<script src="md/nest.js?v=2026-10-31e"></script>
+<script src="md/link.js?v=2026-10-31e"></script>
+<script src="md/landing.js?v=2026-10-31e"></script>
+<script src="md/controls.js?v=2026-10-31e"></script>
 </body>
 </html>

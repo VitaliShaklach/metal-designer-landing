@@ -18,7 +18,7 @@ test('loads: 3D-модель и панель цифр по умолчанию', 
   await expect(page.locator('#no3d')).toBeHidden();
   const kg = await page.evaluate(() => statsData().kg);
   const text = await page.locator('#lstats').innerText();
-  for (const s of ['800 × 420', 'верх 970', 'сталь 5 мм', `≈ ${kg} кг`, '15 деталей', '34 / 52', 'DXF готов']) {
+  for (const s of ['800 × 420', 'верх 970', 'сталь 4 мм', `≈ ${kg} кг`, '15 деталей', '34 / 52', 'DXF готов']) {
     expect(text).toContain(s);
   }
   expect(w.pageErrors).toEqual([]);

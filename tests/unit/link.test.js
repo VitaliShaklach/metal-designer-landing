@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const {loadEngine} = require('../engine.js');
 
 const e = loadEngine({extra: ['link']});
-const DEF = {len: 800, wid: 420, top: 970, t: 5, deep: 1};
+const DEF = {len: 800, wid: 420, top: 970, t: 4, deep: 1};
 const read = hash => e.ev(`readLink(${JSON.stringify(hash)})`);
 
 test('exact: ключи всегда в одном порядке', () => {
