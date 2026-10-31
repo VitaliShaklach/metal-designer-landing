@@ -1,11 +1,11 @@
-// Листы А3 «Общий вид» и «Спецификация» в Node: без WebGL видов нет, а спецификация, штамп и формат — есть
+// Листы А3 мангала в Node: без WebGL видов нет, а спецификация, детали, раскрой, штамп и формат — есть
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const {loadEngine, snapshot} = require('../engine.js');
 
-const e = loadEngine({extra: ['views', 'sheet-kit', 'sheets']});
+const e = loadEngine({extra: ['views', 'sheet-kit', 'sheets', 'nest']});
 const at = (o = {}) => e.ev(`setSize(${JSON.stringify({len: 800, wid: 420, top: 970, t: 4, deep: 1, ...o})})`);
 const golden = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'golden.json'), 'utf8'));
 
@@ -119,11 +119,11 @@ test('cover: без 3D каждая деталь раскроя — ровно �
 });
 
 // 7 шагов по 4 на лист — 2 листа сборки
-test('sheetsOrder: общий вид → сборка → детали → спецификация', () => {
+test('sheetsOrder: общий вид → сборка → детали → спецификация → раскрой', () => {
   for (const wid of [420, 280]) {
     at({wid});
     const t = e.ev('buildSheets().map(s => s.title)');
-    assert.deepEqual(t.filter((x, i) => x !== t[i - 1]), ['Общий вид', 'Порядок сборки', 'Детали', 'Спецификация'], `ширина ${wid}`);
+    assert.deepEqual(t.filter((x, i) => x !== t[i - 1]), ['Общий вид', 'Порядок сборки', 'Детали', 'Спецификация', 'Раскрой'], `ширина ${wid}`);
     assert.equal(t.filter(x => x === 'Порядок сборки').length, 2, `ширина ${wid}: листов сборки`);
   }
 });
@@ -141,4 +141,30 @@ test('details: в листах «Детали» каждая деталь под
   }
   at();
   assert.ok(e.ev('buildSheets().filter(s => s.title === "Детали").map(s => s.svg).join("")').includes('17 отв. Ø 15'), 'отверстия боковины');
+});
+
+// Раскрой: лист А3 на каждый лист металла 1250 × 2500, все детали одной толщины (решение 31.10) — один лист
+test('nest: лист «Раскрой» последним, подпись — толщина, лист, номер, заполнение', () => {
+  for (const t of [3, 5]) {
+    at({t});
+    const sh = e.ev('buildSheets()'), nest = sh.filter(s => s.title === 'Раскрой');
+    assert.equal(nest.length, 1, `${t} мм: листов раскроя`);
+    assert.equal(sh[sh.length - 1].title, 'Раскрой', `${t} мм: раскрой не последний`);
+    assert.match(nest[0].svg, new RegExp(`Лист ${t} мм, 1250 × 2500, № 1 из 1`), `${t} мм: подпись`);
+    assert.match(nest[0].svg, /заполнение \d+ %/, `${t} мм: заполнение`);
+  }
+});
+
+// На раскрое — каждый экземпляр детали с номером позиции, в таблице «На листе» — каждая деталь;
+// выбранная на 3D деталь чертежи не урезает: лист — на всё изделие
+test('nestParts: все экземпляры с номерами, выбор на 3D не мешает', () => {
+  for (const [len, wid, sel] of [[800, 420, null], [1200, 500, null], [800, 420, 'gBot']]) {
+    at({len, wid});
+    if (sel) e.ev(`S.sel = {el: 'grill', part: '${sel}'}`);
+    const svg = e.ev('buildSheets().filter(s => s.title === "Раскрой").map(s => s.svg).join("")');
+    e.ev(`S.sel = {el: null, part: null}`);
+    const ps = e.ev('laserParts().map(p => ({...p, esc: shEsc(p.name)}))'), where = `${len} × ${wid}${sel ? ', выбрано дно' : ''}`;
+    assert.equal((svg.match(/<text class="tg"/g) || []).length, ps.reduce((a, p) => a + p.q, 0), `${where}: номеров на листе`);
+    for (const p of ps) assert.ok(svg.includes(`>${p.esc.slice(0, 40)}`), `${where}: нет «${p.name}» в таблице`);
+  }
 });

@@ -1,6 +1,5 @@
 // Листы А3 мангала по образцу листов собаки (C:\dev\metal-designer\art\js\sheets.js): общий вид, порядок сборки,
-// детали, спецификация. Всё — по текущим настройкам; виды рисует сама 3D-модель (views.js), без WebGL вместо видов — надпись.
-// Задача 9 добавит раскрой; итоговый порядок: общий вид → сборка → детали → спецификация → раскрой.
+// детали, спецификация, раскрой. Всё — по текущим настройкам; виды рисует сама 3D-модель (views.js), без WebGL вместо видов — надпись.
 
 const SPEC_ROWS = 32;   // строк спецификации на листе
 const kgTxt = v => v ? v.toFixed(2).replace('.', ',') : '—';
@@ -225,13 +224,50 @@ function sheetsSpec(d) {
   return out;
 }
 
+/* ---------- 5. раскрой ---------- */
+// По листу А3 на каждый лист металла 1250 × 2500 каждой толщины (laserSheets из nest.js, все детали без выбора):
+// контуры деталей на своих местах, номера позиций — как на листах «Детали», справа — что лежит на листе.
+// Координаты листа металла — как в DXF, y вверх
+const NEST_SZ = 1;   // SHEETS[1] — 1250 × 2500
+
+function sheetsNest() {
+  const ss = laserSheets(NEST_SZ, true);
+  if (!ss.length) return [];
+  const [W, L] = SHEETS[NEST_SZ], n = pickScale([L, W], [255, 200]), x0 = 35, y0 = 42;
+  return ss.map(sh => {
+    const P = it => q => { const [x, y] = onSheet(it)(q); return [x0 + x / n, y0 + (W - y) / n]; };
+    const pt = ([x, y]) => `${r2(x)},${r2(y)}`;
+    let s = `<text class="h2" x="25" y="26">${shEsc(`Лист ${sh.mm} мм, ${W} × ${L}, № ${sh.i} из ${sh.n} · заполнение ${Math.round(sh.fill * 100)} %`)}</text>`
+      + `<text class="td" x="25" y="31.5">${shEsc(`Детали в полосе ${W} × ${sh.len} мм, остальное — целый кусок. Зазор между деталями ${NEST_GAP} мм, от края листа ${NEST_EDGE} мм.`)}</text>`
+      + `<rect class="l" x="${x0}" y="${y0}" width="${r2(L / n)}" height="${r2(W / n)}"/>`;
+    if (sh.len < L - NEST_EDGE) s += `<path class="dash" d="M${r2(x0 + sh.len / n)},${y0}V${r2(y0 + W / n)}"/>`;
+    sh.items.forEach(it => {
+      const Q = P(it), fs = r2(Math.max(2.5, Math.min(7, noSize(it) / n)));
+      s += it.m.loops.map(l => `<path class="t" d="M${l.map(q => pt(Q(q))).join('L')}Z"/>`).join('');
+      s += it.m.circles.map(([x, y, r]) => { const [cx, cy] = Q([x, y]); return `<circle class="t" cx="${r2(cx)}" cy="${r2(cy)}" r="${r2(r / n)}"/>`; }).join('');
+      s += it.m.bends.map(([a, b]) => `<path class="dash" d="M${pt(Q(a))}L${pt(Q(b))}"/>`).join('');
+      s += `<text class="tg" x="${r2(x0 + (it.x + it.w / 2) / n)}" y="${r2(y0 + (W - it.y - it.h / 2) / n + fs * 0.35)}" text-anchor="middle" style="font-size:${fs}px">${it.no}</text>`;
+    });
+    // размеры листа: длина — под ним, ширина — слева
+    s += dimH(x0, y0 + W / n, x0 + L / n, y0 + W / n, y0 + W / n + 8, String(L)) + dimV(x0, y0, x0, y0 + W / n, x0 - 6, String(W));
+    // что на листе: позиция, деталь, сколько штук
+    const by = new Map();
+    sh.items.forEach(it => { const r = by.get(it.no) || [String(it.no), it.p.name, 0]; r[2]++; by.set(it.no, r); });
+    const rows = [...by.values()].sort((a, b) => a[0] - b[0]).map(r => [r[0], r[1], String(r[2])]);
+    s += `<text class="h2" x="295" y="${y0 - 3}">На листе</text>`
+      + svgTable(295, y0, [{t: 'Поз.', w: 12, r: 1}, {t: 'Деталь', w: 88}, {t: 'Кол.', w: 15, r: 1}], rows);
+    if (sh.too.length) s += `<text class="h2" x="25" y="${r2(y0 + W / n + 20)}">${shEsc(`Не влезают в лист ${W} × ${L}: ${sh.too.join(', ')}`)}</text>`;
+    return {title: 'Раскрой', scale: scaleTxt(n), body: s};
+  });
+}
+
 // Изделие в штампе и в имени PDF
 const sheetName = d => `Мангал ${d.len} × ${d.wid} × ${d.top}, ${d.t} мм`;
 
 // Все листы: {title, svg} — svg А3 со штампом «Мангал L × W × H, t мм»
 function buildSheets() {
   const d = statsData(), date = shDate();
-  const L = [sheetGeneral(d), ...sheetsAsm(), ...sheetsParts(), ...sheetsSpec(d)];
+  const L = [sheetGeneral(d), ...sheetsAsm(), ...sheetsParts(), ...sheetsSpec(d), ...sheetsNest()];
   const b0 = {name: sheetName(d), mass: `${d.kg} кг`, metal: `сталь ${d.t} мм`};
   return L.map((b, i) => ({title: b.title, svg: wrapSheet({...b0, ...b}, {n: i + 1, N: L.length, date})}));
 }

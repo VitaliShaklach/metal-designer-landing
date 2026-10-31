@@ -17,8 +17,8 @@ async function slide(page, id, v) {
   await frame(page);
 }
 
-// листов по умолчанию: общий вид, 2 листа сборки (7 шагов по 4), детали, спецификация
-const SHEETS = 5;
+// листов по умолчанию: общий вид, 2 листа сборки (7 шагов по 4), детали, спецификация, раскрой
+const SHEETS = 6;
 
 async function openSheets(page) {
   await page.locator('#getBtn').click();
@@ -131,7 +131,7 @@ test('noShot: 3D есть, а рендер снимков не создался 
   expect(w.pageErrors).toEqual([]);
 });
 
-test('noWebGL: вместо видов надпись, спецификация есть', async ({page}) => {
+test('noWebGL: вместо видов надпись, спецификация и раскрой есть', async ({page}) => {
   const w = watch(page);
   await page.addInitScript(() => { HTMLCanvasElement.prototype.getContext = () => null; });
   await page.goto('/');
@@ -139,7 +139,8 @@ test('noWebGL: вместо видов надпись, спецификация 
   await expect(page.locator('#sheetBox .shprev')).toHaveCount(SHEETS);
   await expect(page.locator('#sheetBox .shprev').first()).toContainText('Общий вид недоступен без 3D на этом устройстве');
   await expect(page.locator('#sheetBox .shprev').first().locator('image')).toHaveCount(0);
-  await expect(page.locator('#sheetBox .shprev').last()).toContainText('Итого металла');
+  await expect(page.locator('#sheetBox .shprev', {hasText: 'Спецификация'})).toContainText('Итого металла');
+  await expect(page.locator('#sheetBox .shprev').last()).toContainText('Лист 4 мм, 1250 × 2500, № 1 из 1');
   expect(w.pageErrors).toEqual([]);
   expect(w.errors.filter(e => !/WebGLRenderer: Error creating WebGL context/.test(e))).toEqual([]);
 });

@@ -60,10 +60,10 @@ function nest(items, L, W) {
 
 // Листы для вкладки «Лазер · DXF»: детали — те же и в том же порядке, что в таблице DXF (с учётом выбранной детали),
 // no — позиция в таблице; первым — главный лист (больше всего металла: стенки жаровни), дальше — мелочь.
-// len — занятая полоса по длине листа, fill — доля площади
-function laserSheets(sz) {
+// len — занятая полоса по длине листа, fill — доля площади. all — все детали, без выбора (листы «Раскрой» в чертежах)
+function laserSheets(sz, all = false) {
   const [W, L] = SHEETS[sz];
-  const parts = laserParts().filter(p => inSel(PDF_ELEM(p.pt), p.pt)).map((p, i) => ({no: i + 1, p, m: partMM(p)}));
+  const parts = laserParts().filter(p => all || inSel(PDF_ELEM(p.pt), p.pt)).map((p, i) => ({no: i + 1, p, m: partMM(p)}));
   const area = mm => parts.filter(o => o.p.mm === mm).reduce((a, o) => a + o.m.w * o.m.h * o.p.q, 0);
   const out = [];
   [...new Set(parts.map(o => o.p.mm))].sort((a, b) => area(b) - area(a)).forEach(mm => {
