@@ -197,19 +197,19 @@ test('layout: таблицы прокручиваются внутри блок�
   expect(scrolls).toEqual([true]);
 });
 
-test('tabs (phone): четыре кнопки друг под другом с подписью, видны целиком, нажатая — залита', async ({page}, info) => {
+test('tabs (phone): пять кнопок друг под другом с подписью, видны целиком, нажатая — залита', async ({page}, info) => {
   test.skip(info.project.name !== 'phone', 'только телефон');
   await page.goto('/');
   await open(page);
   const tabs = page.getByRole('tab');
-  await expect(tabs).toHaveCount(4);
+  await expect(tabs).toHaveCount(5);
   const boxes = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 5; i++) {
     await expect(tabs.nth(i).locator('small')).toBeVisible();
     boxes.push(await tabs.nth(i).boundingBox());
   }
   for (const b of boxes) expect(b.x >= 0 && b.x + b.width <= 390 && b.width > 300).toBe(true);   // на всю ширину, не за краем
-  for (let i = 1; i < 4; i++) expect(boxes[i - 1].y + boxes[i - 1].height <= boxes[i].y).toBe(true);
+  for (let i = 1; i < 5; i++) expect(boxes[i - 1].y + boxes[i - 1].height <= boxes[i].y).toBe(true);
   await tabs.nth(2).click();
   await expect(page.locator('#tab-dxf')).toBeVisible();
   const bg = n => tabs.nth(n).evaluate(e => getComputedStyle(e).backgroundColor);
@@ -231,7 +231,9 @@ test('noWebGL: кнопка, вкладки и DXF работают без 3D', 
   await page.getByRole('tab', {name: 'Лазер · DXF'}).press('ArrowRight');
   await expect(page.locator('#tab-sheets')).toBeVisible();
   await page.getByRole('tab', {name: 'Чертежи'}).press('ArrowRight');
-  await expect(page.locator('#tab-cut')).toBeVisible();
+  await expect(page.locator('#tab-cards')).toBeVisible();
+  await page.getByRole('tab', {name: 'Карты деталей'}).press('ArrowRight');
+  await expect(page.locator('#tab-cut')).toBeVisible();   // по кругу, мимо скрытых «Размеров»
   await page.getByRole('tab', {name: 'Лазер · DXF'}).click();
   await expect(page.locator('#dxfTbl tbody tr:not(.tot)')).toHaveCount(8);
   await expect(page.locator('#nestBox .nestsh')).toHaveCount(1);

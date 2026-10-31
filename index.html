@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Metal Designer для цеха</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="fonts/fonts.css?v=2026-10-31n">
-<link rel="stylesheet" href="css/landing.css?v=2026-10-31n">
-<link rel="stylesheet" href="css/md.css?v=2026-10-31n">
+<link rel="stylesheet" href="fonts/fonts.css?v=2026-10-31p">
+<link rel="stylesheet" href="css/landing.css?v=2026-10-31p">
+<link rel="stylesheet" href="css/md.css?v=2026-10-31p">
 </head>
 <body>
 <header class="top wrap">
@@ -62,6 +62,7 @@
       <button role="tab" id="t-cut" data-tab="cut" aria-controls="tab-cut" aria-selected="false" tabindex="-1"><b>Раскрой и масса</b><small>заготовки, вес, металл</small></button>
       <button role="tab" id="t-dxf" data-tab="dxf" aria-controls="tab-dxf" aria-selected="false" tabindex="-1"><b>Лазер · DXF</b><small>лист раскроя и файлы</small></button>
       <button role="tab" id="t-sheets" data-tab="sheets" aria-controls="tab-sheets" aria-selected="false" tabindex="-1"><b>Чертежи</b><small>листы А3 и PDF для печати</small></button>
+      <button role="tab" id="t-cards" data-tab="cards" aria-controls="tab-cards" aria-selected="false" tabindex="-1"><b>Карты деталей</b><small>А4 на каждую деталь: рез, швы, гибка</small></button>
     </div>
 
     <div class="tabpane" id="tab-dims" role="tabpanel" aria-labelledby="t-dims">
@@ -94,6 +95,12 @@
       <div class="dimbar"><button type="button" id="shPdf">PDF для печати</button></div>
       <div class="sheets" id="sheetBox"></div>
     </div>
+
+    <div class="tabpane" id="tab-cards" role="tabpanel" aria-labelledby="t-cards" hidden>
+      <p class="tabnote">Лист А4 на каждую деталь, которую делает цех, — лазерную и из проката: как режут, как выглядит с 4 сторон, где стоит на мангале, к чему варить и какой длины шов, как гнуть. Масса — за вычетом отверстий и прорезей. Покупное — колёса и болты — в спецификации. «PDF для печати» открывает печать браузера: выберите «Сохранить как PDF»</p>
+      <div class="dimbar"><button type="button" id="cdPdf">PDF для печати</button></div>
+      <div class="sheets cards" id="cardBox"></div>
+    </div>
   </section>
 </main>
 
@@ -103,23 +110,24 @@
   <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать описание изделия</a>
 </div>
 
-<script src="vendor/three/three.min.js?v=2026-10-31n"></script>
-<script src="vendor/three/OrbitControls.js?v=2026-10-31n"></script>
-<script src="vendor/three/CSS2DRenderer.js?v=2026-10-31n"></script>
-<script src="md/params.js?v=2026-10-31n"></script>
-<script src="md/parts.js?v=2026-10-31n"></script>
-<script src="md/model.js?v=2026-10-31n"></script>
-<script src="md/dims.js?v=2026-10-31n"></script>
-<script src="md/cut.js?v=2026-10-31n"></script>
-<script src="md/dxf.js?v=2026-10-31n"></script>
-<script src="md/defaults.js?v=2026-10-31n"></script>
-<script src="md/stats.js?v=2026-10-31n"></script>
-<script src="md/views.js?v=2026-10-31n"></script>
-<script src="md/sheet-kit.js?v=2026-10-31n"></script>
-<script src="md/sheets.js?v=2026-10-31n"></script>
-<script src="md/nest.js?v=2026-10-31n"></script>
-<script src="md/link.js?v=2026-10-31n"></script>
-<script src="md/landing.js?v=2026-10-31n"></script>
-<script src="md/controls.js?v=2026-10-31n"></script>
+<script src="vendor/three/three.min.js?v=2026-10-31p"></script>
+<script src="vendor/three/OrbitControls.js?v=2026-10-31p"></script>
+<script src="vendor/three/CSS2DRenderer.js?v=2026-10-31p"></script>
+<script src="md/params.js?v=2026-10-31p"></script>
+<script src="md/parts.js?v=2026-10-31p"></script>
+<script src="md/model.js?v=2026-10-31p"></script>
+<script src="md/dims.js?v=2026-10-31p"></script>
+<script src="md/cut.js?v=2026-10-31p"></script>
+<script src="md/dxf.js?v=2026-10-31p"></script>
+<script src="md/defaults.js?v=2026-10-31p"></script>
+<script src="md/stats.js?v=2026-10-31p"></script>
+<script src="md/views.js?v=2026-10-31p"></script>
+<script src="md/sheet-kit.js?v=2026-10-31p"></script>
+<script src="md/sheets.js?v=2026-10-31p"></script>
+<script src="md/nest.js?v=2026-10-31p"></script>
+<script src="md/cards.js?v=2026-10-31p"></script>
+<script src="md/link.js?v=2026-10-31p"></script>
+<script src="md/landing.js?v=2026-10-31p"></script>
+<script src="md/controls.js?v=2026-10-31p"></script>
 </body>
 </html>

@@ -150,6 +150,8 @@ svg.nestsk text { font-family: var(--f-mono); font-weight: 600; fill: var(--ink)
 .shprev { margin: 0; display: flex; flex-direction: column; gap: 6px; }
 .shprev figcaption { font: 13px/1.4 var(--f-mono); color: var(--muted); }
 .shprev svg { display: block; width: 100%; height: auto; border: 1px solid var(--rule); background: #fff; }
+/* Карты деталей А4 — сеткой: на десктопе по три в ряд, на телефоне по одной */
+.sheets.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
 
 /* Печать: только листы из #printBox, каждый на свою страницу (размер страницы — @page из printSheets).
    Лист на 1 мм ниже страницы, как в C:\dev: ровно 297 мм Chrome иногда переносит на лишнюю пустую страницу */

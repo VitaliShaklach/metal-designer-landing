@@ -41,7 +41,7 @@ function renderAll() {
   drawCut();
   drawStats();
   writeLink();
-  drawSheets();
+  drawDocs();
 }
 
 // Адрес — всегда текущий мангал, без новых шагов «Назад». Пишется через 0,3 с после последнего изменения:
@@ -167,24 +167,58 @@ getBtn.addEventListener('click', () => {
   getBtn.setAttribute('aria-expanded', String(!getSec.hidden));
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;   // кому мешает анимация — без плавной прокрутки
   if (!getSec.hidden) getSec.scrollIntoView({behavior: calm ? 'auto' : 'smooth', block: 'start'});
-  drawSheets(true);
+  drawDocs(true);
 });
 
-// Чертежи: листы строятся, только пока вкладка открыта. Открыли вкладку — сразу; сменили настройки — через 0,25 с
-// после последней смены: снимок четырёх видов — заметная работа, на каждый кадр ползунка её не делаем
-const sheetPane = document.getElementById('tab-sheets'), sheetBox = document.getElementById('sheetBox');
-let sheetTimer = 0, sheetsNow = [], sheetsFor = '';
-const sheetsStale = () => JSON.stringify(state) !== sheetsFor;   // листы построены не по текущим настройкам
-function drawSheets(now) {
-  clearTimeout(sheetTimer);
-  if (getSec.hidden || sheetPane.hidden || !sheetsStale()) return;
-  if (now) showSheets(); else sheetTimer = setTimeout(showSheets, 250);
+// Чертежи А3 и карты деталей А4: листы строятся, только пока их вкладка открыта. Открыли вкладку — сразу;
+// сменили настройки — через 0,25 с после последней смены: снимок видов — заметная работа, на каждый кадр ползунка её не делаем.
+// list — построенные листы, for — по каким настройкам
+// Карты (start) строятся по одной за шаг, между шагами страница отвечает; превью меняются на месте, лишние — убираются.
+// job — недостроенная серия: новые настройки её бросают, печать — достраивает разом
+const DOCS = [
+  {pane: 'tab-sheets', box: 'sheetBox', pdf: 'shPdf', cap: 'Лист', a4: false, build: buildSheets},
+  {pane: 'tab-cards', box: 'cardBox', pdf: 'cdPdf', cap: 'Карта', a4: true, build: buildCards, start: startCards},
+].map(d => ({...d, pane: document.getElementById(d.pane), box: document.getElementById(d.box), list: [], for: '', job: null}));
+let docTimer = 0;
+const docStale = d => JSON.stringify(state) !== d.for;   // листы построены не по текущим настройкам
+function drawDocs(now) {
+  clearTimeout(docTimer);
+  const d = DOCS.find(d => !getSec.hidden && !d.pane.hidden && docStale(d));
+  if (!d) return;
+  if (now) showDoc(d); else docTimer = setTimeout(() => showDoc(d), 250);
 }
-function showSheets() {
-  sheetsNow = buildSheets();
-  sheetsFor = JSON.stringify(state);
-  sheetBox.innerHTML = sheetsNow.map((s, i) =>
-    `<figure class="shprev"><figcaption>Лист ${i + 1} из ${sheetsNow.length} · ${s.title}</figcaption>${s.svg}</figure>`).join('');
+const docFig = (d, s, i, n) => `<figure class="shprev"><figcaption>${d.cap} ${i + 1} из ${n} · ${s.title}</figcaption>${s.svg}</figure>`;
+function stopDoc(d) {
+  if (!d.job) return;
+  clearTimeout(d.job.timer);
+  d.job.it.close();
+  d.job = null;
+}
+function showDoc(d) {
+  stopDoc(d);
+  d.for = JSON.stringify(state);
+  if (!d.start) {
+    d.list = d.build();
+    d.box.innerHTML = d.list.map((s, i) => docFig(d, s, i, d.list.length)).join('');
+    return;
+  }
+  const it = d.start(), job = {it, timer: 0};
+  d.job = job;
+  d.list = [];
+  // за шаг — карты, пока не прошло ~0,2 с: каждая пауза — ещё и кадр 3D на экране, на слабой видеокарте он не бесплатный
+  const step = () => {
+    if (d.job !== job) return;
+    const t0 = performance.now();
+    do {
+      const i = d.list.length, s = it.next(), old = d.box.children[i];
+      d.list.push(s);
+      if (old) old.outerHTML = docFig(d, s, i, it.N); else d.box.insertAdjacentHTML('beforeend', docFig(d, s, i, it.N));
+    } while (d.list.length < it.N && performance.now() - t0 < 200);
+    if (d.list.length < it.N) { job.timer = setTimeout(step, 0); return; }
+    while (d.box.children.length > it.N) d.box.lastElementChild.remove();
+    d.job = null;
+  };
+  if (it.N) step(); else { d.box.innerHTML = ''; d.job = null; }
 }
 
 // Печать листов по образцу printSvgs из C:\dev: листы — в #printBox, размер страницы — @page, после печати всё убирается
@@ -195,15 +229,21 @@ function printSheets(list, a4) {
   pg.textContent = `@media print{@page{size:${a4 ? 'A4 portrait' : 'A3 landscape'};margin:0}}`;
   document.head.appendChild(pg);
   const t = document.title;
-  document.title = sheetName(statsData()) + ' — чертежи';   // имя файла PDF по умолчанию
+  document.title = sheetName(statsData()) + (a4 ? ' — карты деталей' : ' — чертежи');   // имя файла PDF по умолчанию
   const done = () => { document.title = t; pb.innerHTML = ''; pg.remove(); removeEventListener('afterprint', done); };
   addEventListener('afterprint', done);
   window.print();
 }
-document.getElementById('shPdf').addEventListener('click', () => {
-  if (sheetsStale()) showSheets();   // ползунок только что двигали — печатаем текущие, не ждём 0,25 с
-  printSheets(sheetsNow, false);
-});
+DOCS.forEach(d => document.getElementById(d.pdf).addEventListener('click', () => {
+  // ползунок только что двигали или карты ещё строятся — печатаем текущие целиком, не ждём
+  if (docStale(d) || d.job) {
+    stopDoc(d);
+    d.list = d.build();
+    d.for = JSON.stringify(state);
+    d.box.innerHTML = d.list.map((s, i) => docFig(d, s, i, d.list.length)).join('');
+  }
+  printSheets(d.list, d.a4);
+}));
 
 // Вкладки как в C:\dev: клик или стрелки ←/→. Выбор не запоминаем — localStorage общий с хобби-сайтом
 const TABS = [...getSec.querySelectorAll('[role=tab]')];
@@ -214,7 +254,7 @@ function showTab(name) {
     b.tabIndex = on ? 0 : -1;
     document.getElementById('tab-' + b.dataset.tab).hidden = !on;
   });
-  drawSheets(true);
+  drawDocs(true);
 }
 TABS.forEach(b => {
   b.addEventListener('click', () => showTab(b.dataset.tab));
@@ -287,7 +327,7 @@ function drawNest() {
   }).join('');
 }
 // Зазор между деталями (setNestGap из nest.js): пока вводят — перекладываем по каждому верному числу,
-// по выходу из поля — показываем то, что встало (3–20 мм, шаг 0,5). Лист «Раскрой» в чертежах — тоже с ним,
+// по выходу из поля — показываем то, что встало (3–20 мм, шаг 0,5). Листы «Раскрой» в чертежах — тоже с ним,
 // их кэш по state зазора не видит, поэтому сбрасываем. Как и размер листа — не в ссылке и не в localStorage
 const gapInp = document.getElementById('nestGap');
 function setGap(fix) {
@@ -297,8 +337,8 @@ function setGap(fix) {
   if (fix) gapInp.value = now;
   if (now === was) return;
   drawNest();
-  sheetsFor = '';
-  drawSheets();
+  DOCS.forEach(d => { d.for = ''; });
+  drawDocs();
 }
 gapInp.addEventListener('input', () => setGap(false));
 gapInp.addEventListener('change', () => setGap(true));

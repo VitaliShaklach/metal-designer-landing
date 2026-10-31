@@ -17,10 +17,11 @@ const VIEWS = {
 const SHOT_EDGE = 0x1c2a40, SHOT_HL = 0xc4480c, SHOT_MAX = 4096;   // рёбра, подсветка, предел картинки в px
 
 // Детали на снимке: вся модель, как на экране без выбора детали (выбор на 3D листы не меняет), кроме hide.
+// only — верхние объекты group, которые только и снимаются (один экземпляр детали на карте); null — все.
 // Возвращает верхние объекты group и их меши
-function shotParts(hide) {
+function shotParts(hide, only = null) {
   const top = group.children.filter(o => !o.userData.dim && (!S.parts || S.parts.has(PDF_PART[o.userData.part]))
-    && !(hide && hide.has(o.userData.part)));
+    && !(hide && hide.has(o.userData.part)) && !(only && !only.has(o)));
   const meshes = [];
   top.forEach(o => o.traverse(m => {
     if (!m.isMesh) return;
@@ -68,13 +69,28 @@ function shotRenderer() {
   return shotR;
 }
 
-// Вид в масштабе 1:scale картинкой PNG. highlight — id деталей, залитых акцентом; hide — id, которых нет на снимке.
+// Материалы снимков — одни на страницу: уничтоженный материал уносит с собой шейдер, и каждый следующий снимок
+// компилировал бы его заново — на картах деталей это десятки снимков подряд
+let shotM = null;
+function shotMats() {
+  if (!shotM) {
+    const white = new THREE.MeshLambertMaterial({color: 0xffffff, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1});
+    const accent = white.clone();
+    accent.color.set(SHOT_HL);
+    shotM = {white, accent, edgeMat: new THREE.LineBasicMaterial({color: SHOT_EDGE})};
+  }
+  return shotM;
+}
+
+// Вид в масштабе 1:scale картинкой PNG. highlight — id деталей, залитых акцентом; hide — id, которых нет на снимке;
+// only — верхние объекты group, которые только и снимаются; hlObj — верхние объекты, залитые акцентом;
+// edges — Map геометрия → рёбра на серию снимков одной модели (рёбра не считаются заново; освобождает тот, кто дал Map).
 // toPaper([x, y, z]) — точка модели (см) в мм бумаги от левого верхнего угла картинки. Без 3D — null
-function renderView(view, scale, {pxPerMm = 8, highlight = null, hide = null} = {}) {
+function renderView(view, scale, {pxPerMm = 8, highlight = null, hide = null, only = null, hlObj = null, edges = null} = {}) {
   if (!ok || !group) return null;
   const R = shotRenderer();
   if (!R) return null;
-  const v = VIEWS[view], {top, meshes} = shotParts(hide);
+  const v = VIEWS[view], {top, meshes} = shotParts(hide, only);
   if (!meshes.length) return null;
   const k = 10 / scale, pad = 1 / k;   // мм бумаги на см модели; поле 1 мм — рёбра у края не обрезаются
   const e = shotExtent(v, meshes);
@@ -98,15 +114,12 @@ function renderView(view, scale, {pxPerMm = 8, highlight = null, hide = null} = 
   const amb = new THREE.AmbientLight(0xffffff, .5), sun = new THREE.DirectionalLight(0xffffff, .6);
   sun.position.copy(c).add(d.clone().addScaledVector(up, .5).addScaledVector(r, -.3).multiplyScalar(100));   // свету важно только направление
   sun.target.position.copy(c);
-  const white = new THREE.MeshLambertMaterial({color: 0xffffff, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1});
-  const accent = white.clone();
-  accent.color.set(SHOT_HL);
-  const edgeMat = new THREE.LineBasicMaterial({color: SHOT_EDGE});
+  const {white, accent, edgeMat} = shotMats();
 
   // что вернуть после снимка
   const vis = [...scene.children, ...group.children].map(o => [o, o.visible]);
   const mats = meshes.map(m => [m, m.material]);
-  const edges = [];
+  const lines = [];   // рёбра на снимке: [меш, линии]
   const on = new Set(top);
   let url;
   try {
@@ -114,23 +127,25 @@ function renderView(view, scale, {pxPerMm = 8, highlight = null, hide = null} = 
     group.children.forEach(o => { o.visible = on.has(o); });
     scene.add(amb, sun, sun.target);
     meshes.forEach(m => {
-      let part = null;
+      let part = null, o = m;
       for (let p = m; p && p !== group && !part; p = p.parent) part = p.userData.part;
-      m.material = highlight && highlight.has(part) ? accent : white;
+      while (o.parent && o.parent !== group) o = o.parent;   // верхний объект group
+      m.material = (highlight && highlight.has(part)) || (hlObj && hlObj.has(o)) ? accent : white;
       m.userData.shot = 1;
-      const ed = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, 25), edgeMat);
+      let eg = edges && edges.get(m.geometry);
+      if (!eg) { eg = new THREE.EdgesGeometry(m.geometry, 25); if (edges) edges.set(m.geometry, eg); }
+      const ed = new THREE.LineSegments(eg, edgeMat);
       ed.userData.shotEdge = 1;
       m.add(ed);
-      edges.push([m, ed]);
+      lines.push([m, ed]);
     });
     R.render(scene, cam);
     url = R.domElement.toDataURL('image/png');
   } finally {
     scene.remove(amb, sun, sun.target);
-    edges.forEach(([m, ed]) => { m.remove(ed); ed.geometry.dispose(); });
+    lines.forEach(([m, ed]) => { m.remove(ed); if (!edges) ed.geometry.dispose(); });
     mats.forEach(([m, mat]) => { m.material = mat; delete m.userData.shot; });
     vis.forEach(([o, s]) => { o.visible = s; });
-    white.dispose(); accent.dispose(); edgeMat.dispose();
   }
   const toPaper = p => {
     const q = new THREE.Vector3(...p);
