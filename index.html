@@ -4,10 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Metal Designer для цеха</title>
+<meta name="description" content="Мангал под размер клиента: двигаете размеры — 3D, раскрой, чертежи и DXF пересчитываются сразу">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Metal Designer для цеха">
+<meta property="og:description" content="Мангал под размер клиента: двигаете размеры — 3D, раскрой, чертежи и DXF пересчитываются сразу">
+<meta property="og:image" content="https://vitalishaklach.github.io/metal-designer-landing/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://vitalishaklach.github.io/metal-designer-landing/">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="fonts/fonts.css?v=2026-10-31p">
-<link rel="stylesheet" href="css/landing.css?v=2026-10-31p">
-<link rel="stylesheet" href="css/md.css?v=2026-10-31p">
+<link rel="stylesheet" href="fonts/fonts.css?v=2026-11-01">
+<link rel="stylesheet" href="css/landing.css?v=2026-11-01">
+<link rel="stylesheet" href="css/md.css?v=2026-11-01">
 </head>
 <body>
 <header class="top wrap">
@@ -102,6 +111,56 @@
       <div class="sheets cards" id="cardBox"></div>
     </div>
   </section>
+
+  <section class="vs wrap" aria-label="Сейчас и с Metal Designer">
+    <div class="vsgrid" id="vs">
+      <h2 class="lbl-old">Сейчас</h2>
+      <div class="col col-old">
+        <h3>Проектировщик на стороне</h3>
+        <ul>
+          <li>Пара дней</li>
+          <li>Нужно толковое ТЗ</li>
+          <li>Размеры потом не подвинуть</li>
+          <li>Правка: снова к проектировщику и ждать</li>
+          <li>Пересчёт вручную</li>
+          <li>Другому клиенту — новый заказ</li>
+        </ul>
+      </div>
+      <h2 class="lbl-new">С Metal Designer</h2>
+      <div class="col col-new">
+        <h3>Metal Designer</h3>
+        <ul>
+          <li>1 день</li>
+          <li>Достаточно подробных фото и описания словами</li>
+          <li>Двигаете сами</li>
+          <li>Правите сами</li>
+          <li>Детали, раскрой, масса, DXF пересчитываются сами</li>
+          <li>Другой размер для другого клиента: сами, бесплатно, в любой момент</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="how wrap" id="how" aria-labelledby="howT">
+    <h2 id="howT">Как работаем</h2>
+    <ol class="steps">
+      <li>Присылаете подробные фото и описание словами.</li>
+      <li>Я проектирую: 3D, размеры, раскрой, DXF, чертёж и план сборки.</li>
+      <li>Завтра получаете ссылку на свой проект.</li>
+      <li>Нужен такой же другому клиенту, но другого размера, или надо поправить — делаете сами, бесплатно, в любой момент, и сразу получаете готовый проект.</li>
+    </ol>
+    <p class="note">Обычно 1 день. Срочно сделаю быстрее. Бесплатно, пока запускаюсь</p>
+  </section>
+
+  <section class="me wrap" id="me" aria-labelledby="meT">
+    <h2 id="meT">Виталий</h2>
+    <p class="lead">Пришлите фото и описание изделия в Telegram — отвечу и назову срок.</p>
+    <!-- Телефон (tel:) и Viber (viber://chat?number=%2B…) — когда будет номер -->
+    <ul class="contacts">
+      <li><span>Telegram</span> <a href="https://t.me/SHVA_1984" target="_blank" rel="noopener">@SHVA_1984</a></li>
+    </ul>
+    <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать описание изделия</a>
+  </section>
 </main>
 
 <div id="printBox"></div>
@@ -110,24 +169,24 @@
   <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать описание изделия</a>
 </div>
 
-<script src="vendor/three/three.min.js?v=2026-10-31p"></script>
-<script src="vendor/three/OrbitControls.js?v=2026-10-31p"></script>
-<script src="vendor/three/CSS2DRenderer.js?v=2026-10-31p"></script>
-<script src="md/params.js?v=2026-10-31p"></script>
-<script src="md/parts.js?v=2026-10-31p"></script>
-<script src="md/model.js?v=2026-10-31p"></script>
-<script src="md/dims.js?v=2026-10-31p"></script>
-<script src="md/cut.js?v=2026-10-31p"></script>
-<script src="md/dxf.js?v=2026-10-31p"></script>
-<script src="md/defaults.js?v=2026-10-31p"></script>
-<script src="md/stats.js?v=2026-10-31p"></script>
-<script src="md/views.js?v=2026-10-31p"></script>
-<script src="md/sheet-kit.js?v=2026-10-31p"></script>
-<script src="md/sheets.js?v=2026-10-31p"></script>
-<script src="md/nest.js?v=2026-10-31p"></script>
-<script src="md/cards.js?v=2026-10-31p"></script>
-<script src="md/link.js?v=2026-10-31p"></script>
-<script src="md/landing.js?v=2026-10-31p"></script>
-<script src="md/controls.js?v=2026-10-31p"></script>
+<script src="vendor/three/three.min.js?v=2026-11-01"></script>
+<script src="vendor/three/OrbitControls.js?v=2026-11-01"></script>
+<script src="vendor/three/CSS2DRenderer.js?v=2026-11-01"></script>
+<script src="md/params.js?v=2026-11-01"></script>
+<script src="md/parts.js?v=2026-11-01"></script>
+<script src="md/model.js?v=2026-11-01"></script>
+<script src="md/dims.js?v=2026-11-01"></script>
+<script src="md/cut.js?v=2026-11-01"></script>
+<script src="md/dxf.js?v=2026-11-01"></script>
+<script src="md/defaults.js?v=2026-11-01"></script>
+<script src="md/stats.js?v=2026-11-01"></script>
+<script src="md/views.js?v=2026-11-01"></script>
+<script src="md/sheet-kit.js?v=2026-11-01"></script>
+<script src="md/sheets.js?v=2026-11-01"></script>
+<script src="md/nest.js?v=2026-11-01"></script>
+<script src="md/cards.js?v=2026-11-01"></script>
+<script src="md/link.js?v=2026-11-01"></script>
+<script src="md/landing.js?v=2026-11-01"></script>
+<script src="md/controls.js?v=2026-11-01"></script>
 </body>
 </html>

@@ -131,7 +131,7 @@ h1 {
 /* Блок «Что получаете» */
 .get { padding-top: 24px; padding-bottom: 32px; scroll-margin-top: 8px; }
 .get[hidden] { display: none; }
-.get h2 {
+.get h2, .vs h2, .how h2, .me h2 {
   margin: 0 0 6px;
   font: 600 28px/1.15 var(--f-display);
   text-transform: uppercase;
@@ -139,6 +139,72 @@ h1 {
 }
 .get .lead { margin-bottom: 14px; }
 .get h3.sub { margin: 6px 0 0; font: 600 17px var(--f-display); text-transform: uppercase; letter-spacing: .05em; }
+
+/* Нижние блоки: «Сейчас / с Metal Designer», «Как работаем», «Виталий» */
+.vs, .how, .me { padding-top: 24px; padding-bottom: 32px; }
+.how h2, .me h2 { margin-bottom: 14px; }
+.vs h2 { margin: 0; }
+.vs .lbl-new { margin-top: 14px; color: var(--accent); }   /* на телефоне — отступ от левой колонки */
+
+/* Две колонки; на телефоне друг под другом, на компьютере строки напротив друг друга */
+.vsgrid { display: grid; gap: 10px; }
+.col { background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; padding: 14px 20px; }
+.col-new { border: 2px solid var(--accent); }
+.col h3 { margin: 0 0 4px; font: 600 17px var(--f-display); text-transform: uppercase; letter-spacing: .05em; }
+.col-old h3 { color: var(--muted); }
+.col-new h3 { color: var(--accent); }
+.col ul { list-style: none; margin: 0; padding: 0; }
+.col li { position: relative; padding: 9px 0 9px 26px; }
+.col li + li { border-top: 1px dashed var(--rule); }
+.col li::before { position: absolute; left: 0; top: 9px; font-weight: 700; }
+.col-old li { color: var(--muted); }
+.col-old li::before { content: "✕"; color: var(--muted); }
+.col-new li { font-weight: 600; }
+.col-new li::before { content: "✓"; color: var(--accent); }
+
+/* Шаги с номерами в кружках */
+.steps { list-style: none; margin: 0; padding: 0; counter-reset: s; max-width: 44em; }
+.steps li { position: relative; padding: 10px 0 10px 44px; counter-increment: s; }
+.steps li + li { border-top: 1px dashed var(--rule); }
+.steps li::before {
+  content: counter(s);
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 30px;
+  height: 30px;
+  border: 1.5px solid var(--blue);
+  border-radius: 50%;
+  background: var(--paper);
+  font: 500 14px/27px var(--f-mono);
+  text-align: center;
+}
+.how .note {
+  margin: 14px 0 0;
+  max-width: 44em;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--panel);
+  font-weight: 600;
+}
+
+/* Контакты */
+.contacts { list-style: none; margin: 12px 0 16px; padding: 0; font-family: var(--f-mono); font-size: 15px; }
+.contacts li { padding: 2px 0; }
+.contacts span { display: inline-block; min-width: 6em; color: var(--muted); }
+.contacts a { color: var(--accent); font-weight: 500; }
+
+@media (min-width: 720px) {
+  .vsgrid { grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  .vs .lbl-old { grid-column: 1; grid-row: 1; }
+  .vs .lbl-new { grid-column: 2; grid-row: 1; margin-top: 0; }
+  .vs h2 { margin-bottom: 14px; }
+  .col { display: grid; grid-row: 2 / span 7; grid-template-rows: subgrid; row-gap: 0; }
+  .col-old { grid-column: 1; }
+  .col-new { grid-column: 2; }
+  .col ul { display: contents; }
+  .me .btn { display: inline-block; }
+}
 
 /* Главная кнопка всегда под рукой на телефоне */
 .cta-bar { display: none; }
