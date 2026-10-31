@@ -17,6 +17,9 @@ async function slide(page, id, v) {
   await frame(page);
 }
 
+// листов по умолчанию: общий вид, 2 листа сборки (7 шагов по 4), детали, спецификация
+const SHEETS = 5;
+
 async function openSheets(page) {
   await page.locator('#getBtn').click();
   await page.getByRole('tab', {name: 'Чертежи'}).click();
@@ -64,6 +67,8 @@ test('restore: после снимка модель на экране та же'
 });
 
 test('views: на общем виде 4 вида и размеры текущих настроек', async ({page}) => {
+  // три смены размера — три пересборки листов по 11 снимков 3D на процессоре (SwiftShader): дольше 30 с
+  test.slow();
   const w = watch(page);
   await page.goto('/');
   await openSheets(page);
@@ -71,7 +76,7 @@ test('views: на общем виде 4 вида и размеры текущи�
   await expect(first.locator('image')).toHaveCount(4);
   const hrefs = await first.locator('image').evaluateAll(els => els.map(e => e.getAttribute('href').slice(0, 15)));
   expect(hrefs).toEqual(Array(4).fill('data:image/png;'));
-  await expect(page.locator('#sheetBox .shprev')).toHaveCount(2);
+  await expect(page.locator('#sheetBox .shprev')).toHaveCount(SHEETS);
   await slide(page, '#sLen', 1000);
   await slide(page, '#sWid', 500);
   await slide(page, '#sTop', 900);
@@ -100,7 +105,7 @@ test('print: в печати только листы, каждый А3 420 × 29
     const page = [...document.head.querySelectorAll('style')].map(s => s.textContent).join('');
     return {svgs, shown, page};
   });
-  expect(r.svgs).toEqual([[420, 296], [420, 296]]);
+  expect(r.svgs).toEqual(Array(SHEETS).fill([420, 296]));
   expect(r.shown).toEqual(['printBox']);
   expect(r.page).toContain('A3 landscape');
 });
@@ -109,7 +114,7 @@ test('layout (phone): превью листов в ширину экрана, с
   test.skip(info.project.name !== 'phone', 'только телефон');
   await page.goto('/');
   await openSheets(page);
-  await expect(page.locator('#sheetBox .shprev')).toHaveCount(2);
+  await expect(page.locator('#sheetBox .shprev')).toHaveCount(SHEETS);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   const b = await page.locator('#sheetBox svg').first().boundingBox();
   expect(b.x).toBeGreaterThanOrEqual(0);
@@ -121,7 +126,7 @@ test('noShot: 3D есть, а рендер снимков не создался 
   await page.goto('/');
   await page.evaluate(() => { shotR = false; });
   await openSheets(page);
-  await expect(page.locator('#sheetBox .shprev')).toHaveCount(2);
+  await expect(page.locator('#sheetBox .shprev')).toHaveCount(SHEETS);
   await expect(page.locator('#sheetBox .shprev').first()).toContainText('Общий вид недоступен');
   expect(w.pageErrors).toEqual([]);
 });
@@ -131,10 +136,42 @@ test('noWebGL: вместо видов надпись, спецификация 
   await page.addInitScript(() => { HTMLCanvasElement.prototype.getContext = () => null; });
   await page.goto('/');
   await openSheets(page);
-  await expect(page.locator('#sheetBox .shprev')).toHaveCount(2);
+  await expect(page.locator('#sheetBox .shprev')).toHaveCount(SHEETS);
   await expect(page.locator('#sheetBox .shprev').first()).toContainText('Общий вид недоступен без 3D на этом устройстве');
   await expect(page.locator('#sheetBox .shprev').first().locator('image')).toHaveCount(0);
-  await expect(page.locator('#sheetBox .shprev').nth(1)).toContainText('Дно жаровни');
+  await expect(page.locator('#sheetBox .shprev').last()).toContainText('Итого металла');
   expect(w.pageErrors).toEqual([]);
   expect(w.errors.filter(e => !/WebGLRenderer: Error creating WebGL context/.test(e))).toEqual([]);
+});
+
+// Детали модели — как на снимке листов: всё в group, кроме размеров и частей вне S.parts (крыши нет)
+test('cover: каждая деталь модели — ровно в одном шаге сборки, на узком мангале без колёс тоже', async ({page}) => {
+  await page.goto('/');
+  for (const wid of [420, 280]) {
+    await slide(page, '#sWid', wid);
+    const r = await page.evaluate(() => {
+      const ids = new Set(group.children.filter(o => !o.userData.dim && S.parts.has(PDF_PART[o.userData.part])).map(o => o.userData.part));
+      const steps = asmSteps();
+      return {ids: [...ids], times: [...ids].map(id => steps.filter(s => s.parts.includes(id)).length), wheels: ids.has('wheels'), feet: ids.has('feet')};
+    });
+    expect(r.ids.length, `ширина ${wid}`).toBeGreaterThan(10);
+    expect(r.times, `ширина ${wid}: ${r.ids.join(' ')}`).toEqual(r.ids.map(() => 1));
+    expect([r.wheels, r.feet]).toEqual(wid >= 300 ? [true, false] : [false, true]);
+  }
+});
+
+test('asm: на листах сборки по картинке PNG на шаг, детали шага подписаны', async ({page}) => {
+  // общий вид и 7 шагов сборки — 11 снимков 3D на процессоре: рядом с другим тестом не укладывается в 30 с
+  test.slow();
+  const w = watch(page);
+  await page.goto('/');
+  await openSheets(page);
+  const asm = page.locator('#sheetBox .shprev').filter({hasText: 'Порядок сборки'});
+  await expect(asm).toHaveCount(2);
+  const imgs = await asm.evaluateAll(fs => fs.map(f => [...f.querySelectorAll('image')].map(i => i.getAttribute('href').slice(0, 15))));
+  expect(imgs).toEqual([Array(4).fill('data:image/png;'), Array(3).fill('data:image/png;')]);
+  await expect(asm.first()).toContainText('Шаг 1. Дно и боковины');
+  await expect(asm.last()).toContainText('Шаг 7. Колосник и решётки — кладутся');
+  expect(w.pageErrors).toEqual([]);
+  expect(w.errors).toEqual([]);
 });

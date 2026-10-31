@@ -1,6 +1,6 @@
-// Листы А3 мангала по образцу листов собаки (C:\dev\metal-designer\art\js\sheets.js): общий вид и спецификация.
-// Всё — по текущим настройкам; виды рисует сама 3D-модель (views.js), без WebGL вместо видов — надпись.
-// Задачи 8 и 9 вставляют свои листы; итоговый порядок: общий вид → сборка → детали → спецификация → раскрой.
+// Листы А3 мангала по образцу листов собаки (C:\dev\metal-designer\art\js\sheets.js): общий вид, порядок сборки,
+// детали, спецификация. Всё — по текущим настройкам; виды рисует сама 3D-модель (views.js), без WebGL вместо видов — надпись.
+// Задача 9 добавит раскрой; итоговый порядок: общий вид → сборка → детали → спецификация → раскрой.
 
 const SPEC_ROWS = 32;   // строк спецификации на листе
 const kgTxt = v => v ? v.toFixed(2).replace('.', ',') : '—';
@@ -80,7 +80,127 @@ function sheetGeneral(d) {
   return {title: 'Общий вид', scale: scaleTxt(n), body: s};
 }
 
-/* ---------- 2. спецификация ---------- */
+/* ---------- 2. порядок сборки ---------- */
+// Шаги из спеки, id деталей — метки tag(...) в model.js. Шаги 4 и 5 спеки объединены: площадка под ножку,
+// патрубок и труба ножки — одна деталь 'legs', по отдельности их не подсветить
+const ASM_STEPS = [
+  {title: 'Дно и боковины', parts: ['gBot', 'side0', 'side1']},
+  {title: 'Торцы', parts: ['gEnd', 'gEnd0', 'logo']},
+  {title: 'Уголки в жаровне и опоры колосника', parts: ['gAng', 'cgrAngB', 'cgrAngF']},
+  {title: 'Площадки и патрубки ножек — к дну; ножки, площадки колёс, колёса', parts: ['legs', 'legTw', 'pads', 'feet', 'wheels']},
+  {title: 'Скобы и задвижки поддува', parts: ['hook', 'air']},
+  {title: 'Ручка', parts: ['handle']},
+  {title: 'Колосник и решётки — кладутся', parts: ['cgr1', 'cgr2', 'g2', 'gGrate', 'div']},
+];
+
+// id деталей текущей модели: с 3D — те, что попадают на снимок (views.js), без 3D — из раскроя и деталей под лазер.
+// Составные (cgr, cgrAng — «обе половины», «оба уголка») — не детали модели, вместо них их части
+function modelParts() {
+  if (ok && group) return new Set(shotParts(null).top.map(o => o.userData.part));
+  const ids = [...cutList().flatMap(r => (r.pt || []).flatMap(expand)), ...laserParts().map(p => p.pt)];
+  return new Set(ids.filter(id => !PART_SET[id]));
+}
+
+// Шаги без деталей, которых нет в модели, и без пустых шагов
+function asmSteps() {
+  const have = modelParts();
+  return ASM_STEPS.map(s => ({title: s.title, parts: s.parts.filter(p => have.has(p))})).filter(s => s.parts.length);
+}
+
+// Имена деталей в списке шага: где имени из PARTS нет или оно про выбор на 3D; null — в список не пишем (пометка)
+const ASM_NAME = {
+  legs: 'Ножки: площадка под дно, патрубок, труба', legTw: null, feet: 'Пятки ножек',
+  cgrAngB: 'Опора колосника задняя — уголок', cgrAngF: 'Опора колосника передняя — уголок',
+  gGrate: 'Решётка в жаровне', g2: 'Решётки сверху',
+};
+const asmName = id => id in ASM_NAME ? ASM_NAME[id] : partName(id);
+
+const ASM_PER = 4;   // шагов на листе: сетка 2 × 2
+
+// Листы по ASM_PER шагов: изометрия, детали шага — акцентом, прошлых шагов — белые, будущих нет.
+// Масштаб у всех шагов один, и мангал стоит в клетке на одном месте: картинки сдвинуты по точке (0, 0, 0) модели
+// Стрелки «ножка откручивается» (legTw) на снимках нет: это пометка, не деталь — подсвеченная, она похожа на кольцо
+function sheetsAsm() {
+  const steps = asmSteps(), CW = 190, CH = 124, IW = 184, IH = 104;   // клетка шага и поле картинки, мм
+  const bi = modelBoxMm('iso'), n = bi && pickScale([bi.w, bi.h], [IW, IH]);
+  const imgs = steps.map((s, i) => bi && renderView('iso', n, {
+    pxPerMm: 6, highlight: new Set(s.parts), hide: new Set(['legTw', ...steps.slice(i + 1).flatMap(x => x.parts)]),
+  }));
+  const full = imgs[imgs.length - 1];   // последний шаг — вся модель: по нему место мангала в клетке
+  const anchor = full && full.toPaper([0, 0, 0]).map((v, k) => v + ([IW, IH][k] - [full.wMm, full.hMm][k]) / 2);
+  const out = [];
+  for (let i = 0; i < steps.length; i += ASM_PER) {
+    let s = '';
+    steps.slice(i, i + ASM_PER).forEach((st, j) => {
+      const x = 25 + (j % 2) * (CW + 5), y = 21 + Math.floor(j / 2) * (CH + 3), img = imgs[i + j];
+      s += `<rect class="t" x="${x}" y="${y}" width="${CW}" height="${CH}"/>`;
+      if (img && anchor) {
+        const o = img.toPaper([0, 0, 0]);
+        s += placeView(img, x + 3 + anchor[0] - o[0], y + 3 + anchor[1] - o[1]).svg;
+      } else {
+        s += `<text class="sm" x="${x + CW / 2}" y="${y + IH / 2}" text-anchor="middle">Вид недоступен без 3D на этом устройстве</text>`;
+      }
+      let ty = y + IH + 7;
+      s += `<text class="h2" x="${x + 3}" y="${ty}">${shEsc(`Шаг ${i + j + 1}. ${st.title}`)}</text>`;
+      wrapTxt(st.parts.map(asmName).filter(Boolean).join(', ') + '.', 110).forEach(l => {
+        ty += 4.2;
+        s += `<text class="td" x="${x + 3}" y="${r2(ty)}">${shEsc(l)}</text>`;
+      });
+    });
+    out.push({title: 'Порядок сборки', scale: n && full ? scaleTxt(n) : '—', body: s});
+  }
+  return out;
+}
+
+/* ---------- 3. детали ---------- */
+// Развёртки всех деталей под лазер в одном масштабе: контур и отверстия, гибы пунктиром, габаритные размеры,
+// подпись — имя, толщина, количество, габарит, отверстия. Рядами слева направо, не влезли — новый лист
+const mmTxt = v => String(Math.round(v * 10) / 10).replace('.', ',');
+
+// Отверстия детали: «4 отв. Ø 9, 2 отв. Ø 20», прорези и вырезы — числом
+function holesTxt(m) {
+  const by = new Map();
+  m.circles.forEach(c => { const d = mmTxt(c[2] * 2); by.set(d, (by.get(d) || 0) + 1); });
+  const r = [...by].map(([d, k]) => `${k} отв. Ø ${d}`);
+  if (m.loops.length > 1) r.push(`${m.loops.length - 1} прорез.`);
+  return r.join(', ');
+}
+
+// Развёртка в клетке: x, y — левый верхний угол контура на листе, n — масштаб
+function partSvg(m, x, y, n) {
+  const P = ([px, py]) => `${r2(x + px / n)},${r2(y + (m.h - py) / n)}`;
+  let s = m.loops.map(l => `<path class="l" d="M${l.map(P).join('L')}Z"/>`).join('');
+  s += m.circles.map(([cx, cy, r]) => `<circle class="l" cx="${r2(x + cx / n)}" cy="${r2(y + (m.h - cy) / n)}" r="${r2(r / n)}"/>`).join('');
+  s += m.bends.map(([a, b]) => `<path class="dash" d="M${P(a)}L${P(b)}"/>`).join('');
+  const w = m.w / n, h = m.h / n;
+  return s + dimH(x, y, x + w, y, y - 5, mmTxt(m.w)) + dimV(x, y, x, y + h, x - 5, mmTxt(m.h));
+}
+
+function sheetsParts() {
+  const ps = laserParts().map(p => ({p, m: partMM(p)}));
+  if (!ps.length) return [];
+  const n = pickScale([Math.max(...ps.map(q => q.m.w)), Math.max(...ps.map(q => q.m.h))], [180, 110]);   // две длинные детали в ряд
+  const X0 = 25, X1 = 410, Y0 = 21, Y1 = 272, out = [];
+  let s = '', x = X0, y = Y0, rowH = 0;
+  ps.forEach(({p, m}, i) => {
+    const cap = [
+      `Лист ${p.mm} мм, ${p.q} шт. Габарит ${mmTxt(m.w)} × ${mmTxt(m.h)} мм`,
+      ...wrapTxt([holesTxt(m), p.note].filter(Boolean).join('; '), 52),
+    ];
+    const w = Math.max(m.w / n + 12, 78), h = 9 + m.h / n + 6 + 4.2 * (cap.length + 1);   // клетка детали
+    if (x + w > X1) { x = X0; y += rowH + 4; rowH = 0; }
+    if (y + h > Y1) { out.push(s); s = ''; x = X0; y = Y0; rowH = 0; }
+    const yb = y + 9 + m.h / n + 6;   // подпись — под контуром
+    s += partSvg(m, x + 10, y + 9, n)
+      + `<text class="td tg" x="${r2(x + 3)}" y="${r2(yb)}">${shEsc(`${i + 1}. ${p.name}`)}</text>`
+      + cap.map((t, k) => `<text class="td" x="${r2(x + 3)}" y="${r2(yb + 4.2 * (k + 1))}">${shEsc(t)}</text>`).join('');
+    x += w + 4; rowH = Math.max(rowH, h);
+  });
+  out.push(s);
+  return out.map(body => ({title: 'Детали', scale: scaleTxt(n), body}));
+}
+
+/* ---------- 4. спецификация ---------- */
 // Все строки раскроя по SPEC_ROWS на лист, заголовки групп — отдельной строкой; на последнем — итог и металл
 function sheetsSpec(d) {
   const cols = [{t: 'Поз.', w: 12, r: 1}, {t: 'Наименование', w: 140}, {t: 'Размер, мм', w: 62}, {t: 'Кол.', w: 14, r: 1}, {t: 'Масса, кг', w: 22, r: 1}];
@@ -111,7 +231,7 @@ const sheetName = d => `Мангал ${d.len} × ${d.wid} × ${d.top}, ${d.t} м
 // Все листы: {title, svg} — svg А3 со штампом «Мангал L × W × H, t мм»
 function buildSheets() {
   const d = statsData(), date = shDate();
-  const L = [sheetGeneral(d), ...sheetsSpec(d)];
+  const L = [sheetGeneral(d), ...sheetsAsm(), ...sheetsParts(), ...sheetsSpec(d)];
   const b0 = {name: sheetName(d), mass: `${d.kg} кг`, metal: `сталь ${d.t} мм`};
   return L.map((b, i) => ({title: b.title, svg: wrapSheet({...b0, ...b}, {n: i + 1, N: L.length, date})}));
 }
