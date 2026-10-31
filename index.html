@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Metal Designer для цеха</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="fonts/fonts.css?v=2026-10-31e">
-<link rel="stylesheet" href="css/landing.css?v=2026-10-31e">
-<link rel="stylesheet" href="css/md.css?v=2026-10-31e">
+<link rel="stylesheet" href="fonts/fonts.css?v=2026-10-31h">
+<link rel="stylesheet" href="css/landing.css?v=2026-10-31h">
+<link rel="stylesheet" href="css/md.css?v=2026-10-31h">
 </head>
 <body>
 <header class="top wrap">
@@ -61,6 +61,7 @@
       <button role="tab" id="t-dims" data-tab="dims" aria-controls="tab-dims" aria-selected="true"><b>Размеры</b><small>какие показать на модели</small></button>
       <button role="tab" id="t-cut" data-tab="cut" aria-controls="tab-cut" aria-selected="false" tabindex="-1"><b>Раскрой и масса</b><small>заготовки, вес, металл</small></button>
       <button role="tab" id="t-dxf" data-tab="dxf" aria-controls="tab-dxf" aria-selected="false" tabindex="-1"><b>Лазер · DXF</b><small>лист раскроя и файлы</small></button>
+      <button role="tab" id="t-sheets" data-tab="sheets" aria-controls="tab-sheets" aria-selected="false" tabindex="-1"><b>Чертежи</b><small>листы А3 и PDF для печати</small></button>
     </div>
 
     <div class="tabpane" id="tab-dims" role="tabpanel" aria-labelledby="t-dims">
@@ -86,27 +87,38 @@
       <div class="dimbar"><button type="button" id="dxfAll">Скачать все (ZIP)</button><span class="dxfmsg" id="dxfMsg" role="status"></span></div>
       <div class="tbl"><table id="dxfTbl"></table></div>
     </div>
+
+    <div class="tabpane" id="tab-sheets" role="tabpanel" aria-labelledby="t-sheets" hidden>
+      <p class="tabnote">Листы А3, как у проектировщика: общий вид с размерами и спецификация. Виды рисует та же 3D-модель — двигаете размеры, листы меняются. «PDF для печати» открывает печать браузера: выберите «Сохранить как PDF»</p>
+      <div class="dimbar"><button type="button" id="shPdf">PDF для печати</button></div>
+      <div class="sheets" id="sheetBox"></div>
+    </div>
   </section>
 </main>
+
+<div id="printBox"></div>
 
 <div class="cta-bar">
   <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать описание изделия</a>
 </div>
 
-<script src="vendor/three/three.min.js?v=2026-10-31e"></script>
-<script src="vendor/three/OrbitControls.js?v=2026-10-31e"></script>
-<script src="vendor/three/CSS2DRenderer.js?v=2026-10-31e"></script>
-<script src="md/params.js?v=2026-10-31e"></script>
-<script src="md/parts.js?v=2026-10-31e"></script>
-<script src="md/model.js?v=2026-10-31e"></script>
-<script src="md/dims.js?v=2026-10-31e"></script>
-<script src="md/cut.js?v=2026-10-31e"></script>
-<script src="md/dxf.js?v=2026-10-31e"></script>
-<script src="md/defaults.js?v=2026-10-31e"></script>
-<script src="md/stats.js?v=2026-10-31e"></script>
-<script src="md/nest.js?v=2026-10-31e"></script>
-<script src="md/link.js?v=2026-10-31e"></script>
-<script src="md/landing.js?v=2026-10-31e"></script>
-<script src="md/controls.js?v=2026-10-31e"></script>
+<script src="vendor/three/three.min.js?v=2026-10-31h"></script>
+<script src="vendor/three/OrbitControls.js?v=2026-10-31h"></script>
+<script src="vendor/three/CSS2DRenderer.js?v=2026-10-31h"></script>
+<script src="md/params.js?v=2026-10-31h"></script>
+<script src="md/parts.js?v=2026-10-31h"></script>
+<script src="md/model.js?v=2026-10-31h"></script>
+<script src="md/dims.js?v=2026-10-31h"></script>
+<script src="md/cut.js?v=2026-10-31h"></script>
+<script src="md/dxf.js?v=2026-10-31h"></script>
+<script src="md/defaults.js?v=2026-10-31h"></script>
+<script src="md/stats.js?v=2026-10-31h"></script>
+<script src="md/views.js?v=2026-10-31h"></script>
+<script src="md/sheet-kit.js?v=2026-10-31h"></script>
+<script src="md/sheets.js?v=2026-10-31h"></script>
+<script src="md/nest.js?v=2026-10-31h"></script>
+<script src="md/link.js?v=2026-10-31h"></script>
+<script src="md/landing.js?v=2026-10-31h"></script>
+<script src="md/controls.js?v=2026-10-31h"></script>
 </body>
 </html>

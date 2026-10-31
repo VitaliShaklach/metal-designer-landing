@@ -41,6 +41,7 @@ function renderAll() {
   drawCut();
   drawStats();
   writeLink();
+  drawSheets();
 }
 
 // Адрес — всегда текущий мангал, без новых шагов «Назад». Пишется через 0,3 с после последнего изменения:
@@ -166,6 +167,42 @@ getBtn.addEventListener('click', () => {
   getBtn.setAttribute('aria-expanded', String(!getSec.hidden));
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;   // кому мешает анимация — без плавной прокрутки
   if (!getSec.hidden) getSec.scrollIntoView({behavior: calm ? 'auto' : 'smooth', block: 'start'});
+  drawSheets(true);
+});
+
+// Чертежи: листы строятся, только пока вкладка открыта. Открыли вкладку — сразу; сменили настройки — через 0,25 с
+// после последней смены: снимок четырёх видов — заметная работа, на каждый кадр ползунка её не делаем
+const sheetPane = document.getElementById('tab-sheets'), sheetBox = document.getElementById('sheetBox');
+let sheetTimer = 0, sheetsNow = [], sheetsFor = '';
+const sheetsStale = () => JSON.stringify(state) !== sheetsFor;   // листы построены не по текущим настройкам
+function drawSheets(now) {
+  clearTimeout(sheetTimer);
+  if (getSec.hidden || sheetPane.hidden || !sheetsStale()) return;
+  if (now) showSheets(); else sheetTimer = setTimeout(showSheets, 250);
+}
+function showSheets() {
+  sheetsNow = buildSheets();
+  sheetsFor = JSON.stringify(state);
+  sheetBox.innerHTML = sheetsNow.map((s, i) =>
+    `<figure class="shprev"><figcaption>Лист ${i + 1} из ${sheetsNow.length} · ${s.title}</figcaption>${s.svg}</figure>`).join('');
+}
+
+// Печать листов по образцу printSvgs из C:\dev: листы — в #printBox, размер страницы — @page, после печати всё убирается
+function printSheets(list, a4) {
+  const pb = document.getElementById('printBox'), pg = document.createElement('style');
+  pb.innerHTML = list.map(s => s.svg).join('');
+  pb.classList.toggle('a4', !!a4);
+  pg.textContent = `@media print{@page{size:${a4 ? 'A4 portrait' : 'A3 landscape'};margin:0}}`;
+  document.head.appendChild(pg);
+  const t = document.title;
+  document.title = sheetName(statsData()) + ' — чертежи';   // имя файла PDF по умолчанию
+  const done = () => { document.title = t; pb.innerHTML = ''; pg.remove(); removeEventListener('afterprint', done); };
+  addEventListener('afterprint', done);
+  window.print();
+}
+document.getElementById('shPdf').addEventListener('click', () => {
+  if (sheetsStale()) showSheets();   // ползунок только что двигали — печатаем текущие, не ждём 0,25 с
+  printSheets(sheetsNow, false);
 });
 
 // Вкладки как в C:\dev: клик или стрелки ←/→. Выбор не запоминаем — localStorage общий с хобби-сайтом
@@ -177,6 +214,7 @@ function showTab(name) {
     b.tabIndex = on ? 0 : -1;
     document.getElementById('tab-' + b.dataset.tab).hidden = !on;
   });
+  drawSheets(true);
 }
 TABS.forEach(b => {
   b.addEventListener('click', () => showTab(b.dataset.tab));
