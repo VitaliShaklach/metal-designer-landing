@@ -11,35 +11,44 @@ const {loadEngine, snapshot} = require('../engine.js');
 const DEV = 'C:/dev/metal-designer/mangal/js';
 const GOLDEN = path.join(__dirname, '..', 'golden.json');
 
-// только числа: тексты пояснений на лендинге свои (без перегородки, прорези от длины)
+// только числа: тексты пояснений на лендинге свои (без перегородки, прорези от длины).
+// Масса — до 10 г: формулы те же, но порядок умножения другой, и последний знак может разойтись
+// (площадка колеса: 3,53249… у md/ и 3,5325 у C:\dev)
 const nums = ({cut, laser, stats}) => ({
-  cut: cut.map(r => r.grp ? {grp: r.grp} : {n: r.n, s: r.s, q: r.q, kg: r.kg, pt: r.pt}),
+  cut: cut.map(r => r.grp ? {grp: r.grp} : {n: r.n, s: r.s, q: r.q, kg: Math.round(r.kg * 100) / 100, pt: r.pt}),
   laser, stats,
 });
 
 // Сверка с C:\dev — при 5 мм, как там. Отличия лендинга:
 // - перегородки жаровни нет (решение 31.10, задача 2);
-// - все листовые детали одной толщины (решение 31.10): задвижки и площадки под колёса — 5 мм, а не 3 и 6;
-//   отсюда площадка колеса тоньше — ножка с колесом на 1 мм длиннее, а скоба задвижки шире под планку 5 мм
-const SAME_T = r => /^(Задвижка поддува|Площадка под колесо|Скоба задвижки|Ножка .* с колесом)/.test(r.n || '');
-const SAME_T_LASER = ['grill_air_slider', 'wheel_pad'];
+// - все листовые детали одной толщины (решение 31.10): задвижки — 5 мм, а не 3, отсюда скоба задвижки шире под планку 5 мм.
+// - колосник мангала — покупной перфолист, не лазер: в C:\dev он на листе с мангала v1.1.1 (01.11), а лендинг —
+//   витрина, не редактор (решение Виталия 01.11); две половины колосника — лишние детали у C:\dev.
+// Площадка под колесо и ножка с колесом — как в C:\dev: там площадка тоже 5 мм с мангала v1.2.0 (01.11)
+const SAME_T = r => /^(Задвижка поддува|Скоба задвижки)/.test(r.n || '');
+const SAME_T_LASER = ['grill_air_slider'];
+const GRATE = p => /^grill_grate_/.test(p.file);
 
 test('golden: при 5 мм копия в md/ считает как C:\\dev — без перегородки, все детали одной толщины', {skip: !fs.existsSync(DEV) && 'нет C:\\dev на этой машине'}, () => {
   const e5 = loadEngine();
   e5.ev('setSize({len: 800, wid: 420, top: 970, t: 5, deep: 1})');
   const dev = nums(snapshot(loadEngine({dir: DEV}))), md = nums(snapshot(e5));
+  // колосник на листе — только у C:\dev: две половины, в панели цифр это +2 детали
+  assert.deepEqual(dev.laser.filter(GRATE).map(p => [p.file, p.q]), [['grill_grate_1', 1], ['grill_grate_2', 1]]);
+  assert.ok(!md.laser.some(GRATE), 'на лендинге колосник не лазерный');
+  dev.laser = dev.laser.filter(p => !GRATE(p));
+  dev.stats = {...dev.stats, parts: dev.stats.parts - 2};
   const div = dev.cut.find(r => r.n === 'Перегородка жаровни');
   assert.ok(div, 'в C:\\dev перегородка в раскрое есть');
   // лист перегородки уходит из раскроя
   assert.deepEqual(md.cut.filter(r => !SAME_T(r)), dev.cut.filter(r => r !== div && !SAME_T(r)));
-  // задвижки и площадки колёс — из того же листа 5 мм; строки те же, другие толщина, масса, длина ножки, ширина скобы
+  // задвижки — из того же листа 5 мм; строки те же, другие толщина, масса, ширина скобы
   assert.deepEqual(md.cut.filter(SAME_T).map(r => r.n), dev.cut.filter(SAME_T).map(r => r.n));
   const row = (s, n) => s.cut.find(r => r.n === n);
-  assert.equal(row(dev, 'Площадка под колесо (низ ножки)').s, '150 × 150 × 6');
   assert.equal(row(md, 'Площадка под колесо (низ ножки)').s, '150 × 150 × 5');
   assert.match(row(dev, 'Задвижка поддува (планка)').s, / × 3$/);
   assert.match(row(md, 'Задвижка поддува (планка)').s, / × 5$/);
-  // прорези под перегородку уходят из боковин: рез короче; задвижки и площадки колёс — 5 мм; остальные детали — как в C:\dev
+  // прорези под перегородку уходят из боковин: рез короче; задвижки — 5 мм; остальные детали — как в C:\dev
   const side = p => /^grill_side/.test(p.file), sameT = p => SAME_T_LASER.includes(p.file);
   assert.deepEqual(md.laser.filter(p => !side(p) && !sameT(p)), dev.laser.filter(p => !side(p) && !sameT(p)));
   md.laser.filter(sameT).forEach((p, i) => {
