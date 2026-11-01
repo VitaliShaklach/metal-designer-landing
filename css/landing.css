@@ -179,7 +179,7 @@ h1 {
 /* Блок «Что получаете» */
 .get { padding-top: 24px; padding-bottom: 32px; scroll-margin-top: 8px; }
 .get[hidden] { display: none; }
-.get h2, .vs h2, .how h2, .me h2 {
+.get h2, .vs h2, .proj h2, .how h2, .me h2 {
   margin: 0 0 6px;
   font: 600 28px/1.15 var(--f-display);
   text-transform: uppercase;
@@ -188,8 +188,11 @@ h1 {
 .get .lead { margin-bottom: 14px; }
 .get h3.sub { margin: 6px 0 0; font: 600 17px var(--f-display); text-transform: uppercase; letter-spacing: .05em; }
 
-/* Нижние блоки: «Сейчас / с Metal Designer», «Как работаем», «Виталий» */
-.vs, .how, .me { padding-top: 24px; padding-bottom: 32px; }
+/* Нижние блоки: «Сейчас / с Metal Designer», «Посмотрите, каким будет ваш проект», «Как работаем», «Виталий» */
+.vs, .proj, .how, .me { padding-top: 24px; padding-bottom: 32px; }
+/* Кнопка в редактор — обводкой, слабее главной оранжевой */
+.proj .lead { margin-bottom: 16px; }
+.proj .btn:hover { background: var(--panel); }
 .how h2, .me h2 { margin-bottom: 14px; }
 .vs h2 { margin: 0; }
 .vs .lbl-new { margin-top: 14px; color: var(--accent); }   /* на телефоне — отступ от левой колонки */
@@ -227,16 +230,11 @@ h1 {
   font: 500 14px/27px var(--f-mono);
   text-align: center;
 }
-.how .note {
-  margin: 14px 0 0;
-  max-width: 44em;
-  padding: 10px 14px;
-  border-left: 3px solid var(--accent);
-  background: var(--panel);
-  font-weight: 600;
-}
 
 /* Контакты */
+/* «Спроектирую ваше изделие бесплатно.» — главное предложение, видно сразу */
+.me .lead strong { color: var(--ink); font-weight: 700; }
+
 .contacts { list-style: none; margin: 12px 0 16px; padding: 0; font-family: var(--f-mono); font-size: 15px; }
 .contacts li { padding: 2px 0; }
 .contacts span { display: inline-block; min-width: 6em; color: var(--muted); }
@@ -251,7 +249,7 @@ h1 {
   .col-old { grid-column: 1; }
   .col-new { grid-column: 2; }
   .col ul { display: contents; }
-  .me .btn { display: inline-block; }
+  .me .btn, .proj .btn { display: inline-block; }
 }
 
 /* Главная кнопка всегда под рукой на телефоне */

@@ -29,14 +29,47 @@ test('copy: таблица, шаги и строка под ними — дос�
   expect(await texts(page, '#vs .col-old li')).toEqual(ROWS.map(r => r[0]));
   expect(await texts(page, '#vs .col-new li')).toEqual(ROWS.map(r => r[1]));
   expect(await texts(page, '#how .steps li')).toEqual(STEPS);
-  await expect(page.locator('#how .note')).toHaveText('Обычно 1 день. Срочно сделаю быстрее. Бесплатно, пока запускаюсь');
+  // срок — рядом с «бесплатно» в контактах, под шагами строки нет (решение 02.11)
+  await expect(page.locator('#how .note')).toHaveCount(0);
   await expect(page.locator('#me')).toContainText('Виталий');
-  await expect(page.locator('#me a.btn-main')).toHaveText('Прислать описание изделия');
+  await expect(page.locator('#me .lead')).toHaveText('Спроектирую ваше изделие бесплатно. Обычно за 1 день, срочно — быстрее. Пришлите фото и пожелания в Telegram — отвечу и назову точный срок.');
+  await expect(page.locator('#me .lead strong')).toHaveText('Спроектирую ваше изделие бесплатно.');
+  await expect(page.locator('#me a.btn-main')).toHaveText('Прислать фото и пожелания');
+  await expect(page.locator('.cta-bar a.btn-main')).toHaveText('Прислать фото и пожелания');
+  await expect(page.locator('.cta-bar')).not.toContainText('бесплатно');   // полоса на телефоне — только кнопка
 });
 
-test('noDemo: на странице нет ссылок на демо', async ({page}) => {
+test('proj: «Посмотрите, каким будет ваш проект» — после «Сейчас / с Metal Designer», перед «Как работаем»', async ({page}) => {
   await page.goto('/');
-  await expect(page.locator('a[href*="demo.html"]')).toHaveCount(0);
+  await expect(page.locator('#proj h2')).toHaveText('Посмотрите, каким будет ваш проект');
+  await expect(page.locator('#proj p')).toHaveText('Мангал, печь, рысь. Размеры меняете сами — бесплатно.');
+  const a = page.locator('#proj a');
+  await expect(a).toHaveCount(1);
+  await expect(a).toHaveText('Подогнать под свои размеры →');
+  await expect(a).toHaveAttribute('href', 'editor/');
+  // вторая кнопка — обводкой, заметно слабее главной
+  await expect(a).toHaveClass(/\bbtn\b/);
+  await expect(a).not.toHaveClass(/btn-main/);
+  const bg = await page.evaluate(() => [
+    getComputedStyle(document.querySelector('#proj a')).backgroundColor,
+    getComputedStyle(document.querySelector('#me a.btn-main')).backgroundColor,
+  ]);
+  expect(bg[0]).not.toBe(bg[1]);
+  const [vs, proj, how] = await Promise.all(['.vs', '#proj', '#how'].map(s => page.locator(s).boundingBox()));
+  expect(proj.y).toBeGreaterThanOrEqual(vs.y + vs.height);
+  expect(how.y).toBeGreaterThanOrEqual(proj.y + proj.height);
+});
+
+test('noDemo: ни в тексте, ни в ссылках нет «демо», старых призывов нет', async ({page}) => {
+  await page.goto('/');
+  const {text, hrefs} = await page.evaluate(() => ({
+    text: document.body.textContent,
+    hrefs: [...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href')),
+  }));
+  expect(text).not.toMatch(/демо|demo/i);
+  for (const h of hrefs) expect(h).not.toMatch(/демо|demo/i);
+  expect(text).not.toContain('пока запускаюсь');
+  expect(text).not.toContain('Прислать описание изделия');
 });
 
 test('tg: все кнопки ведут в Telegram и открываются в новой вкладке', async ({page}) => {
