@@ -44,3 +44,18 @@ test('truncated: обрезанная или пустая ссылка — пр�
 test('extra: лишние ключи не мешают, порядок ключей не важен', () => {
   assert.deepEqual(read('#deep=0&t=4&top=900&wid=500&len=1000&item=mangal'), {len: 1000, wid: 500, top: 900, t: 4, deep: 0});
 });
+
+test('readItem: рысь только по item=rys', () => {
+  assert.equal(e.ev(`readItem('#item=rys')`), 'rys');
+  assert.equal(e.ev(`readItem('#len=600&wid=280&top=900&t=4&deep=0')`), 'mangal');
+  assert.equal(e.ev(`readItem('#item=pech')`), 'mangal');
+  assert.equal(e.ev(`readItem('#item=rysь')`), 'mangal');
+  assert.equal(e.ev(`readItem('#xitem=rys')`), 'mangal');
+  assert.equal(e.ev(`readItem('')`), 'mangal');
+});
+
+test('itemHash: мангал — прежняя ссылка, рысь — #item=rys', () => {
+  const s = {len: 1000, wid: 500, top: 900, t: 4, deep: 0};
+  assert.equal(e.ev(`itemHash('mangal', ${JSON.stringify(s)})`), '#len=1000&wid=500&top=900&t=4&deep=0');
+  assert.equal(e.ev(`itemHash('rys', ${JSON.stringify(s)})`), '#item=rys');
+});

@@ -2,6 +2,9 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {polyToModel, statsTiles} = require('../../tools/lynx-capture.js');
+const {loadEngine} = require('../engine.js');
+
+const e = loadEngine({extra: ['lynx']});
 
 test('polyToModel: берёт V, P, имя и высоту из plates-lynxN.js', () => {
   const src = "MODELS_POLY.lynx7={V:[0,0,0,10,0,0,10,10,0],P:[0,1,2,-1]};\n" +
@@ -34,4 +37,10 @@ test('statsTiles: нет строки или в ней нет числа — о�
   assert.throws(() => statsTiles([], opts), /Деталей/);
   assert.throws(() => statsTiles(SUM.map(([l, v]) => [l, l === 'Деталей' ? '' : v]), opts), /Деталей/);
   assert.throws(() => statsTiles(SUM.map(([l, v]) => [l, l.startsWith('Масса') ? '—' : v]), opts), /Масса/);
+});
+
+test('lynxStatsHtml: плитка на каждую строку stats, разметка как у панели мангала', () => {
+  const html = e.ev(`lynxStatsHtml({tiles: [['1000 мм', 'высота'], ['2 мм', 'сталь']]})`);
+  assert.equal((html.match(/class="stat"/g) || []).length, 2);
+  assert.match(html, /<div class="stat"><b>1000 мм<\/b><span>высота<\/span><\/div>/);
 });

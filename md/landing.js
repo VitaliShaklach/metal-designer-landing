@@ -5,6 +5,8 @@
 // Размеры мангала, мм, толщина стенок, мм, и глубокие прорези (1 — есть): берутся из ссылки после #
 // (битая — пример по умолчанию); ползунки, кнопки и галочка меняют их, renderAll() пересчитывает по ним всё
 const state = readLink(location.hash);
+// Изделие на первом экране: 'mangal' или 'rys' (ссылка #item=rys); переключатель и адрес меняют его через setItem()
+let item = readItem(location.hash);
 
 // 1 деталь, 2 детали, 5 деталей
 function plural(n, one, few, many) {
@@ -44,12 +46,12 @@ function renderAll() {
   drawDocs();
 }
 
-// Адрес — всегда текущий мангал, без новых шагов «Назад». Пишется через 0,3 с после последнего изменения:
+// Адрес — всегда текущее изделие (у мангала — с размерами), без новых шагов «Назад». Пишется через 0,3 с после последнего изменения:
 // ползунок перерисовывает по кадру, а Safari бросает ошибку, если менять адрес чаще 100 раз за 10 с
 let linkTimer = 0;
 function writeLink() {
   clearTimeout(linkTimer);
-  linkTimer = setTimeout(() => history.replaceState(null, '', linkHash(state)), 300);
+  linkTimer = setTimeout(() => history.replaceState(null, '', itemHash(item, state)), 300);
 }
 
 // Вид на модель: цель — центр рамки видимых деталей (вся модель или выбранная деталь),
@@ -97,8 +99,10 @@ function flyStep() {
   if (k >= 1) camAnim = null;
 }
 
+// Скрытый #stage (показана рысь) — размер 0 × 0: такой не ставим, иначе камера получит aspect NaN
 function sizeStage() {
   const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
   renderer.setSize(w, h, false);
   labels.setSize(w, h);
   camera.aspect = w / h;
@@ -151,20 +155,26 @@ function showState() {
 }
 showState();
 
-// Новая ссылка в уже открытой вкладке (вставили в адресную строку, открыли из мессенджера) — мангал по ней
+// Новая ссылка в уже открытой вкладке (вставили в адресную строку, открыли из мессенджера) — изделие и мангал по ней.
+// Ссылка рыси размеры мангала не трогает: вернулись к мангалу — он прежний
 window.addEventListener('hashchange', () => {
-  Object.assign(state, readLink(location.hash));
+  const next = readItem(location.hash);
+  if (next === 'mangal') Object.assign(state, readLink(location.hash));
   showState();
+  setItem(next);
   redraw();
 });
 
 // Блок «Что получаете» свёрнут; кнопка под цифрами раскрывает его и прокручивает к нему, повторно — сворачивает.
 // Всё посчитано и без неё: renderAll() рисует таблицы и в скрытом блоке
 const getSec = document.getElementById('get'), getBtn = document.getElementById('getBtn');
+function showGet(open) {
+  getSec.hidden = !open;
+  getBtn.textContent = open ? 'Скрыть чертежи ↑' : 'Показать чертежи и DXF ↓';
+  getBtn.setAttribute('aria-expanded', String(open));
+}
 getBtn.addEventListener('click', () => {
-  getSec.hidden = !getSec.hidden;
-  getBtn.textContent = getSec.hidden ? 'Показать чертежи и DXF ↓' : 'Скрыть чертежи ↑';
-  getBtn.setAttribute('aria-expanded', String(!getSec.hidden));
+  showGet(getSec.hidden);
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;   // кому мешает анимация — без плавной прокрутки
   if (!getSec.hidden) getSec.scrollIntoView({behavior: calm ? 'auto' : 'smooth', block: 'start'});
   drawDocs(true);
@@ -352,6 +362,7 @@ if (ok) {
   sizeStage();
   (function frameLoop() {
     requestAnimationFrame(frameLoop);
+    if (item !== 'mangal') return;       // показана рысь — мангал кадры не рисует
     flyStep();
     controls.update();
     renderer.render(scene, camera);
@@ -362,3 +373,39 @@ if (ok) {
 }
 renderAll();
 fitView();
+
+// «Мангал | Рысь»: видны только блоки [data-item] выбранного изделия, кнопки — aria-pressed.
+// Рысь: блок «Что получаете» свёрнут, цифры — из lynx/stats.json, он грузится один раз по первому показу.
+// Пока #stage скрыт, окно могли повернуть или растянуть, а sizeStage() размер 0 × 0 пропускает:
+// при возврате к мангалу ставим размер и камеру заново, модель — в кадр
+const ITEM_BTNS = [...document.querySelectorAll('#items button')];
+const ITEM_ELS = [...document.querySelectorAll('[data-item]')].filter(el => !ITEM_BTNS.includes(el));
+let lynxStatsLoad = null;   // промис загрузки stats.json
+function setItem(next) {
+  item = next;
+  ITEM_ELS.forEach(el => { el.hidden = el.dataset.item !== item; });
+  ITEM_BTNS.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.item === item)));
+  if (item === 'rys') {
+    showGet(false);
+    lynxStatsLoad ??= fetch('lynx/stats.json').then(r => r.json())
+      .then(st => { document.getElementById('lynxStats').innerHTML = lynxStatsHtml(st); })
+      .catch(() => { lynxStatsLoad = null; });   // не загрузилось — без цифр, следующий показ попробует снова
+  } else if (ok) {
+    sizeStage();
+    fitView();
+  }
+  writeLink();
+}
+ITEM_BTNS.forEach(b => b.addEventListener('click', () => setItem(b.dataset.item)));
+setItem(item);
+
+// Любая картинка ленты рыси — крупно в #lbox; клик по нему закрывает, Esc закрывает сам <dialog>
+const lbox = document.getElementById('lbox'), lboxImg = lbox.querySelector('img');
+document.querySelector('.ribbon').addEventListener('click', e => {
+  const img = e.target.closest('img');
+  if (!img) return;
+  lboxImg.src = img.src;
+  lboxImg.alt = img.alt;
+  lbox.showModal();
+});
+lbox.addEventListener('click', () => lbox.close());

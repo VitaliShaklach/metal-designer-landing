@@ -33,3 +33,13 @@ function readLink(hash) {
   }
   return values;
 }
+
+// Какое изделие на первом экране: '#item=rys' — рысь, всё остальное (и ссылки мангала с размерами) — мангал
+function readItem(hash) {
+  return hash.replace(/^#/, '').split('&').includes('item=rys') ? 'rys' : 'mangal';
+}
+
+// Адрес первого экрана: у рыси — '#item=rys', у мангала — прежняя ссылка с размерами (item=mangal не пишем)
+function itemHash(item, state) {
+  return item === 'rys' ? '#item=rys' : linkHash(state);
+}

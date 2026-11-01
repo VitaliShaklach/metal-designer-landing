@@ -65,6 +65,16 @@ h1 {
   font-size: min(44px, calc((100vw - 32px) / 17.5));
   overflow: hidden;                      /* пока Oswald грузится, запасной шрифт шире — без прокрутки вбок */
 }
+/* Переключатель «Мангал | Рысь» над моделью */
+.items { display: flex; gap: 6px; }
+.items button {
+  min-width: 112px; height: 38px; padding: 0 16px;
+  border: 1px solid var(--blue); border-radius: 4px; background: var(--panel); color: var(--blue);
+  font: 600 16px var(--f-display); text-transform: uppercase; letter-spacing: .04em; cursor: pointer;
+}
+.items button[aria-pressed="true"] { background: var(--blue); color: #fff; }
+.items button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+[data-item][hidden] { display: none; }   /* .sizes, .stats, .btn задают свой display — hidden должен перебить */
 #stage {
   position: relative;
   height: min(60vh, 540px);
@@ -107,6 +117,44 @@ h1 {
 .deep { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .deep input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 .lead { margin: 0; color: var(--muted); max-width: 44em; }
+
+/* Рысь: лента «Было → Переработка → Стало → Чертежи», на компьютере одной строкой высотой как #stage, «Стало» — шире всех */
+.lynx { display: flex; flex-direction: column; gap: 12px; }
+.lynxsub { margin: 0; font-weight: 600; }
+.ribbon {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: 1fr 1fr 2.4fr 1fr; gap: 28px;
+  height: min(60vh, 540px); min-height: 320px;
+}
+.ribbon li {
+  position: relative; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px; background: var(--panel); border: 1px solid var(--rule); border-radius: 4px;
+}
+.ribbon .r-now { border: 2px solid var(--accent); background: var(--stage); }
+.rcap { font: 600 14px var(--f-display); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.r-now .rcap { color: var(--accent); }
+.ribbon img { display: block; width: 100%; min-height: 0; object-fit: cover; border-radius: 2px; cursor: zoom-in; }
+.r-was img { flex: 1; }
+.r-rework img, .r-now img, .r-draw img { flex: 1; object-fit: contain; }
+.r-rework p { margin: 0; font-size: 13px; line-height: 1.3; color: var(--muted); }
+/* стрелка к следующему шагу — в зазоре между шагами */
+.ribbon li + li::before {
+  content: ""; position: absolute; left: -21px; top: 50%;
+  width: 12px; height: 12px; margin-top: -6px;
+  border-top: 3px solid var(--accent); border-right: 3px solid var(--accent); transform: rotate(45deg);
+}
+@media (min-width: 720px) {             /* 5 плиток рыси — одной строкой; на телефоне — по 2, как у мангала */
+  #lynxStats { grid-template-columns: repeat(5, 1fr); }
+  #lynxStats .stat { border-top: 0; border-left: 1px solid var(--rule); }
+  #lynxStats .stat:first-child { border-left: 0; }
+}
+.lynx .btn-main { align-self: flex-start; }
+
+/* Картинка ленты крупно */
+.lbox { padding: 0; border: 1px solid var(--blue); background: #fff; max-width: 96vw; max-height: 92vh; cursor: zoom-out; }
+.lbox::backdrop { background: rgba(28, 42, 64, .72); }
+.lbox img { display: block; max-width: 96vw; max-height: 92vh; object-fit: contain; }
 
 /* Кнопки */
 .btn {
@@ -216,6 +264,27 @@ h1 {
   .thick span { min-width: 4.6em; margin-right: 4px; }
   .thick button { min-width: 0; flex: 1; padding: 0 4px; }
   .thick { flex: 1 1 100%; }
+  .items button { flex: 1; min-width: 0; }
+  /* Рысь на телефоне: «Было» — строка из 4 миниатюр (3 фото и переработка), под ней крупное «Стало», ниже чертежи.
+     DOM тот же: фото — в своей сетке на 3 колонки, переработка — четвёртой колонкой */
+  .ribbon {
+    height: auto; min-height: 0; gap: 10px 6px;
+    grid-template-columns: 3fr 1fr;
+    grid-template-areas: "was rework" "now now" "draw draw";
+  }
+  .ribbon .r-was { grid-area: was; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: auto 1fr; gap: 4px 6px; }
+  .r-was .rcap { grid-column: 1 / -1; }
+  .r-rework { grid-area: rework; }
+  .r-now { grid-area: now; height: min(48svh, 380px); }
+  .ribbon .r-draw { grid-area: draw; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 6px; }
+  .r-draw .rcap { grid-column: 1 / -1; }
+  .ribbon li { padding: 6px; }
+  .ribbon li + li::before { display: none; }
+  .rcap { font-size: 12px; letter-spacing: .03em; }
+  .r-was img, .r-rework img { flex: none; height: 96px; object-fit: cover; }
+  .r-rework p { font-size: 10px; }
+  #lynxStats .stat:last-child { grid-column: 1 / -1; }
+  .lynx .btn-main { align-self: stretch; }
   .cta-bar {
     display: block;
     position: fixed;
