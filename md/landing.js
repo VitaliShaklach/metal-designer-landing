@@ -375,7 +375,8 @@ renderAll();
 fitView();
 
 // «Мангал | Рысь»: видны только блоки [data-item] выбранного изделия, кнопки — aria-pressed.
-// Рысь: блок «Что получаете» свёрнут, цифры — из lynx/stats.json, он грузится один раз по первому показу.
+// Рысь: блок «Что получаете» свёрнут, цифры — из lynx/stats.json, он грузится один раз по первому показу;
+// там же один раз грузится 3D рыси в «Стало» (initLynx, md/lynx.js), не вышло — вместо него постер.
 // Пока #stage скрыт, окно могли повернуть или растянуть, а sizeStage() размер 0 × 0 пропускает:
 // при возврате к мангалу ставим размер и камеру заново, модель — в кадр
 const ITEM_BTNS = [...document.querySelectorAll('#items button')];
@@ -387,6 +388,7 @@ function setItem(next) {
   ITEM_BTNS.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.item === item)));
   if (item === 'rys') {
     showGet(false);
+    initLynx(document.getElementById('lynx3d'), document.getElementById('lynxPoster'));
     lynxStatsLoad ??= fetch('lynx/stats.json').then(r => r.json())
       .then(st => { document.getElementById('lynxStats').innerHTML = lynxStatsHtml(st); })
       .catch(() => { lynxStatsLoad = null; });   // не загрузилось — без цифр, следующий показ попробует снова

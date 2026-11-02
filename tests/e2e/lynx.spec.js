@@ -46,10 +46,9 @@ test('switch: «Рысь» — лента, 5 плиток, тексты, адр�
   for (const [s, cap] of [['.r-was', 'Было'], ['.r-rework', 'Переработка'], ['.r-now', 'Стало'], ['.r-draw', 'Чертежи']]) {
     await expect(page.locator(`${s} .rcap`)).toHaveText(cap);
   }
-  await expect(page.locator('.r-now img')).toHaveAttribute('src', 'lynx/poster.jpg');
-  // все картинки ленты загрузились
-  const imgs = page.locator('.ribbon img');
-  await expect(imgs).toHaveCount(7);
+  // все картинки ленты загрузились; постер «Стало» не нужен, пока показано 3D
+  const imgs = page.locator('.ribbon img:not(#lynxPoster)');
+  await expect(imgs).toHaveCount(6);
   await expect.poll(() => imgs.evaluateAll(l => l.every(i => i.complete && i.naturalWidth > 0))).toBe(true);
   await hashIs(page, '#item=rys');
   clean(w);
@@ -156,7 +155,7 @@ test('lightbox: картинка ленты открывается крупно 
     await page.keyboard.press('Escape');
     await expect(page.locator('#lbox')).toBeHidden();
   }
-  await page.locator('.r-now img').click();
+  await page.locator('.r-rework img').click();
   await expect(page.locator('#lbox')).toBeVisible();
   await page.locator('#lbox').click();
   await expect(page.locator('#lbox')).toBeHidden();
@@ -179,7 +178,7 @@ test('cta: под лентой кнопка «Прислать фото свое
 test('layout: лента читается «было → стало», без горизонтальной прокрутки', async ({page, isMobile}) => {
   const w = watch(page);
   await page.goto('/#item=rys');
-  await expect.poll(() => page.locator('.ribbon img').evaluateAll(l => l.every(i => i.complete))).toBe(true);
+  await expect.poll(() => page.locator('.ribbon img:not([hidden])').evaluateAll(l => l.every(i => i.complete))).toBe(true);
   const m = await page.evaluate(() => {
     const r = s => document.querySelector(s).getBoundingClientRect();
     return {
@@ -198,10 +197,145 @@ test('layout: лента читается «было → стало», без г
     expect(m.draw.top).toBeGreaterThanOrEqual(m.now.bottom);
     expect(m.now.height).toBeLessThanOrEqual(380);
   } else {
+    // «Стало» по высоте — как окно мангала
+    expect(m.now.height).toBeGreaterThanOrEqual(320);
     // одна строка слева направо, «Стало» — самое широкое
     for (const s of m.steps) expect(Math.abs(s.top - m.steps[0].top)).toBeLessThanOrEqual(1);
     for (let i = 1; i < 4; i++) expect(m.steps[i].left).toBeGreaterThan(m.steps[i - 1].left);
     expect(m.steps[2].width).toBe(Math.max(...m.steps.map(s => s.width)));
   }
+  clean(w);
+});
+
+// ---- 3D рыси в «Стало» ----
+
+// углы рамки рыси на экране (−1…1 — в кадре) и положение камеры просмотрщика
+const lynxCam = page => page.evaluate(() => {
+  const {camera, mesh} = lynxView, box = new THREE.Box3().setFromObject(mesh), pts = [];
+  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+    pts.push(new THREE.Vector3(x, y, z).project(camera));
+  }
+  // az — поворот камеры вокруг вертикали рыси (она стоит на оси Y), рад
+  return {inView: pts.every(p => Math.abs(p.x) <= 1.001 && Math.abs(p.y) <= 1.001), pos: camera.position.toArray(),
+    az: Math.atan2(camera.position.x, camera.position.z)};
+});
+const modelReqs = w => w.requests.filter(u => u.endsWith('/lynx/model.json'));
+
+test('lynx3d: «Рысь» — в «Стало» холст 3D, рысь вся в кадре, постер скрыт', async ({page}) => {
+  const w = watch(page);
+  await page.goto('/');
+  await btn(page, 'Рысь').click();
+  const cv = page.locator('#lynx3d canvas');
+  await expect(cv).toBeVisible();
+  await expect(page.locator('#lynxPoster')).toBeHidden();
+  const b = await cv.boundingBox();
+  expect(b.width).toBeGreaterThan(100);
+  expect(b.height).toBeGreaterThan(100);
+  expect((await lynxCam(page)).inView).toBe(true);
+  // к мангалу и обратно — модель не грузится второй раз, холст тот же
+  await btn(page, 'Мангал').click();
+  await btn(page, 'Рысь').click();
+  await expect(page.locator('#lynx3d canvas')).toHaveCount(1);
+  expect(modelReqs(w)).toHaveLength(1);
+  clean(w);
+});
+
+test('noModel: lynx/model.json не загрузился — постер, 3D скрыто, цифры на месте, без ошибок', async ({page}) => {
+  const w = watch(page);
+  await page.route('**/lynx/model.json', r => r.abort());
+  await page.goto('/');
+  await btn(page, 'Рысь').click();
+  await expect(page.locator('#lynxPoster')).toBeVisible();
+  await expect.poll(() => page.locator('#lynxPoster').evaluate(i => i.complete && i.naturalWidth > 0)).toBe(true);
+  await expect(page.locator('#lynx3d')).toBeHidden();
+  await expect(page.locator('#lynxStats .stat')).toHaveCount(5);
+  await expect(page.locator('.r-draw img')).toHaveCount(2);
+  expect(w.pageErrors).toEqual([]);
+  // единственная ошибка консоли — сам оборванный запрос, исключений нет
+  expect(w.errors.filter(m => !m.includes('Failed to load resource'))).toEqual([]);
+});
+
+test('noWebGL: без WebGL — постер, файл модели не запрашивается, исключений нет', async ({page}) => {
+  const w = watch(page);
+  await page.addInitScript(() => {
+    const get = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (t, ...a) { return /webgl/.test(t) ? null : get.call(this, t, ...a); };
+  });
+  await page.goto('/#item=rys');
+  await expect(page.locator('#lynxPoster')).toBeVisible();
+  await expect(page.locator('#lynx3d')).toBeHidden();
+  await expect(page.locator('#lynxStats .stat')).toHaveCount(5);
+  expect(modelReqs(w)).toEqual([]);
+  expect(w.pageErrors).toEqual([]);
+  // в консоли — только одна ошибка three.js, от мангала: рысь WebGL второй раз не пробует
+  expect(w.errors.filter(m => m.includes('WebGL'))).toHaveLength(1);
+});
+
+test('lynxMouse: мышью рысь крутится, колесо над ней листает страницу', async ({page, isMobile}) => {
+  test.skip(isMobile, 'мышь — на компьютере');
+  const w = watch(page);
+  await page.goto('/#item=rys');
+  const cv = page.locator('#lynx3d canvas');
+  await expect(cv).toBeVisible();
+  const before = (await lynxCam(page)).pos, b = await cv.boundingBox();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 + 120, b.y + b.height / 2, {steps: 6});
+  await page.mouse.up();
+  expect((await lynxCam(page)).pos).not.toEqual(before);
+  expect((await lynxCam(page)).inView).toBe(true);
+  await page.mouse.wheel(0, 300);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(0);
+  clean(w);
+});
+
+// Палец от центра b на dx, dy за 10 шагов — касаниями через протокол Chromium: браузер сам решает, листать ли страницу,
+// и шлёт pointer-события, как на телефоне. (synthesizeScrollGesture в headless страницу не листает вовсе.)
+// Над 3D мангала (touch-action: none) такой жест страницу не листает — тест отличает одно от другого
+async function swipe(page, b, dx, dy) {
+  const cdp = await page.context().newCDPSession(page), x = b.x + b.width / 2, y = b.y + b.height / 2;
+  await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x, y}]});
+  for (let i = 1; i <= 10; i++) await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: x + dx * i / 10, y: y + dy * i / 10}]});
+  await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+  await cdp.detach();
+}
+
+test('phoneLayout: 3D рыси не выше 380 px, «Было» строкой над ним, чертежи ниже', async ({page, isMobile}) => {
+  test.skip(!isMobile, 'раскладка телефона');
+  const w = watch(page);
+  await page.goto('/#item=rys');
+  await expect(page.locator('#lynx3d canvas')).toBeVisible();
+  const m = await page.evaluate(() => {
+    const r = s => document.querySelector(s).getBoundingClientRect();
+    return {
+      scrollW: document.documentElement.scrollWidth, innerW: innerWidth, box: r('#lynx3d'), draw: r('.r-draw'),
+      was: [...document.querySelectorAll('.r-was img, .r-rework img')].map(i => i.getBoundingClientRect()).map(b => ({top: b.top, bottom: b.bottom})),
+    };
+  });
+  expect(m.scrollW).toBeLessThanOrEqual(m.innerW);
+  expect(m.box.height).toBeLessThanOrEqual(380);
+  expect(m.box.height).toBeGreaterThan(150);
+  const tops = m.was.map(b => b.top);
+  expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
+  expect(m.box.top).toBeGreaterThanOrEqual(Math.max(...m.was.map(b => b.bottom)));
+  expect(m.draw.top).toBeGreaterThanOrEqual(m.box.bottom);
+  clean(w);
+});
+
+test('phoneTouch: палец вверх по 3D листает страницу, вбок — крутит рысь', async ({page, isMobile}) => {
+  test.skip(!isMobile, 'палец — на телефоне');
+  const w = watch(page);
+  await page.goto('/#item=rys');
+  const box = page.locator('#lynx3d');
+  await expect(box.locator('canvas')).toBeVisible();
+  const y0 = await page.evaluate(() => scrollY), az0 = (await lynxCam(page)).az;
+  await swipe(page, await box.boundingBox(), 0, -200);                  // палец вверх — страница вниз
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(y0 + 50);
+  expect((await lynxCam(page)).az).toBeCloseTo(az0, 6);                  // листали — рысь не повернулась
+  const y1 = await page.evaluate(() => scrollY);
+  await swipe(page, await box.boundingBox(), 150, 0);
+  await expect.poll(async () => Math.abs((await lynxCam(page)).az - az0)).toBeGreaterThan(.5);
+  expect(Math.abs(await page.evaluate(() => scrollY) - y1)).toBeLessThanOrEqual(2);
+  expect((await lynxCam(page)).inView).toBe(true);
   clean(w);
 });
