@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Рысь — фигура из листа · Редактор</title>
+<meta name="description" content="Рысь из листа металла. Растягивайте фигуру — детали, масса, длина реза и швов пересчитываются.">
+<link rel="icon" href="../mangal/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-02k">
+<link rel="stylesheet" href="../editor.css?v=2026-11-02k">
+<link rel="stylesheet" href="css/style.css?v=2026-11-02k">
+</head>
+<body>
+<div class="edbar">
+  <a class="edbar-back" href="../">← Редактор</a>
+  <a class="edbar-tg" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать фото и пожелания в Telegram</a>
+</div>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Metal Designer · фигуры из листа · размеры в мм</div>
+      <h1 id="ttl">Фигура</h1>
+      <p class="lede">Гранёная фигура из плоских деталей листа. Задайте высоту, ширину и глубину — детали, масса, длина реза и швов пересчитываются сами. Можно открыть свою модель OBJ, STL или GLB.</p>
+    </div>
+    <div class="hside"><div class="stats" id="stats"></div></div>
+  </header>
+
+  <section>
+    <div class="pick">
+      <label><span class="t">Название</span><input id="mName" class="inp" value=""></label>
+      <label><span class="t">Фигура</span><select id="figSel"><option value="lynx14">Рысь</option></select></label>
+      <div class="btns"><button id="bOpen" type="button">Открыть модель</button><button id="bSave" type="button">Сохранить</button></div>
+      <input type="file" id="fileIn" accept=".obj,.stl,.glb,.json" hidden>
+      <span class="pickhint" id="msg"></span>
+    </div>
+    <div class="studio">
+      <div id="stage">
+        <div class="loading" id="loading"><i></i><span id="loadTxt">Строю фигуру…</span></div>
+        <div class="vbar"><button data-v="iso" type="button" title="Объёмный вид под углом">3D</button><button data-v="front" type="button" title="Вид спереди, на морду">Спереди</button><button data-v="side" type="button" title="Вид сбоку, в профиль">Сбоку</button><button data-v="top" type="button" title="Вид сверху">Сверху</button><button id="bFit" type="button" title="Показать фигуру целиком">Всё</button></div>
+        <div class="hovtag" id="hovTag" hidden></div>
+        <div class="hint" id="hint">Клик по грани — деталь · колесо — масштаб · правая кнопка — сдвиг</div>
+      </div>
+      <button class="drawerbtn" id="drawerBtn" type="button" aria-expanded="false">Панель</button>
+      <div class="controls" id="controls">
+        <div class="drawerhead"><b>Панель</b><button type="button" id="drawerClose" aria-label="Закрыть">✕</button></div>
+
+        <div class="grp shut" data-g="size"><button type="button" class="gt">Размер фигуры</button>
+          <div class="xyz3"><label>Высота<input class="inp" id="dH" type="number" min="50" step="10"></label><label>Ширина<input class="inp" id="dW" type="number" min="50" step="10"></label><label>Глубина<input class="inp" id="dD" type="number" min="50" step="10"></label></div>
+          <label class="chk"><input type="checkbox" id="cProp" checked><span>Пропорционально<small>Меняете одно — остальные тянутся следом. Снимите галочку, чтобы растянуть только по одной оси</small></span></label>
+          <button id="bReset" type="button" class="wide">Пропорции как в модели</button>
+        </div>
+
+        <div class="grp shut" data-g="edit"><button type="button" class="gt">Редактор</button>
+          <label class="chk"><input type="checkbox" id="cEdit"><span>Править фигуру<small>На модели появятся точки: клик по точке — выбрать, тянуть мышкой — двигать. Клик по грани — выбрать грань</small></span></label>
+          <div id="edBox" hidden>
+            <label class="chk"><input type="checkbox" id="cSym" checked><span>Симметрия<small>Левая половина повторяет правую — для животных удобно</small></span></label>
+            <label class="chk" id="traceRow" hidden><input type="checkbox" id="cTrace"><span>Калька</span></label>
+            <div id="edSel" class="edsel"></div>
+            <div class="row2"><label>На сколько, мм<input class="inp" id="edD" type="number" value="30" min="1" step="5"></label><span></span></div>
+            <div class="edbtns" id="edOps"><button type="button" data-op="extrude" id="op_extrude">Выдавить</button><button type="button" data-op="inset" id="op_inset">Вдавить</button><button type="button" data-op="bump" id="op_bump">Бугор</button><button type="button" data-op="pit" id="op_pit">Впадина</button><button type="button" data-op="split" id="op_split">Разрезать пополам</button><button type="button" data-op="del" id="op_del">Удалить грань</button><button type="button" data-op="merge" id="op_merge">Убрать шов</button><button type="button" data-op="cut" id="op_cut">Провести шов</button></div>
+            <p class="note" id="edPlan"></p>
+            <p class="note" id="edTrace" hidden></p>
+            <div class="btns" id="edFix"><button id="bFlat" type="button">Выровнять грани</button><button id="bTri" type="button">Разбить на треугольники</button></div>
+            <div class="btns"><button id="bUndo" type="button" title="Ctrl+Z">↶ Отменить</button><button id="bRedo" type="button" title="Ctrl+Y">↷ Вернуть</button></div>
+            <div class="row2"><label>Заготовка<select id="blank"><option value="box">Куб</option><option value="sphere">Шар (80 граней)</option></select></label><button id="bBlank" type="button">Начать с заготовки</button></div>
+          </div>
+        </div>
+
+        <div class="grp shut" data-g="faces"><button type="button" class="gt">Грани</button>
+          <label class="rng"><span>Граней (треугольников): <b id="fVal"></b></span><input type="range" id="fRng" min="40" max="800" step="10"></label>
+          <p class="note" id="fNote"></p>
+          <label class="rng"><span>Слить почти плоские грани: <b id="dVal"></b></span><input type="range" id="dRng" min="0" max="25" step="1" value="0"></label>
+          <div class="row2"><label>Мин. ширина детали, мм<input class="inp" id="minW" type="number" min="0" step="5"></label><label class="chk lone"><input type="checkbox" id="cSmall" checked><span>Подсветить узкие</span></label></div>
+          <p class="note">Узкие треугольники программа сама стягивает или перекладывает диагональ. Что осталось уже — подсвечено красным</p>
+        </div>
+
+        <div class="grp shut" data-g="metal"><button type="button" class="gt">Металл</button>
+          <div class="row2"><label>Толщина<select id="sT"><option value="1">1 мм</option><option value="1.2">1,2 мм</option><option value="1.5">1,5 мм</option><option value="2" selected>2 мм</option><option value="3">3 мм</option></select></label>
+            <label>Материал<select id="sMat"><option value="steel">Сталь</option><option value="inox">Нержавейка</option><option value="corten">Кортен</option><option value="alu">Алюминий</option></select></label></div>
+          <div class="row2"><label>Лист<select id="sSheet"><option value="1000x2000">1000 × 2000</option><option value="1250x2500" selected>1250 × 2500</option><option value="1500x3000">1500 × 3000</option><option value="1500x6000">1500 × 6000</option><option value="own">Свой размер</option></select></label>
+            <label>Резка<select id="sCut"><option value="laser" selected>Лазер</option><option value="plasma">Плазма</option></select></label></div>
+          <div class="row2"><label>Сварка<select id="sWeld"><option value="tig" selected>TIG (аргон)</option><option value="mig">Полуавтомат (MIG/MAG)</option></select></label><label>Зазор под сварку, мм<input class="inp" id="sGap" type="number" value="0.5" min="0" step=".5"></label></div>
+          <div class="row2"><label>Между деталями на листе, мм<input class="inp" id="sNGap" type="number" value="5" min="1" step=".5"></label></div>
+          <label class="chk"><input type="checkbox" id="cUseT" checked><span>Учитывать толщину листа</span></label>
+          <label class="chk"><input type="checkbox" id="cEngrave" checked><span>Гравировка деталей</span></label>
+          <label class="chk"><input type="checkbox" id="cTpl"><span>Уголки-шаблоны для сварки</span></label>
+          <label class="chk"><input type="checkbox" id="cBend" checked><span>Гнуть, где можно (меньше сварки)</span></label>
+          <div class="row2" id="ownSheet" hidden><label>Лист, ширина<input class="inp" id="sW" type="number" value="1250" min="100"></label><label>длина<input class="inp" id="sL" type="number" value="2500" min="100"></label></div>
+        </div>
+
+        <div class="grp shut" data-g="perf"><button type="button" class="gt">Перфорация сгибов</button>
+          <label class="chk"><input type="checkbox" id="cPerf"><span>Перфорация линий сгиба</span></label>
+          <div class="xyz3"><label>Прорезь, мм<input class="inp" id="pL" type="number" min="1" max="10" step=".5" value="2"></label><label>Шаг, мм<input class="inp" id="pStep" type="number" min="5" step="1" value="20"></label><label>От края, мм<input class="inp" id="pEdge" type="number" min="3" step="1" value="10"></label></div>
+          <p class="note" id="perfNote"></p>
+        </div>
+
+        <div class="grp shut" data-g="view"><button type="button" class="gt">Вид</button>
+          <label class="chk"><input type="checkbox" id="cNums"><span>Номера деталей</span></label>
+          <div id="selBox"><p class="note">Деталь: кликните грань на модели или строку в таблице</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tabs">
+    <div class="tabbar" role="tablist">
+      <button role="tab" data-tab="parts" aria-selected="true">Детали</button>
+      <button role="tab" data-tab="sum" aria-selected="false">Итого</button>
+      <button role="tab" data-tab="nest" aria-selected="false">Раскрой</button>
+      <button role="tab" data-tab="sheets" aria-selected="false">Чертежи</button>
+      <button role="tab" data-tab="cards" aria-selected="false">Карты деталей</button>
+    </div>
+    <div class="tabpane" id="tab-parts" role="tabpanel">
+      <p class="tabnote">Каждая деталь — плоский лист. Размер — по габариту развёртки, ширина — самая узкая. Соседи — с кем деталь сваривается. Клик по строке — модель повернётся этой деталью к вам; общий вид — кнопки над моделью</p>
+      <p class="tabnote" id="partsVw"></p>
+      <div class="tbl"><table id="parts"></table></div>
+    </div>
+    <div class="tabpane" id="tab-sum" role="tabpanel" hidden>
+      <div class="warnbox" id="warn" hidden></div>
+      <div class="tbl"><table id="sum"></table></div>
+      <p class="tabnote">Листов — по раскладке деталей (вкладка «Раскрой»). DXF и PDF — во вкладках «Раскрой» и «Чертежи»</p>
+    </div>
+    <div class="tabpane" id="tab-nest" role="tabpanel" hidden>
+      <p class="tabnote">Детали разложены на лист металла с зазором под рез (поле «Между деталями на листе» в разделе «Металл»: по умолчанию 5 мм: лазеру хватает 3–5, плазме нужно 6–8) и отступом 10 мм от края. Контуры — уже с учётом толщины и шва</p>
+      <div class="dimbar"><button id="bDxfNest" type="button">DXF раскрой</button><span class="dxfmsg" id="nestMsg"></span></div>
+      <div class="sheets" id="nestBox"></div>
+    </div>
+    <div class="tabpane" id="tab-sheets" role="tabpanel" hidden>
+      <p class="tabnote">Листы А3 для производства: общий вид, порядок сборки, гибка, спецификация, уголки, раскрой. Каждый элемент и деталь отдельно — во вкладке «Карты деталей». Размеры в мм</p>
+      <div class="dimbar"><button id="shPdf" type="button">Скачать PDF (А3)</button><button id="bDxfParts" type="button">DXF детали</button><select id="shGo" aria-label="Перейти к листу"></select><span class="dxfmsg">PDF: в окне печати выберите «Сохранить как PDF»; формат А3 уже задан</span></div>
+      <div class="sheets" id="sheets"></div>
+    </div>
+    <div class="tabpane" id="tab-cards" role="tabpanel" hidden>
+      <p class="tabnote">Лист А4 на каждый элемент и деталь (зеркальная пара — на одном): развёртка с размерами, где он на фигуре, готовый вид, гибка по порядку и швы — у каждого угла его чертёж и чем выставить. Клик по карте — крупно</p>
+      <div class="dimbar"><button id="shCards" type="button">Скачать PDF (А4)</button><select id="cdGo" aria-label="Перейти к карте"></select><span class="dxfmsg" id="cdMsg"></span></div>
+      <div class="sheets cards" id="cards"></div>
+    </div>
+  </section>
+
+  <footer>
+    <span class="ver">v0.27.1</span>
+    <span>email: <a href="mailto:vashaklach@gmail.com">vashaklach@gmail.com</a></span>
+  </footer>
+</div>
+
+<div class="zoom" id="zoom" hidden><div class="zoombar"><span id="zoomTtl"></span><button type="button" id="zoomOut" aria-label="Мельче">−</button><span id="zoomK">100%</span><button type="button" id="zoomIn" aria-label="Крупнее">+</button><button type="button" id="zoomFit">Весь лист</button><button type="button" id="zoomX" aria-label="Закрыть">✕</button></div><div class="zoombox" id="zoomBox"></div></div>
+<script src="../../vendor/three/three.min.js?v=2026-11-02k"></script>
+<script src="../../vendor/three/OrbitControls.js?v=2026-11-02k"></script>
+<script src="../../vendor/three/CSS2DRenderer.js?v=2026-11-02k"></script>
+<script src="js/mesh.js?v=2026-11-02k"></script>
+<script src="js/models-poly.js?v=2026-11-02k"></script>
+<script src="js/figures.js?v=2026-11-02k"></script>
+<script src="js/plates-lynx14.js?v=2026-11-02k"></script>
+<script src="js/edit.js?v=2026-11-02k"></script>
+<script src="js/trace.js?v=2026-11-02k"></script>
+<script src="js/view3d.js?v=2026-11-02k"></script>
+<script src="js/prod.js?v=2026-11-02k"></script>
+<script src="js/bend.js?v=2026-11-02k"></script>
+<script src="js/bend3d.js?v=2026-11-02k"></script>
+<script src="js/sheets.js?v=2026-11-02k"></script>
+<script src="js/ui.js?v=2026-11-02k"></script>
+<script src="js/tips.js?v=2026-11-02k"></script>
+<div id="printBox"></div>
+</body>
+</html>

@@ -70,3 +70,119 @@ test('mangal: на телефоне без горизонтальной прок
   const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   expect(sw).toBeLessThanOrEqual(iw);
 });
+
+// ---------- рысь (editor/lynx/) ----------
+
+// Ждёт, пока рысь построится: индикатор скрыт, холст один
+async function lynxReady(page) {
+  await expect(page.locator('#loading')).toBeHidden({timeout: 30000});
+  await expect(page.locator('#stage canvas')).toHaveCount(1);
+}
+
+test('lynx: открывается без ошибок и без сторонних запросов', async ({page}) => {
+  const urls = [];
+  page.on('request', q => urls.push(q.url()));
+  const r = await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  expect(r.external).toEqual([]);
+  expect(r.failed).toEqual([]);
+  expect(r.errors).toEqual([]);
+  expect(urls.filter(u => /doberman|bull|js\/trace-|models\.js/i.test(u))).toEqual([]);
+});
+
+test('lynx: в списке фигур одна «Рысь»', async ({page}) => {
+  await openEditor(page, '/editor/lynx/');
+  const opts = page.locator('#figSel option');
+  await expect(opts).toHaveCount(1);
+  await expect(opts).toHaveText('Рысь');
+  await expect(page.locator('#mName')).toHaveValue('Рысь');
+});
+
+test('lynx: нет собак, быка и кальки на странице', async ({page}) => {
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  const txt = await page.evaluate(() => document.body.textContent);
+  expect(txt).not.toMatch(/доберман|быка|бык\b/i);
+  await expect(page.locator('#traceRow')).toHaveAttribute('hidden', '');   // строки «Калька» нет: файла кальки у редактора нет
+  expect(await page.evaluate(() => Object.keys(FIGURES))).toEqual(['lynx14']);
+});
+
+test('lynx: полоса сверху', async ({page}) => {
+  await openEditor(page, '/editor/lynx/');
+  const back = page.locator('.edbar-back'), tg = page.locator('.edbar-tg');
+  await expect(back).toHaveAttribute('href', '../');
+  await expect(back).toContainText('← Редактор');
+  await expect(tg).toHaveAttribute('href', 'https://t.me/SHVA_1984');
+  await expect(tg).toHaveText('Прислать фото и пожелания в Telegram');
+});
+
+test('lynx: нет ссылок на другие разделы', async ({page}) => {
+  await openEditor(page, '/editor/lynx/');
+  const hrefs = await page.locator('a[href]').evaluateAll(a => a.map(x => x.getAttribute('href')));
+  expect(hrefs.filter(h => /index\.html|karkas|\/art|^\.\.\/\.\./.test(h))).toEqual([]);
+});
+
+test('lynx: подпись версии внизу', async ({page}) => {
+  await openEditor(page, '/editor/lynx/');
+  await expect(page.locator('.ver')).toHaveText('v0.27.1');
+});
+
+test('lynx: «Сохранить» и «Открыть модель» возвращают ту же рысь', async ({page}) => {
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  const rows = () => page.locator('#parts tr').count();
+  const before = await rows();
+  expect(before).toBeGreaterThan(10);
+  const [d] = await Promise.all([page.waitForEvent('download'), page.locator('#bSave').click()]);
+  expect(d.suggestedFilename()).toMatch(/\.json$/);
+  const file = await d.path();
+  await page.reload();
+  await lynxReady(page);
+  await page.locator('#fileIn').setInputFiles(file);
+  await lynxReady(page);
+  await expect.poll(rows).toBe(before);
+});
+
+test('lynx: чужой файл не ломает страницу', async ({page}) => {
+  const crashed = [];   // страница сама пишет пойманную ошибку в консоль; упавшей считаем только непойманную
+  page.on('pageerror', e => crashed.push(e.message));
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  const before = await page.locator('#parts tr').count();
+  for (const f of [
+    {name: 'x.glb', mimeType: 'model/gltf-binary', buffer: Buffer.from('это не модель')},
+    {name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{"a":1}')},
+    {name: 'x.obj', mimeType: 'text/plain', buffer: Buffer.from('v 1 2\nf 1 2 3')},
+  ]) {
+    await page.locator('#msg').evaluate(e => { e.textContent = ''; });
+    await page.locator('#fileIn').setInputFiles(f);
+    await expect(page.locator('#msg')).not.toBeEmpty();
+    await expect(page.locator('#stage canvas')).toHaveCount(1);
+  }
+  expect(await page.locator('#parts tr').count()).toBe(before);
+  expect(crashed).toEqual([]);
+});
+
+test('lynx: DXF и PDF скачиваются', async ({page}) => {
+  test.setTimeout(420000);   // раскрой рыси считается минутами
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  await page.locator('[role=tab][data-tab=nest]').click();
+  const [d1] = await Promise.all([page.waitForEvent('download', {timeout: 400000}), page.locator('#bDxfNest').click()]);
+  expect(d1.suggestedFilename()).toMatch(/\.dxf$/);
+  await page.locator('[role=tab][data-tab=sheets]').click();
+  const [d2] = await Promise.all([page.waitForEvent('download'), page.locator('#bDxfParts').click()]);
+  expect(d2.suggestedFilename()).toMatch(/\.dxf$/);
+  // PDF — окно печати браузера: кнопка вызывает window.print, скачивания файла нет
+  await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
+  await page.locator('#shPdf').click();
+  await expect.poll(() => page.evaluate(() => window.__printed)).toBeGreaterThan(0);
+});
+
+test('lynx: на телефоне без горизонтальной прокрутки', async ({page}, info) => {
+  test.skip(info.project.name !== 'phone');
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  expect(sw).toBeLessThanOrEqual(iw);
+});
