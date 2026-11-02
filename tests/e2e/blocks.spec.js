@@ -14,7 +14,7 @@ const ROWS = [
   ['Другому клиенту — новый заказ', 'Другой размер для другого клиента: сами, бесплатно, в любой момент'],
 ];
 const STEPS = [
-  'Присылаете фото или эскиз (даже на салфетке) с описанием.',
+  'Присылаете фото или эскиз (даже на салфетке), описание текстом или даже голосовым сообщением. Чем больше описания — тем точнее будет результат.',
   'Я проектирую: 3D, размеры, раскрой, DXF, чертёж и план сборки.',
   'Завтра получаете ссылку на свой проект.',
   'Нужен такой же другому клиенту, но другого размера, или надо поправить — делаете сами, бесплатно, в любой момент, и сразу получаете готовый проект.',
@@ -32,7 +32,8 @@ test('copy: таблица, шаги и строка под ними — дос�
   // срок — рядом с «бесплатно» в контактах, под шагами строки нет (решение 02.11)
   await expect(page.locator('#how .note')).toHaveCount(0);
   await expect(page.locator('#me h2')).toHaveCount(0);                      // без заголовка с именем
-  await expect(page.locator('#me .contacts a[href="viber://chat?number=%2B375295751190"]')).toHaveText('+375 29 575-11-90');
+  await expect(page.locator('#me .contacts a[href="viber://chat?number=%2B375295751190"]')).toHaveText('написать в Viber');
+  await expect(page.locator('#me')).not.toContainText('575');                // номер на странице не показываем
   await expect(page.locator('#me .contacts a[href="mailto:vashaklach@gmail.com"]')).toHaveText('vashaklach@gmail.com');
   await expect(page.locator('#me .lead')).toHaveText('Спроектирую ваше изделие бесплатно. Обычно за 1 день, срочно — быстрее. Пришлите фото и пожелания в Telegram — отвечу и назову точный срок.');
   await expect(page.locator('#me .lead strong')).toHaveText('Спроектирую ваше изделие бесплатно.');
