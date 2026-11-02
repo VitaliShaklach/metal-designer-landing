@@ -26,7 +26,7 @@ test('mangal: полоса сверху', async ({page}) => {
   await openEditor(page, '/editor/mangal/');
   const back = page.locator('.edbar-back'), tg = page.locator('.edbar-tg');
   await expect(back).toHaveAttribute('href', '../');
-  await expect(back).toContainText('← Редактор');
+  await expect(back).toContainText('← На главную');
   await expect(tg).toHaveAttribute('href', 'https://t.me/SHVA_1984');
   await expect(tg).toHaveText('Прислать фото и пожелания в Telegram');
 });
@@ -111,7 +111,7 @@ test('lynx: полоса сверху', async ({page}) => {
   await openEditor(page, '/editor/lynx/');
   const back = page.locator('.edbar-back'), tg = page.locator('.edbar-tg');
   await expect(back).toHaveAttribute('href', '../');
-  await expect(back).toContainText('← Редактор');
+  await expect(back).toContainText('← На главную');
   await expect(tg).toHaveAttribute('href', 'https://t.me/SHVA_1984');
   await expect(tg).toHaveText('Прислать фото и пожелания в Telegram');
 });
@@ -233,4 +233,42 @@ test('lynx: индикатор виден в «Чертежах» и «Карт�
   await expect(w).toBeVisible({timeout: 5000});
   await expect(w).toContainText('Считаю раскрой');
   await expect(w.locator('.nestCnt')).toContainText(/из \d+/, {timeout: 60000});
+});
+
+test('home: открывается без ошибок и без сторонних запросов', async ({page}) => {
+  const r = await openEditor(page, '/editor/');
+  expect(r.external).toEqual([]);
+  expect(r.failed).toEqual([]);
+  expect(r.errors).toEqual([]);
+});
+
+test('home: две карточки ведут на мангал и рысь', async ({page}) => {
+  await openEditor(page, '/editor/');
+  const m = page.locator('a.card[href="mangal/"]'), l = page.locator('a.card[href="lynx/"]');
+  await expect(m).toContainText('Мангал и печь под казан');
+  await expect(l).toContainText('Рысь');
+  for (const c of [m, l]) {
+    const loaded = await c.locator('img').evaluate(i => i.complete && i.naturalWidth > 0);
+    expect(loaded).toBe(true);
+  }
+  await m.click();
+  await expect(page).toHaveURL(/\/editor\/mangal\/$/);
+  await page.goBack();
+  await l.click();
+  await expect(page).toHaveURL(/\/editor\/lynx\/$/);
+});
+
+test('home: призыв писать Виталию', async ({page}) => {
+  await openEditor(page, '/editor/');
+  await expect(page.getByText('Пришлите фото и пожелания — спроектирую ваше изделие бесплатно')).toBeVisible();
+  const tg = page.locator('a[href="https://t.me/SHVA_1984"]').first();
+  await expect(tg).toBeVisible();
+  await expect(tg).toHaveAttribute('target', '_blank');
+});
+
+test('home: на телефоне без горизонтальной прокрутки', async ({page}, info) => {
+  test.skip(info.project.name !== 'phone');
+  await openEditor(page, '/editor/');
+  const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  expect(sw).toBeLessThanOrEqual(iw);
 });
