@@ -459,9 +459,11 @@ svg.mini .engr{stroke-width:.6}
 /* ---------- индикатор раскроя: четыре символа, смена ступеньками на CSS (transform идёт без главного потока, пока страница считает) ---------- */
 .nestwait{display:flex;align-items:center;gap:8px;margin:8px 0;font:13px var(--f-mono);color:var(--muted)}
 .nestwait[hidden]{display:none}
-.nestStar{display:block;flex:none;width:1.4em;height:1.4em;line-height:1.4em;overflow:hidden;text-align:center;color:var(--accent);font-size:18px}
-.nestStar b{display:block;animation:nestStar .8s steps(4) infinite;will-change:transform}
-.nestStar i{display:block;font-style:normal;height:1.4em}
-@keyframes nestStar{to{transform:translateY(-5.6em)}}
+.nestStar{display:block;flex:none;position:relative;width:22px;height:22px;color:var(--ink,#111)}
+.nestStar b{display:block;position:absolute;inset:0;animation:nestSpin .8s steps(8) infinite}
+.nestStar i{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:currentColor;transform:rotate(calc(var(--k)*45deg)) translateY(-8.5px);opacity:calc(1 - var(--k)*.11)}
+.nestStar i:nth-child(1){--k:0}.nestStar i:nth-child(2){--k:1}.nestStar i:nth-child(3){--k:2}.nestStar i:nth-child(4){--k:3}
+.nestStar i:nth-child(5){--k:4}.nestStar i:nth-child(6){--k:5}.nestStar i:nth-child(7){--k:6}.nestStar i:nth-child(8){--k:7}
+@keyframes nestSpin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.nestStar b{animation-duration:3.2s}}
 .nestCnt,#cdCnt{color:var(--ink,inherit);font-variant-numeric:tabular-nums}

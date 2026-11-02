@@ -211,7 +211,7 @@ test('lynx: во время раскроя виден индикатор', async
   await expect(page.locator('#nestWait')).toBeVisible({timeout: 5000});
   await expect(page.locator('#nestWait')).toContainText('Считаю раскрой');
   await expect(page.locator('#nestWait .nestCnt')).toContainText(/из \d+/, {timeout: 60000});
-  // символ меняется, пока идёт расчёт (CSS-анимация): сдвиг колонки в замерах разный
+  // кольцо крутится, пока идёт расчёт (CSS-анимация): поворот в замерах разный
   const y = () => page.locator('#nestWait .nestStar b').evaluate(e => getComputedStyle(e).transform);
   const seen = new Set();
   for (let i = 0; i < 5; i++) { seen.add(await y()); await page.waitForTimeout(300); }
