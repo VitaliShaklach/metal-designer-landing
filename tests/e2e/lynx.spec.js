@@ -162,7 +162,8 @@ test('lightbox: картинка ленты открывается крупно 
   clean(w);
 });
 
-test('cta: под лентой кнопка «Прислать фото своей фигуры» в Telegram', async ({page}) => {
+test('cta: под лентой кнопка «Прислать фото своей фигуры» в Telegram (на телефоне вместо неё — полоса внизу)', async ({page, isMobile}) => {
+  test.skip(isMobile, 'на телефоне кнопка скрыта: главная всегда видна в .cta-bar');
   const w = watch(page);
   await page.goto('/#item=rys');
   const a = page.locator('.lynx a', {hasText: 'Прислать фото своей фигуры'});

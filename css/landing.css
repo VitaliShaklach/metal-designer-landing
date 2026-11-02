@@ -287,7 +287,8 @@ h1 {
   .r-was img, .r-rework img { flex: none; height: 96px; object-fit: cover; }
   .r-rework p { font-size: 10px; }
   #lynxStats .stat:last-child { grid-column: 1 / -1; }
-  .lynx .btn-main { align-self: stretch; }
+  /* на телефоне главная кнопка всегда видна в полосе внизу (.cta-bar) — вторая такая же в рыси и контактах лишняя */
+  .lynx .btn-main, .me .btn-main { display: none; }
   .cta-bar {
     display: block;
     position: fixed;

@@ -14,7 +14,7 @@ const ROWS = [
   ['Другому клиенту — новый заказ', 'Другой размер для другого клиента: сами, бесплатно, в любой момент'],
 ];
 const STEPS = [
-  'Присылаете подробные фото и описание словами.',
+  'Присылаете фото или эскиз (даже на салфетке) с описанием.',
   'Я проектирую: 3D, размеры, раскрой, DXF, чертёж и план сборки.',
   'Завтра получаете ссылку на свой проект.',
   'Нужен такой же другому клиенту, но другого размера, или надо поправить — делаете сами, бесплатно, в любой момент, и сразу получаете готовый проект.',
@@ -31,7 +31,9 @@ test('copy: таблица, шаги и строка под ними — дос�
   expect(await texts(page, '#how .steps li')).toEqual(STEPS);
   // срок — рядом с «бесплатно» в контактах, под шагами строки нет (решение 02.11)
   await expect(page.locator('#how .note')).toHaveCount(0);
-  await expect(page.locator('#me')).toContainText('Виталий');
+  await expect(page.locator('#me h2')).toHaveCount(0);                      // без заголовка с именем
+  await expect(page.locator('#me .contacts a[href="viber://chat?number=%2B375295751190"]')).toHaveText('+375 29 575-11-90');
+  await expect(page.locator('#me .contacts a[href="mailto:vashaklach@gmail.com"]')).toHaveText('vashaklach@gmail.com');
   await expect(page.locator('#me .lead')).toHaveText('Спроектирую ваше изделие бесплатно. Обычно за 1 день, срочно — быстрее. Пришлите фото и пожелания в Telegram — отвечу и назову точный срок.');
   await expect(page.locator('#me .lead strong')).toHaveText('Спроектирую ваше изделие бесплатно.');
   await expect(page.locator('#me a.btn-main')).toHaveText('Прислать фото и пожелания');
@@ -96,12 +98,12 @@ test('og: карточка ссылки — заголовок, описание
   expect(r.status()).toBe(200);
 });
 
-test('layout: без горизонтальной прокрутки; кнопка внизу не закрывает блок «Виталий»', async ({page, isMobile}) => {
+test('layout: без горизонтальной прокрутки; кнопка внизу не закрывает контакты, вторых таких же кнопок нет', async ({page, isMobile}) => {
   await page.goto('/');
   await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
   await page.waitForFunction(() => Math.ceil(scrollY + innerHeight) >= document.documentElement.scrollHeight - 1);
   const m = await page.evaluate(() => {
-    const last = [...document.querySelectorAll('#me a')].pop().getBoundingClientRect();
+    const last = [...document.querySelectorAll('#me a')].filter(a => a.offsetParent).pop().getBoundingClientRect();
     const bar = document.querySelector('.cta-bar');
     return {
       scrollW: document.documentElement.scrollWidth, innerW: innerWidth,
@@ -112,6 +114,8 @@ test('layout: без горизонтальной прокрутки; кнопк
   expect(m.scrollW).toBeLessThanOrEqual(m.innerW);
   if (isMobile) {
     expect(m.barShown).toBe(true);
+    await expect(page.locator('#me a.btn-main')).toBeHidden();
+    await expect(page.locator('.lynx a.btn-main')).toBeHidden();
     expect(m.lastBottom).toBeLessThanOrEqual(m.barTop);
   }
 });
