@@ -1,7 +1,43 @@
 // Управление как в C:\dev (перенос из mangal/js/ui.js): пробел + тянуть — сдвиг, клик по детали — только она,
 // двойной клик по пустому — снова вся модель, имя детали у курсора, подсказка «? Управление».
-// Вращение, колесо, правая кнопка и пальцы на телефоне — сам OrbitControls из model.js.
+// Вращение и правая кнопка мышью — сам OrbitControls из model.js. Колесо листает страницу, зум — Ctrl + колесо;
+// палец: вбок крутит (свой жест ниже), вверх-вниз листает страницу (touch-action: pan-y у #stage).
 // Загружается после landing.js: renderAll, viewFor, flyTo — оттуда.
+
+// Колесо: без Ctrl не трогаем — страница листается. С Ctrl зум включаем на время события (OrbitControls ловит его на холсте
+// после нас: capture на #stage идёт раньше). Первое колесо без Ctrl — подсказка на 2,5 с
+const wheelHint = document.createElement('div');
+wheelHint.className = 'wheelhint';
+wheelHint.textContent = 'Ctrl + колесо — масштаб';
+stage.appendChild(wheelHint);
+let hintShown = false;
+stage.addEventListener('wheel', e => {
+  if (!ok) return;
+  if (e.ctrlKey) { controls.enableZoom = true; return; }
+  if (hintShown) return;
+  hintShown = true;
+  wheelHint.classList.add('on');
+  setTimeout(() => wheelHint.classList.remove('on'), 2500);
+}, {capture: true, passive: true});
+stage.addEventListener('wheel', () => { if (ok) controls.enableZoom = false; }, {passive: true});
+
+// Палец. OrbitControls на касании запрещает прокрутку страницы — его обработчики отрезаем на подходе к холсту и крутим сами
+// вокруг вертикали (как md/lynx.js). Щипок и сдвиг двумя пальцами на телефоне не поддерживаем
+if (ok) {
+  for (const t of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) stage.addEventListener(t, e => e.stopPropagation(), {capture: true, passive: true});
+  const cv = renderer.domElement;
+  let touchX = null;
+  cv.addEventListener('pointerdown', e => { if (e.pointerType === 'touch' && e.isPrimary) touchX = e.clientX; });
+  cv.addEventListener('pointermove', e => {
+    if (e.pointerType !== 'touch' || !e.isPrimary || touchX === null) return;
+    const a = 2 * Math.PI * (e.clientX - touchX) / cv.clientHeight;   // протянуть на высоту холста — полный оборот
+    touchX = e.clientX;
+    if (!a) return;
+    camera.position.sub(controls.target).applyAxisAngle(new THREE.Vector3(0, 1, 0), -a).add(controls.target);
+    controls.update();
+  });
+  for (const t of ['pointerup', 'pointercancel']) cv.addEventListener(t, e => { if (e.pointerType === 'touch') touchX = null; });
+}
 
 // Пробел + тянуть мышью — двигать модель (как в Figma). Только когда курсор над моделью: иначе пробел листает страницу
 let spacePan = null, spaceHeld = false, overStage = false;

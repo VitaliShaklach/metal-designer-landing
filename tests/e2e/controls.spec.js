@@ -27,12 +27,13 @@ const sel = page => page.evaluate(() => S.sel.el);
 test.describe('мышь', () => {
   test.skip(({isMobile}) => isMobile, 'только десктоп');
 
-  test('zoom: колесо над моделью приближает и отдаляет', async ({page}) => {
+  test('zoom: Ctrl + колесо над моделью приближает и отдаляет', async ({page}) => {
     await page.goto('/');
     const {center} = await spots(page);
     const dist = () => page.evaluate(() => camera.position.distanceTo(controls.target));
     const d0 = await dist();
     await page.mouse.move(center.x, center.y);
+    await page.keyboard.down('Control');
     await page.mouse.wheel(0, -400);
     await frames(page);
     const d1 = await dist();
@@ -40,6 +41,23 @@ test.describe('мышь', () => {
     await page.mouse.wheel(0, 800);
     await frames(page);
     expect(await dist()).toBeGreaterThan(d1);
+    await page.keyboard.up('Control');
+  });
+
+  test('scroll: колесо без Ctrl над моделью листает страницу, камера на месте, есть подсказка', async ({page}) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');   // раскладка встала — курсор попадёт в #stage
+    const {center} = await spots(page);
+    const dist = () => page.evaluate(() => camera.position.distanceTo(controls.target));
+    const d0 = await dist();
+    await page.mouse.move(center.x, center.y);
+    await page.mouse.wheel(0, 300);
+    await expect(page.locator('.wheelhint')).toHaveClass(/on/);
+    await expect(page.locator('.wheelhint')).toHaveText('Ctrl + колесо — масштаб');
+    await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(0);
+    await frames(page);
+    expect(await dist()).toBeCloseTo(d0, 3);
+    await expect(page.locator('.wheelhint')).not.toHaveClass(/on/, {timeout: 4000});
   });
 
   test('pick: клик по детали — плашка, на модели только она, панель цифр — весь мангал', async ({page}) => {
@@ -99,7 +117,7 @@ test.describe('мышь', () => {
     await page.getByRole('button', {name: '? Управление'}).click();
     const help = page.locator('#help');
     await expect(help).toBeVisible();
-    for (const s of ['Колесо', 'Пробел', 'Клик по детали', 'Один палец', 'Касание детали']) await expect(help).toContainText(s);
+    for (const s of ['Колесо', 'Ctrl', 'Пробел', 'Клик по детали', 'Один палец', 'Касание детали']) await expect(help).toContainText(s);
     await expect(help).not.toContainText('Настройки');
     await page.locator('#helpClose').click();
     await expect(help).toBeHidden();
@@ -118,4 +136,28 @@ test('tap: касание детали на телефоне выбирает е
   const btn = await page.locator('#helpBtn').boundingBox();
   expect(bar.x + bar.width).toBeLessThanOrEqual(st.x + st.width);
   expect(bar.y >= btn.y + btn.height || bar.y + bar.height <= btn.y).toBe(true);
+});
+
+test.describe('телефон', () => {
+  test.skip(({isMobile}) => !isMobile, 'только телефон');
+
+  test('touch-action: pan-y у #stage — вертикальный жест отдан странице', async ({page}) => {
+    await page.goto('/');
+    expect(await page.locator('#stage').evaluate(el => getComputedStyle(el).touchAction)).toBe('pan-y');
+  });
+
+  test('горизонтальный жест пальцем крутит модель вокруг вертикали', async ({page}) => {
+    await page.goto('/');
+    const b = await page.locator('#stage').boundingBox();
+    const az = () => page.evaluate(() => new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target)).theta);
+    const a0 = await az();
+    const cdp = await page.context().newCDPSession(page);
+    const y = b.y + b.height / 2, x0 = b.x + b.width * .3;
+    const pt = x => [{x, y, id: 1}];
+    await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: pt(x0)});
+    for (let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: pt(x0 + i * 20)});
+    await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+    await frames(page);
+    expect(Math.abs(await az() - a0)).toBeGreaterThan(0.1);
+  });
 });

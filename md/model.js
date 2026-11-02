@@ -10,7 +10,8 @@ if(ok){
   camera.position.set(120,210,260);
   labels=new THREE.CSS2DRenderer();labels.domElement.style.cssText='position:absolute;inset:0;pointer-events:none';stage.appendChild(labels.domElement);
   controls=new THREE.OrbitControls(camera,renderer.domElement);
-  controls.enableDamping=true;controls.target.set(18,72,19.5);controls.maxPolarAngle=Math.PI;   // можно смотреть снизу
+  controls.enableDamping=true;controls.enableZoom=false;   // зум колесом включает controls.js только при Ctrl
+  controls.target.set(18,72,19.5);controls.maxPolarAngle=Math.PI;   // можно смотреть снизу
   scene.add(new THREE.HemisphereLight(0xf2f4f5,0xb9b4ae,0.9));
   const up=new THREE.DirectionalLight(0xffffff,0.75);up.position.set(40,-250,60);scene.add(up);   // подсветка снизу
   const d=new THREE.DirectionalLight(0xffffff,0.9);d.position.set(120,260,200);scene.add(d);
