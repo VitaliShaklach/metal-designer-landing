@@ -234,10 +234,10 @@ const perfFix=()=>{ST.perfL=Math.min(10,Math.max(1,ST.perfL||2));ST.perfStep=Mat
 // клик по модели: строку таблицы — в видимую часть её собственной прокрутки (если она есть); страницу не трогаем
 function revealRow(tr){for(let el=tr&&tr.parentElement;el&&el!==document.body;el=el.parentElement){const oy=getComputedStyle(el).overflowY;if((oy!=='auto'&&oy!=='scroll')||el.scrollHeight<=el.clientHeight)continue;
   const r=tr.getBoundingClientRect(),b=el.getBoundingClientRect();if(r.top<b.top)el.scrollTop+=r.top-b.top;else if(r.bottom>b.bottom)el.scrollTop+=r.bottom-b.bottom;return;}}
-// клик по строке таблицы: открыть «Вид» и плавно показать эскиз детали; на телефоне — в шторке
-function showSel(){const pn=$('controls'),sb=$('selBox'),bh=matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth';pn.querySelector('[data-g="view"]').classList.remove('shut');
+// клик по строке таблицы: открыть «Вид» и плавно показать эскиз детали; на телефоне шторку не открываем — ведём страницу к модели
+function showSel(){const sb=$('selBox'),bh=matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth';$('controls').querySelector('[data-g="view"]').classList.remove('shut');
   if(getComputedStyle($('drawerBtn')).display==='none'){sb.scrollIntoView({behavior:bh,block:'nearest'});return;}
-  drawer(true);pn.scrollTo({top:pn.scrollTop+sb.getBoundingClientRect().top-pn.getBoundingClientRect().top-(pn.querySelector('.drawerhead')?.offsetHeight||0)-8,behavior:bh});}
+  drawer(false);$('stage').scrollIntoView({behavior:bh,block:'start'});}
 $('parts').addEventListener('click',e=>{const tb=e.target.closest('tr[data-b]'),tr=e.target.closest('tr[data-p]');if(!tb&&!tr)return;
   // заготовка: подсветить целиком, камера — на неё (средняя точка и нормаль по площади)
   if(tb){const b=CUR.BL[+tb.dataset.b];ST.selB=+tb.dataset.b;ST.sel=-1;renderAll();const ps=b.parts.map(i=>CUR.R.parts[i]),A=ps.reduce((s,p)=>s+p.area,0);
