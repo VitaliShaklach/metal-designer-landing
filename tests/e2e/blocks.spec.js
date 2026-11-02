@@ -47,7 +47,7 @@ test('proj: «Ползунки — это только начало» — пос
   await expect(page.locator('#proj h2')).toHaveText('Ползунки — это только начало');
   await expect(page.locator('#proj p')).toHaveText('Размеры меняете сами — бесплатно. В редакторе правите не только размеры, а саму форму и всё про металл:');
   await expect(page.locator('#proj .checks li')).toHaveCount(4);
-  await expect(page.locator('#proj .checks li >> nth=1')).toContainText('гильотина или лазер');
+  await expect(page.locator('#proj .checks li >> nth=1')).toContainText('гильотина или лазер, перфорация, сварка и зазоры');
   const a = page.locator('#proj a');
   await expect(a).toHaveCount(1);
   await expect(a).toHaveText('Открыть в редакторе →');
