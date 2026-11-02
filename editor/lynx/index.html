@@ -6,9 +6,9 @@
 <title>Рысь — фигура из листа · Редактор</title>
 <meta name="description" content="Рысь из листа металла. Растягивайте фигуру — детали, масса, длина реза и швов пересчитываются.">
 <link rel="icon" href="../mangal/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-02k">
-<link rel="stylesheet" href="../editor.css?v=2026-11-02k">
-<link rel="stylesheet" href="css/style.css?v=2026-11-02k">
+<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-02o">
+<link rel="stylesheet" href="../editor.css?v=2026-11-02o">
+<link rel="stylesheet" href="css/style.css?v=2026-11-02o">
 </head>
 <body>
 <div class="edbar">
@@ -123,16 +123,19 @@
     <div class="tabpane" id="tab-nest" role="tabpanel" hidden>
       <p class="tabnote">Детали разложены на лист металла с зазором под рез (поле «Между деталями на листе» в разделе «Металл»: по умолчанию 5 мм: лазеру хватает 3–5, плазме нужно 6–8) и отступом 10 мм от края. Контуры — уже с учётом толщины и шва</p>
       <div class="dimbar"><button id="bDxfNest" type="button">DXF раскрой</button><span class="dxfmsg" id="nestMsg"></span></div>
+      <div class="nestwait" id="nestWait" hidden><span class="nestStar" aria-hidden="true"><b><i>✻</i><i>✶</i><i>✳</i><i>✢</i></b></span><span>Считаю раскрой, это может занять несколько минут</span><span class="nestCnt"></span></div>
       <div class="sheets" id="nestBox"></div>
     </div>
     <div class="tabpane" id="tab-sheets" role="tabpanel" hidden>
       <p class="tabnote">Листы А3 для производства: общий вид, порядок сборки, гибка, спецификация, уголки, раскрой. Каждый элемент и деталь отдельно — во вкладке «Карты деталей». Размеры в мм</p>
       <div class="dimbar"><button id="shPdf" type="button">Скачать PDF (А3)</button><button id="bDxfParts" type="button">DXF детали</button><select id="shGo" aria-label="Перейти к листу"></select><span class="dxfmsg">PDF: в окне печати выберите «Сохранить как PDF»; формат А3 уже задан</span></div>
+      <div class="nestwait" hidden><span class="nestStar" aria-hidden="true"><b><i>✻</i><i>✶</i><i>✳</i><i>✢</i></b></span><span>Считаю раскрой, это может занять несколько минут</span><span class="nestCnt"></span></div>
       <div class="sheets" id="sheets"></div>
     </div>
     <div class="tabpane" id="tab-cards" role="tabpanel" hidden>
       <p class="tabnote">Лист А4 на каждый элемент и деталь (зеркальная пара — на одном): развёртка с размерами, где он на фигуре, готовый вид, гибка по порядку и швы — у каждого угла его чертёж и чем выставить. Клик по карте — крупно</p>
       <div class="dimbar"><button id="shCards" type="button">Скачать PDF (А4)</button><select id="cdGo" aria-label="Перейти к карте"></select><span class="dxfmsg" id="cdMsg"></span></div>
+      <div class="nestwait" id="cdWait" hidden><span class="nestStar" aria-hidden="true"><b><i>✻</i><i>✶</i><i>✳</i><i>✢</i></b></span><span>Строю карты деталей, это может занять время</span><span id="cdCnt"></span></div>
       <div class="sheets cards" id="cards"></div>
     </div>
   </section>
@@ -144,22 +147,22 @@
 </div>
 
 <div class="zoom" id="zoom" hidden><div class="zoombar"><span id="zoomTtl"></span><button type="button" id="zoomOut" aria-label="Мельче">−</button><span id="zoomK">100%</span><button type="button" id="zoomIn" aria-label="Крупнее">+</button><button type="button" id="zoomFit">Весь лист</button><button type="button" id="zoomX" aria-label="Закрыть">✕</button></div><div class="zoombox" id="zoomBox"></div></div>
-<script src="../../vendor/three/three.min.js?v=2026-11-02k"></script>
-<script src="../../vendor/three/OrbitControls.js?v=2026-11-02k"></script>
-<script src="../../vendor/three/CSS2DRenderer.js?v=2026-11-02k"></script>
-<script src="js/mesh.js?v=2026-11-02k"></script>
-<script src="js/models-poly.js?v=2026-11-02k"></script>
-<script src="js/figures.js?v=2026-11-02k"></script>
-<script src="js/plates-lynx14.js?v=2026-11-02k"></script>
-<script src="js/edit.js?v=2026-11-02k"></script>
-<script src="js/trace.js?v=2026-11-02k"></script>
-<script src="js/view3d.js?v=2026-11-02k"></script>
-<script src="js/prod.js?v=2026-11-02k"></script>
-<script src="js/bend.js?v=2026-11-02k"></script>
-<script src="js/bend3d.js?v=2026-11-02k"></script>
-<script src="js/sheets.js?v=2026-11-02k"></script>
-<script src="js/ui.js?v=2026-11-02k"></script>
-<script src="js/tips.js?v=2026-11-02k"></script>
+<script src="../../vendor/three/three.min.js?v=2026-11-02o"></script>
+<script src="../../vendor/three/OrbitControls.js?v=2026-11-02o"></script>
+<script src="../../vendor/three/CSS2DRenderer.js?v=2026-11-02o"></script>
+<script src="js/mesh.js?v=2026-11-02o"></script>
+<script src="js/models-poly.js?v=2026-11-02o"></script>
+<script src="js/figures.js?v=2026-11-02o"></script>
+<script src="js/plates-lynx14.js?v=2026-11-02o"></script>
+<script src="js/edit.js?v=2026-11-02o"></script>
+<script src="js/trace.js?v=2026-11-02o"></script>
+<script src="js/view3d.js?v=2026-11-02o"></script>
+<script src="js/prod.js?v=2026-11-02o"></script>
+<script src="js/bend.js?v=2026-11-02o"></script>
+<script src="js/bend3d.js?v=2026-11-02o"></script>
+<script src="js/sheets.js?v=2026-11-02o"></script>
+<script src="js/ui.js?v=2026-11-02o"></script>
+<script src="js/tips.js?v=2026-11-02o"></script>
 <div id="printBox"></div>
 </body>
 </html>

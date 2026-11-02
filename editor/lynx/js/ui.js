@@ -48,11 +48,13 @@ function prodCalc(){const R=CUR.R,[W,H]=sheetWL();CUR.C=R.parts.map(p=>cutContou
 function compute(){compute0();prodCalc();}
 const NEST={key:'',want:'',N:null,run:null,wait:[]};
 // раскладка по кусочкам, чтобы страница не замирала; cb — когда готово
+const nestWait=on=>{document.querySelectorAll('.nestwait:not(#cdWait)').forEach(e=>e.hidden=!on);if(!on)nestCnt('');};
+const nestCnt=t=>document.querySelectorAll('.nestCnt').forEach(e=>{e.textContent=t;});
 function ensureNest(cb){if(CUR&&CUR.N){cb&&cb();return;}if(cb)NEST.wait.push(cb);if(NEST.run&&NEST.run.key===NEST.want)return;
-  const key=NEST.want,g=nestGen(NEST.items,...NEST.args),run={key};NEST.run=run;
+  nestWait(true);const key=NEST.want,g=nestGen(NEST.items,...NEST.args),run={key};NEST.run=run;
   const step=()=>{if(NEST.run!==run)return;const t0=performance.now();let v;do{v=g.next();}while(!v.done&&performance.now()-t0<60);
-    if(!v.done){const m=$('nestMsg');if(m)m.textContent=`Раскладываю детали по форме… ${v.value.done} из ${v.value.of}`;setTimeout(step,0);return;}
-    NEST.key=key;NEST.N=v.value;NEST.run=null;if(CUR&&NEST.want===key)CUR.N=v.value;const w=NEST.wait;NEST.wait=[];w.forEach(f=>f());if(!$('tab-sum').hidden)sumTable();};
+    if(!v.done){const m=$('nestMsg');if(m)m.textContent=`Раскладываю детали по форме… ${v.value.done} из ${v.value.of}`;nestCnt(`· ${v.value.done} из ${v.value.of}`);setTimeout(step,0);return;}
+    nestWait(false);NEST.key=key;NEST.N=v.value;NEST.run=null;if(CUR&&NEST.want===key)CUR.N=v.value;const w=NEST.wait;NEST.wait=[];w.forEach(f=>f());if(!$('tab-sum').hidden)sumTable();};
   setTimeout(step,0);}
 function compute0(){const b=ST.base;let S=b;
   if(isPoly()){const M3={V:b.V,F:b.F,T:b.T,S:b.S},R=buildParts(M3,1.5,1.5),wl=FIGURES[ST.fig]?.noBack?0:addBacking(R,M3,FIGURES[ST.fig]?.backIf),_p=pairNumbers(R,M3.V),T=totals(R,{t:ST.t,mat:ST.mat,sheet:sheetWL()});T.weld+=wl;T.open=Math.max(0,T.open-wl);
@@ -253,10 +255,15 @@ document.querySelectorAll('.controls .grp').forEach(g=>g.querySelector('.gt').ad
 function drawer(o){const bt=$('drawerBtn');$('controls').classList.toggle('open',o);bt.setAttribute('aria-expanded',String(o));bt.textContent=o?'Готово':'Панель';}
 $('drawerBtn').addEventListener('click',()=>drawer(!$('controls').classList.contains('open')));$('drawerClose').addEventListener('click',()=>drawer(false));
 /* ---------- раскрой, чертежи, карты: строим только открытую вкладку, через 0,5 с после правки; картам раскладка не нужна ---------- */
+let CARDS_RUN=null;
 function sheetsUI(now){clearTimeout(SHEETS_T);const vis=!$('tab-sheets').hidden||!$('tab-nest').hidden||!$('tab-cards').hidden;if(!vis||!CUR)return;
   if(!now){SHEETS_T=setTimeout(()=>sheetsUI(true),500);return;}
-  if(!$('tab-cards').hidden){const cd=buildCards();$('cards').innerHTML=cd.map((s,i)=>`<figure class="sheet" id="card${i+1}"><figcaption>Лист ${i+1} из ${cd.length} · ${esc(s.title)}</figcaption>${s.svg}</figure>`).join('');
-    $('cdGo').innerHTML=cd.map((s,i)=>`<option value="card${i+1}">Карта ${i+1} · ${esc(s.title)}</option>`).join('');$('cdMsg').textContent=cd.length?`Карт: ${cd.length} · позиций на резку: ${CUR.PC.length}`:'';return;}
+  if(!$('tab-cards').hidden){const run=CARDS_RUN={},g=buildCardsGen();$('cdWait').hidden=false;
+    const step=()=>{if(CARDS_RUN!==run)return;if($('tab-cards').hidden){$('cdWait').hidden=true;CARDS_RUN=null;return;}const t0=performance.now();let v;do{v=g.next();}while(!v.done&&performance.now()-t0<60);
+      if(!v.done){$('cdCnt').textContent=`· ${v.value.what} ${v.value.done} из ${v.value.of}`;setTimeout(step,0);return;}
+      const cd=v.value;$('cards').innerHTML=cd.map((s,i)=>`<figure class="sheet" id="card${i+1}"><figcaption>Лист ${i+1} из ${cd.length} · ${esc(s.title)}</figcaption>${s.svg}</figure>`).join('');
+      $('cdGo').innerHTML=cd.map((s,i)=>`<option value="card${i+1}">Карта ${i+1} · ${esc(s.title)}</option>`).join('');$('cdMsg').textContent=cd.length?`Карт: ${cd.length} · позиций на резку: ${CUR.PC.length}`:'';$('cdWait').hidden=true;$('cdCnt').textContent='';CARDS_RUN=null;};
+    setTimeout(step,50);return;}
   if(!CUR.N){ensureNest(()=>sheetsUI(true));return;}SHEETS_OLD=false;
   if(!$('tab-nest').hidden){const L=sheetsNest(),d=new Date(),date=d.toLocaleDateString('ru-RU');$('nestBox').innerHTML=L.map((b,i)=>`<figure class="sheet"><figcaption>Раскрой ${i+1} из ${L.length}</figcaption>${wrapSheet(b,{n:i+1,N:L.length,date})}</figure>`).join('');
     const s0=CUR.N.sheets[0];$('nestMsg').textContent=`Листов: ${CUR.N.sheets.length} · ${itemsTxt(CUR.N.sheets.flatMap(s=>s.items))} · зазор ${ST.ngap} мм${s0?` · плотность ${Math.round(s0.dense*100)}% в полосе с деталями ${sheetWL()[1]} × ${Math.round(s0.len)} мм, остальное свободно`:''} · ${cutTxt(cutStats(CUR.N.sheets.flatMap(s=>s.items)))}${CUR.degen?' · выродились: '+CUR.degen:''}`;}

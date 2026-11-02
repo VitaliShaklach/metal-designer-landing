@@ -258,6 +258,8 @@ function nestClick(e){const b=e.target.closest&&e.target.closest('button[data-ac
 
 /* ---------- когда считать: только при открытой вкладке, через 0,3 с после правки; кусками по ~60 мс, кэш по ключу ---------- */
 const NST={key:'',res:null,run:null,t:0,init:false,cur:null};   // cur — что сейчас нарисовано ({N,res}): для кнопок скачивания
+const nestWait=on=>{const e=document.getElementById('nestWait');if(e)e.hidden=!on;if(!on)nestCnt('');};
+const nestCnt=t=>document.querySelectorAll('.nestCnt').forEach(e=>{e.textContent=t;});
 const nestMsg=t=>{const m=document.getElementById('nestMsg');if(m)m.textContent=t;};
 // поля «Между деталями», «Лист», «Подрезка кромки» и галочки: значения из памяти браузера (store — в ui.js, к первому показу вкладки он уже есть)
 function nestInit(){if(NST.init)return;NST.init=true;const gi=document.getElementById('nGap'),si=document.getElementById('nSheet'),ei=document.getElementById('nEdge');if(!gi||!si)return;
@@ -271,15 +273,15 @@ function nestUI(now){clearTimeout(NST.t);if(!now){NST.t=setTimeout(()=>nestUI(tr
   const pane=document.getElementById('tab-cut');if(!pane||pane.hidden!==false)return;
   nestInit();const N=nestJob(),cb=document.getElementById('nCgrBox');if(cb)cb.hidden=!N.hasCgr;   // галочка колосника — только когда он есть (мангал, «Колосниковая решётка»)
   ['nEdgeBox','nGilReset'].forEach(id=>{const e=document.getElementById(id);if(e)e.hidden=!N.gil;});   // подрезка кромки и «Сбросить выбор» — только с гильотиной
-  if(NST.res&&NST.key===N.key){NST.run=null;nestMsg('');nestDraw(N,NST.res);return;}   // уже посчитано (лишний счёт, если шёл, — останавливаем)
+  if(NST.res&&NST.key===N.key){NST.run=null;nestWait(false);nestMsg('');nestDraw(N,NST.res);return;}   // уже посчитано (лишний счёт, если шёл, — останавливаем)
   if(NST.run&&NST.run.key===N.key)return;   // уже считается
   const run={key:N.key,res:[],gi:0,g:null,done:0},all=N.groups.reduce((a,G)=>a+G.items.length,0);NST.run=run;
   const box=document.getElementById('nestBox');if(box){if(box.querySelector('svg'))box.classList.add('busy');else box.innerHTML='<p class="tabnote">Раскладываю…</p>';}
-  nestMsg('Раскладываю…');
+  nestWait(true);nestMsg('Раскладываю…');
   const step=()=>{if(NST.run!==run)return;const t0=performance.now();
     while(run.gi<N.groups.length){const G=N.groups[run.gi];if(!run.g)run.g=nestGen(G.items,N.LW,N.LH,N.gap,NEST_EDGE,NEST_CELL);const v=run.g.next();
       if(v.done){run.res.push(v.value);run.g=null;run.gi++;}else run.done=N.groups.slice(0,run.gi).reduce((a,G)=>a+G.items.length,0)+v.value.done;
       if(performance.now()-t0>60)break;}
-    if(run.gi<N.groups.length){nestMsg(`Раскладываю… ${run.done} из ${all}`);setTimeout(step,0);return;}
-    NST.key=run.key;NST.res=run.res;NST.run=null;nestMsg('');nestUI(true);};   // нарисовать; если детали сменились, пока считали, — посчитает заново
+    if(run.gi<N.groups.length){nestMsg(`Раскладываю… ${run.done} из ${all}`);nestCnt(`· ${run.done} из ${all}`);setTimeout(step,0);return;}
+    NST.key=run.key;NST.res=run.res;NST.run=null;nestWait(false);nestMsg('');nestUI(true);};   // нарисовать; если детали сменились, пока считали, — посчитает заново
   setTimeout(step,0);}

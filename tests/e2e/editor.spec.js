@@ -186,3 +186,51 @@ test('lynx: на телефоне без горизонтальной прокр
   const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   expect(sw).toBeLessThanOrEqual(iw);
 });
+
+test('mangal: во время раскроя виден индикатор, потом скрывается', async ({page}) => {
+  await openEditor(page, '/editor/mangal/');
+  await expect(page.locator('#nestWait')).toBeHidden();
+  // расчёт быстрый: индикатор мелькает, поэтому следим за атрибутом hidden
+  await page.evaluate(() => {
+    const e = document.getElementById('nestWait');
+    window.__nestSeen = [];
+    new MutationObserver(() => window.__nestSeen.push(!e.hidden)).observe(e, {attributes: true, attributeFilter: ['hidden']});
+  });
+  await page.locator('[role=tab][data-tab=cut]').click();
+  await expect.poll(() => page.evaluate(() => window.__nestSeen.join())).toMatch(/^true,false/);
+  await expect(page.locator('#nestWait')).toBeHidden();
+  await expect(page.locator('#nestBox svg').first()).toBeVisible();
+});
+
+test('lynx: во время раскроя виден индикатор', async ({page}) => {
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  await expect(page.locator('#nestWait')).toBeHidden();
+  // вкладка считает прямо в обработчике и не даёт обычному клику вернуться — нажимаем из самой страницы
+  await page.evaluate(() => setTimeout(() => document.querySelector('[role=tab][data-tab=nest]').click(), 0));
+  await expect(page.locator('#nestWait')).toBeVisible({timeout: 5000});
+  await expect(page.locator('#nestWait')).toContainText('Считаю раскрой');
+  await expect(page.locator('#nestWait .nestCnt')).toContainText(/из \d+/, {timeout: 60000});
+  // символ меняется, пока идёт расчёт (CSS-анимация): сдвиг колонки в замерах разный
+  const y = () => page.locator('#nestWait .nestStar b').evaluate(e => getComputedStyle(e).transform);
+  const seen = new Set();
+  for (let i = 0; i < 5; i++) { seen.add(await y()); await page.waitForTimeout(300); }
+  expect(seen.size).toBeGreaterThan(1);
+});
+
+test('lynx: индикатор виден в «Чертежах» и «Картах деталей»', async ({page}) => {
+  test.setTimeout(420000);
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  await page.evaluate(() => setTimeout(() => document.querySelector('[role=tab][data-tab=cards]').click(), 0));
+  await expect(page.locator('#cdWait')).toBeVisible({timeout: 5000});
+  await expect(page.locator('#cdWait')).toContainText('карты');
+  await expect(page.locator('#cdCnt')).toContainText(/из \d+/, {timeout: 60000});   // счётчик идёт
+  await expect(page.locator('#cdWait')).toBeHidden({timeout: 120000});
+  await expect(page.locator('#cards figure').first()).toBeVisible();
+  await page.evaluate(() => setTimeout(() => document.querySelector('[role=tab][data-tab=sheets]').click(), 0));
+  const w = page.locator('#tab-sheets .nestwait');
+  await expect(w).toBeVisible({timeout: 5000});
+  await expect(w).toContainText('Считаю раскрой');
+  await expect(w.locator('.nestCnt')).toContainText(/из \d+/, {timeout: 60000});
+});

@@ -456,3 +456,12 @@ svg.mini .engr{stroke-width:.6}
   .tabbar button{grid-column:span 2;font-size:14px;padding:10px 4px;white-space:normal}
   .tabbar button:nth-child(n+4){grid-column:span 3}
 }
+/* ---------- индикатор раскроя: четыре символа, смена ступеньками на CSS (transform идёт без главного потока, пока страница считает) ---------- */
+.nestwait{display:flex;align-items:center;gap:8px;margin:8px 0;font:13px var(--f-mono);color:var(--muted)}
+.nestwait[hidden]{display:none}
+.nestStar{display:block;flex:none;width:1.4em;height:1.4em;line-height:1.4em;overflow:hidden;text-align:center;color:var(--accent);font-size:18px}
+.nestStar b{display:block;animation:nestStar .8s steps(4) infinite;will-change:transform}
+.nestStar i{display:block;font-style:normal;height:1.4em}
+@keyframes nestStar{to{transform:translateY(-5.6em)}}
+@media (prefers-reduced-motion:reduce){.nestStar b{animation-duration:3.2s}}
+.nestCnt,#cdCnt{color:var(--ink,inherit);font-variant-numeric:tabular-nums}
