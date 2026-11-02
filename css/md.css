@@ -58,6 +58,19 @@
 .tbl td small { color: var(--muted); display: block; font-size: 12px; }
 .tbl td small.fn { font-family: var(--f-mono); font-size: 11px; }
 #cut td:nth-child(2) { vertical-align: middle; width: 1%; }
+/* Телефон: тень у края, пока таблицу можно листать вбок (local-слои закрывают тень, когда край достигнут) */
+.swipehint { display: none; }
+@media (max-width: 719px) {
+  .swipehint { display: inline; }
+  .tbl {
+    background:
+      linear-gradient(to right, var(--panel) 30%, transparent) left center / 24px 100% no-repeat local,
+      linear-gradient(to left, var(--panel) 30%, transparent) right center / 24px 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, .28), transparent) left center / 10px 100% no-repeat scroll,
+      radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, .28), transparent) right center / 10px 100% no-repeat scroll,
+      var(--panel);
+  }
+}
 
 /* Эскизы деталей — та же геометрия, что в DXF */
 svg.dxfsk { display: block; fill: none; stroke: var(--accent); stroke-width: 1.2px; vector-effect: non-scaling-stroke; }
