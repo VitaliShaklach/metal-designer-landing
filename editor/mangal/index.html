@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Мангал и печь под казан — 3D-конфигуратор</title>
+<meta name="description" content="3D-конфигуратор мангала и печи под казан: размеры в мм, раскрой и масса, DXF для лазерной резки, список покупок.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Мангал и печь под казан — 3D-конфигуратор">
+<meta property="og:description" content="Соберите мангал, печь под казан или оба вместе: 3D-модель, размеры, раскрой и DXF для лазера.">
+<meta property="og:image" content="https://vitalishaklach.github.io/metal-designer/mangal/img/og.png">
+<meta property="og:url" content="https://vitalishaklach.github.io/metal-designer/mangal/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-02k">
+<link rel="stylesheet" href="../editor.css?v=2026-11-02k">
+<link rel="stylesheet" href="css/style.css?v=2026-11-02k">
+</head>
+<body>
+<div class="edbar">
+  <a class="edbar-back" href="../">← Редактор</a>
+  <a class="edbar-tg" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать фото и пожелания в Telegram</a>
+</div>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Metal Designer · 3D-конфигуратор · сталь 5 мм</div>
+      <h1 id="ttl">Мангал</h1>
+      <p class="lede" id="lede"></p>
+    </div>
+    <div class="hside">
+      <div class="seg unitseg" id="unitSeg" role="group" aria-label="Единицы размеров"><button data-v="mm" aria-pressed="true">мм</button><button data-v="cm" aria-pressed="false">см</button></div>
+      <div class="stats" id="stats"></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="pick">
+      <div class="lbl"><span class="t">Что проектируем</span>
+        <div class="seg modeseg" id="modeSeg"><button data-v="both" aria-pressed="false">Печь + мангал</button><button data-v="grill" aria-pressed="true">Мангал</button><button data-v="stove" aria-pressed="false">Печь</button></div></div>
+      <label><span class="t">Показать</span><select id="selEl"></select></label>
+      <label><span class="t">Деталь</span><select id="selPart" disabled></select></label>
+      <span class="pickhint" id="pickHint"></span>
+    </div>
+    <div class="studio">
+      <div id="stage">
+        <div class="loading" id="loading"><i></i>Загружаю 3D-модель…</div>
+        <div class="legend"><span><i style="background:#454c52"></i>основная конструкция</span><span><i style="background:#b8703f"></i>опции и дополнения</span></div>
+        <button class="viewbtn" id="copyView" type="button" title="Ссылка на эту страницу с тем же видом камеры, деталью, размерами и галочками">Поделиться видом</button>
+        <div class="viewbox" id="viewBox" hidden><span id="viewMsg">Ссылка скопирована</span><input id="viewTxt" readonly></div>
+        <div class="hovtag" id="hovTag" hidden></div>
+        <button class="helpbtn" id="helpBtn" type="button" aria-haspopup="dialog" aria-controls="help" title="Управление и горячие клавиши (?)">? Управление</button>
+        <div class="help" id="help" role="dialog" aria-modal="false" aria-labelledby="helpT" hidden>
+          <div class="helphead"><b id="helpT">Управление</b><button type="button" id="helpClose" aria-label="Закрыть">✕</button></div>
+          <div class="helpcols">
+            <div><h4>Мышь</h4><dl>
+              <dt>ЛКМ + тянуть</dt><dd>вращать модель</dd>
+              <dt>Колесо</dt><dd>приблизить / отдалить</dd>
+              <dt>ПКМ + тянуть</dt><dd>двигать модель</dd>
+              <dt><kbd>Пробел</kbd> + тянуть</dt><dd>двигать (как в Figma)</dd>
+              <dt>Клик по детали</dt><dd>показать только её — размеры и раскрой тоже</dd>
+              <dt>Двойной клик по пустому</dt><dd>снова вся модель</dd>
+              <dt>Наведение</dt><dd>имя детали под курсором</dd></dl></div>
+            <div><h4>Телефон</h4><dl>
+              <dt>Один палец</dt><dd>вращать</dd>
+              <dt>Два пальца</dt><dd>щипок — масштаб, сдвиг — двигать</dd>
+              <dt>Касание детали</dt><dd>выбрать её</dd>
+              <dt>«Настройки»</dt><dd>кнопка внизу — галочки и ползунки</dd></dl></div>
+            <div><h4>Клавиши</h4><dl>
+              <dt><kbd>F</kbd></dt><dd>камера на всю модель (или на выбранное)</dd>
+              <dt><kbd>Esc</kbd></dt><dd>сбросить выбор детали</dd>
+              <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>печь + мангал / мангал / печь</dd>
+              <dt><kbd>D</kbd></dt><dd>показать / скрыть все размеры</dd>
+              <dt><kbd>X</kbd></dt><dd>прозрачный корпус</dd>
+              <dt><kbd>U</kbd></dt><dd>мм ⇄ см</dd>
+              <dt><kbd>?</kbd></dt><dd>эта справка</dd></dl></div>
+            <div><h4>Интерфейс</h4><dl>
+              <dt>Значок «?»</dt><dd>у галочки — пояснение</dd>
+              <dt>Заголовок группы</dt><dd>свернуть / развернуть</dd>
+              <dt>Вкладки</dt><dd>переключаются и стрелками <kbd>←</kbd> <kbd>→</kbd></dd>
+              <dt>«Поделиться видом»</dt><dd>ссылка с той же камерой, деталью и галочками</dd></dl></div>
+          </div>
+        </div>
+        <div class="hint">Клик по детали — выбрать · <kbd>?</kbd> — управление и горячие клавиши</div>
+      </div>
+      <button class="drawerbtn" id="drawerBtn" type="button" aria-controls="controls" aria-expanded="false">Настройки</button>
+      <div class="controls" id="controls">
+        <div class="drawerhead"><b>Настройки</b><button type="button" id="drawerClose" aria-label="Закрыть">✕</button></div>
+        <div class="grp" data-g="gen"><button type="button" class="gt">Общее</button>
+          <div class="row"><label class="t" for="hTop">Высота верха от земли</label><span class="val" id="hTopV"></span></div>
+          <input type="range" id="hTop" min="80" max="110" step="1" value="97">
+          <label class="chk"><input type="checkbox" id="cMan"><span>Человек 184 см<small>рост 184 см, стоит со стороны повара — с крышей — видно, где её край относительно головы</small></span></label>
+          <label class="chk"><input type="checkbox" id="cLogo"><span>Логотип Claude Code<small>сквозной вырез 80 × 50 мм на торце напротив ручки: у мангала — левый торец, с печью — глухой верх топки</small></span></label>
+          <label class="chk"><input type="checkbox" id="cXray"><span>Прозрачный корпус<small>стенки и дно просвечивают — видно колосник, уголки, шибер</small></span></label>
+          <div class="fit" id="fit"></div>
+        </div>
+        <div class="grp" id="grpGrill" data-g="grill"><button type="button" class="gt">Жаровня</button>
+          <label class="chk"><input type="checkbox" id="cAirSl" checked><span>Задвижки поддува<small>планки с отверстиями снаружи боковин, в скобах — регулируют жар</small></span></label>
+          <label class="chk"><input type="checkbox" id="cHook" checked><span>Скобы задвижек (уши)<small>4 шт., плоские 12 × 30 из листа 5 мм, приварены к боковинам ребром — остаются, даже если задвижки сняты</small></span></label>
+          <div class="seg" id="airSeg" style="grid-template-columns:repeat(3,1fr)"><button data-v="open" aria-pressed="false">Открыто</button><button data-v="half" aria-pressed="true">Наполовину</button><button data-v="closed" aria-pressed="false">Закрыто</button></div>
+          <label class="chk"><input type="checkbox" id="cDiv"><span>Перегородка жаровни<small>съёмная, ручка сбоку на дальней стороне · жечь угли в одной части</small></span></label>
+          <div class="seg" id="divSeg" style="grid-template-columns:repeat(3,1fr)"><button data-v="22.5" aria-pressed="false"><span data-u="22.5"></span><small>от торца</small></button><button data-v="30" aria-pressed="true"><span data-u="30"></span><small>от торца</small></button><button data-v="40" aria-pressed="false"><span data-u="40"></span><small>пополам</small></button></div>
+          <label class="chk full"><input type="checkbox" id="cCgr" checked><span>Колосниковая решётка<small>2 половины, лист 5–10 мм с отверстиями, на уголках 30×30×4 над поддувом · от решётки до верха 130 мм · жаровня глубже вниз, верх не меняется</small></span></label>
+          <label class="chk sub"><input type="checkbox" id="cCgrPlate1" checked><span>Колосник 1<small>левая половина · снимите — видно уголки</small></span></label>
+          <label class="chk sub"><input type="checkbox" id="cCgrPlate2" checked><span>Колосник 2<small>правая половина, у ручки · снимите — видно уголки</small></span></label>
+          <label class="chk sub"><input type="checkbox" id="cCgrAng" checked><span>Уголки под решётку</span></label>
+          <label class="chk"><input type="checkbox" id="cDeep" checked><span>Глубокие прорези<small>4 шт. справа, глубина 60 мм — шампур ниже к углям</small></span></label>
+          <label class="chk"><input type="checkbox" id="cGAng" checked><span>Уголки в жаровне<small>2 шт. 30×30 на передней боковине, один за другим</small></span></label>
+          <label class="chk"><input type="checkbox" id="cGrillGrate"><span>Решётка в жаровне<small>на уголках спереди и в вырезе 60×60 мм сзади — опущена низко</small></span></label>
+          <label class="chk"><input type="checkbox" id="cGrates2"><span>2 решётки сверху<small>по 400 × 400 мм на краях жаровни, ручки к повару</small></span></label>
+          <label class="chk"><input type="checkbox" id="cSkew"><span>Шампуры в прорезях</span></label>
+          <label class="chk"><input type="checkbox" id="cSkewD"><span>Шампуры в глубоких прорезях<small>4 шт., на 60 мм ниже — ближе к углям</small></span></label>
+        </div>
+        <div class="grp" id="grpStove" data-g="stove"><button type="button" class="gt">Печь</button>
+          <label class="chk"><input type="checkbox" id="cPlate" checked><span>Плита с кольцами<small>снимите галочку — топка без плиты</small></span></label>
+          <label class="chk"><input type="checkbox" id="cLift"><span>Снять плиту<small>плита и кольца разнесены вверх</small></span></label>
+          <label class="chk"><input type="checkbox" id="cKazan" checked><span>Казан<small>снимаются только нужные кольца</small></span></label>
+          <div class="seg" id="kzSeg" style="grid-template-columns:repeat(4,1fr)"><button data-v="6" aria-pressed="false">6 л<small>Ø<span data-n="33"></span></small></button><button data-v="8" aria-pressed="false">8 л<small>Ø<span data-n="35.5"></span></small></button><button data-v="10" aria-pressed="false">10 л<small>Ø<span data-n="38"></span></small></button><button data-v="12" aria-pressed="true">12 л<small>Ø<span data-n="42"></span></small></button></div>
+          <label class="chk"><input type="checkbox" id="cFb" checked><span>Отсекатель пламени<small>наклонный лист у трубы — пламя к центру казана</small></span></label>
+          <label class="chk"><input type="checkbox" id="cObe"><span>Обечайка вокруг казана<small>по желанию: кольцо Ø420 мм под плитой — казан греется с боков</small></span></label>
+          <label class="chk"><input type="checkbox" id="cDamper" checked><span>Заслонка в трубе<small>регулирует тягу — меньше дров</small></span></label>
+          <label class="chk"><input type="checkbox" id="cChim" checked><span>Труба<small>60×60 мм: из задней боковины печи, колено вверх</small></span></label>
+          <label class="chk"><input type="checkbox" id="cChimX" checked><span>Удлинитель трубы 1 м<small>отдельный кусок 60×60 — приварить на месте</small></span></label>
+          <label class="chk"><input type="checkbox" id="cTie" checked><span>Полоса у дверцы<small>150 мм сверху между боковинами — закрывает верх до плиты</small></span></label>
+          <span class="t" style="margin-top:6px">Топка</span>
+          <div class="row"><label class="t" for="hFire">Глубина топки казана</label><span class="val" id="hFireV"></span></div>
+          <input type="range" id="hFire" min="30" max="70" step="1" value="50">
+          <label class="chk"><input type="checkbox" id="cLintel" checked><span>Глухой верх топки<small>лист 150 мм сверху на торце, приварен — дым не идёт в лицо</small></span></label>
+          <label class="chk"><input type="checkbox" id="cDoor" checked><span>Дверца топки<small>на петлях сбоку, с крючком</small></span></label>
+          <label class="chk"><input type="checkbox" id="cDoorOpen" checked><span>Дверца открыта</span></label>
+          <label class="chk"><input type="checkbox" id="cGrate" checked><span>Колосник</span></label>
+          <div class="seg" id="grSeg"><button data-v="rebar" aria-pressed="false">Арматура<small>Ø20, шаг 35</small></button><button data-v="plate" aria-pressed="true">Лист 15 мм<small>отв. Ø20, шаг 40</small></button></div>
+          <label class="chk"><input type="checkbox" id="cAngles" checked><span>Уголки<small>опора колосника, 40×40×4</small></span></label>
+          <label class="chk"><input type="checkbox" id="cDraft" checked><span>Поддувало с шибером<small>отверстия в дне + задвижка снизу</small></span></label>
+          <span class="t">Шибер</span>
+          <div class="seg" id="shSeg" style="grid-template-columns:repeat(4,1fr)"><button data-v="in" aria-pressed="false">Вставлен<small>закрыто</small></button><button data-v="half" aria-pressed="true">Открыт<small>на ½</small></button><button data-v="two" aria-pressed="false">Открыт<small>на ⅔</small></button><button data-v="out" aria-pressed="false">Вынут<small>открыто</small></button></div>
+          <label class="chk"><input type="checkbox" id="cWood" checked><span>Дрова в топке</span></label>
+        </div>
+        <div class="grp" data-g="legs"><button type="button" class="gt">Ножки и колёса</button>
+          <label class="chk"><input type="checkbox" id="cLegs" checked><span>Ножки<small>снимите — корпус без ножек и колёс</small></span></label>
+          <label class="chk"><input type="checkbox" id="cLegTw" checked><span>Ножки откручиваются<small>Ножки снимаются для перевозки</small></span></label>
+          <label class="chk"><input type="checkbox" id="cWheels" checked><span>Колёса<small>снимите — ножки с площадками без колёс</small></span></label>
+        </div>
+        <div class="grp" data-g="roof"><button type="button" class="gt">Крыша</button>
+          <label class="chk"><input type="checkbox" id="cRain"><span>Крыша от дождя<small>включите — крыша на модели, в размерах, «Массе» и «Что купить»<span id="rainSm"></span></small></span></label>
+          <label class="chk roofOpt"><input type="checkbox" id="cSheet" checked><span>Лист крыши<small>снимите — видно стойки и крепёж</small></span></label>
+          <label class="chk roofOpt"><input type="checkbox" id="cBolt" checked><span>Болты М8×40<small>приварены головкой к торцу арматуры</small></span></label>
+          <label class="chk roofOpt"><input type="checkbox" id="cWsh1" checked><span>Шайбы под листом<small>Ø24, лежат на головке болта</small></span></label>
+          <label class="chk roofOpt"><input type="checkbox" id="cWsh2" checked><span>Шайбы над листом<small>Ø24, под барашек</small></span></label>
+          <label class="chk roofOpt"><input type="checkbox" id="cNut" checked><span>Барашки М8<small>прижимают лист, затягиваются рукой</small></span></label>
+          <div class="row roofOpt"><label class="t" for="hBar">Передняя стойка крыши</label><span class="val" id="hBarV"></span></div>
+          <input type="range" class="roofOpt" id="hBar" min="40" max="140" step="5" value="55">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tabs">
+    <div class="tabbar" role="tablist">
+      <button role="tab" data-tab="dims" aria-selected="true">Размеры</button>
+      <button role="tab" data-tab="cut" aria-selected="false">Раскрой</button>
+      <button role="tab" data-tab="mass" aria-selected="false">Масса</button>
+      <button role="tab" data-tab="buy" aria-selected="false">Что купить</button>
+      <button role="tab" data-tab="notes" aria-selected="false">Заметки</button>
+    </div>
+
+    <div class="tabpane" id="tab-dims" role="tabpanel">
+      <p class="tabnote">Отметьте нужные размеры — они появятся на 3D-модели. Единицы — переключатель «мм / см» вверху страницы</p>
+      <div class="dimbar"><button id="dAll">Показать все</button><button id="dNone">Скрыть все</button><button id="dFold">Свернуть группы</button></div>
+      <div class="dimgrid" id="dimList"></div>
+    </div>
+
+    <div class="tabpane" id="tab-cut" role="tabpanel" hidden>
+      <div class="dimbar nestbar"><label>Между деталями, мм <input id="nGap" type="number" value="5" min="1" step="0.5" inputmode="decimal"></label><label>Лист <select id="nSheet"><option value="1000x2000">1000 × 2000</option><option value="1250x2500" selected>1250 × 2500</option><option value="1500x3000">1500 × 3000</option></select></label><label id="nCgrBox"><input type="checkbox" id="nCgr" checked> Колосник мангала на листе</label><label id="nGilBox" title="Металл режут в размер на гильотине, на лазер везут готовые заготовки: лазер режет только отверстия, вырезы и пазы с кромки, а детали сложной формы — из куска листа"><input type="checkbox" id="nGil"> Заготовки с гильотины</label><label id="nEdgeBox" title="Отступ от края листа на схеме гильотины: заводскую кромку срезают" hidden>Подрезка кромки, мм <input id="nEdge" type="number" value="10" min="0" max="30" step="1" inputmode="numeric"></label><button id="nGilReset" title="Вернуть «гильотина | лазер» по умолчанию: уже 50 мм — лазер, остальное — гильотина" hidden>Сбросить выбор</button><button id="dxfAll">Скачать всё (ZIP)</button><span class="dxfmsg" id="nestMsg"></span><span class="dxfmsg" id="dxfMsg"></span></div>
+      <p class="tabnote">Листовые детали для лазера, по толщинам. «Скачать DXF листа» — весь лист одним файлом, детали стоят как на рисунке; «⬇&#xFE0E; DXF» в строке — одна деталь. Контур и отверстия — слой CUT, гибы — BEND, рамка листа — SHEET (не резать). «Заготовки с гильотины» — металл режут в размер на гильотине, на лазер везут готовые заготовки. Лист становится схемой гильотины: прямоугольники заготовок, только сквозные резы, без зазора; серые — готовые детали, оранжевые — заготовки под лазер и кусок листа под лазер. У каждой детали в таблице переключатель «гильотина | лазер»: «гильотина» — деталь приходит прямоугольником по габариту, у заготовки лазер режет всё, что не лежит на сторонах габарита (файлы <code>_zag.dxf</code>, прямоугольник заготовки — слой BLANK, не резать); «лазер» — деталь целиком лазером из куска листа под лазер. По умолчанию уже 50 мм — «лазер», остальное — «гильотина». В DXF схемы гильотины заготовки — слой BLANK, номер и размер — TEXT. Врезки по заготовке — с запасом: по одной на паз с кромки, хотя цех может заходить с кромки без прожига. Покупное и прокат — во вкладке «Масса»</p>
+      <div class="nestbox" id="nestBox"></div>
+    </div>
+
+    <div class="tabpane" id="tab-mass" role="tabpanel" hidden>
+      <p class="tabnote">Размеры заготовок — в мм. Лист 5 мм ≈ 39,3 кг/м². Стенки стоят на дне, торцы — между боковинами</p>
+      <div class="tbl"><table id="cut"></table></div>
+    </div>
+
+    <div class="tabpane" id="tab-buy" role="tabpanel" hidden>
+      <p class="tabnote">Покупные изделия и металл. Ссылки — для примера, подойдут аналоги. Длины металла — по раскрою, берите с запасом ~10%</p>
+      <div class="notes">
+        <div>
+          <h3>Покупные изделия</h3>
+          <ul class="buy">
+            <li><a href="https://tm.by/koleso-povorotnoe-rezina-scb-42-100-mm-s-tormozom-n-tor" target="_blank" rel="noopener">Колесо поворотное Ø100, с тормозом (TOR SCb 42)</a> · 2 шт · <span id="brakeWhere"></span></li>
+            <li><a href="https://tm.by/koleso-povorotnoe-rezina-sc-42-100-mm-n-tor" target="_blank" rel="noopener">Колесо поворотное Ø100, без тормоза (TOR SC 42)</a> · 2 шт</li>
+            <li data-m="s"><a href="https://tm.by/product/petlya-garazhnaya-s-sharom-14h70-bp-2-sht-v-upak-starfix-smp-21021-2" target="_blank" rel="noopener">Петля гаражная с шаром 14×70</a> · 2 шт · дверца печи</li>
+            <li data-m="s"><a href="https://ozon.by/product/plita-s-perehodnymi-koltsami-dlya-pechi-pod-kazan-ili-mangala-45h45-sm-tolshchina-metalla-5mm-3555295837/" target="_blank" rel="noopener">Плита 450 × 450 × 5 с переходными кольцами</a> — проём Ø390, кольца Ø300, Ø210, Ø120 + заглушка · 1 шт</li>
+            <li data-m="g">Решётка 400 × 400 · 2 шт (сверху) и решётка 400 × 360 · 1 шт (низкая) — готовые или из прутка Ø8/Ø4</li>
+            <li data-r>Профлист С8 оцинкованный 0,5 мм, ~1480 × 570 · 1 шт (крыша, волна спереди назад, свес 50 мм за стойки)</li>
+            <li>Болт М8×20 + гайка + шайба · 16 шт (колёса)</li>
+            <li data-r><a href="https://tm.by/product/bolt-m8h40-mm-shestigr-cink-klpr-88-din-933-5-sht-starfix" target="_blank" rel="noopener">Болт М8×40 шестигранный, DIN 933</a> · 4 шт · приварить к торцам стоек крыши</li>
+            <li data-r><a href="https://tm.by/gayka-m8-barashkovaya-nerzh-stal-a2-din-315-10-sht-v-zip-loke-starfix-smz1-82453-10" target="_blank" rel="noopener">Гайка-барашек М8, DIN 315</a> · 4 шт · крыша</li>
+            <li data-r><a href="https://tm.by/product/shayba-m8-ploskaya-uvelichennaya-cink-din-9021-10-sht-starfix-smz1-22766-10" target="_blank" rel="noopener">Шайба М8 увеличенная, DIN 9021</a> · 8 шт · крыша</li>
+            <li>Гайка М16 · 4 шт, шпилька М16×40 · 4 шт (съёмные ножки)</li>
+            <li data-m="s">Болт М8 с гайкой · 1 шт (вертушок дверцы)</li>
+            <li data-m="g">Деревянные рукоятки / втулки · 4 шт (ручка мангала, решётки)</li><li data-m="stove">Деревянная рукоятка / втулка · 1 шт (ручка печи)</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Металл</h3>
+          <ul class="buy" id="metal"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabpane" id="tab-notes" role="tabpanel" hidden>
+      <div class="notes" id="notesBox"></div>
+    </div>
+  </section>
+
+  <footer>
+    <span class="ver">v1.5.0</span>
+    <span>email: <a href="mailto:vashaklach@gmail.com">vashaklach@gmail.com</a></span>
+  </footer>
+</div>
+
+<script src="../../vendor/three/three.min.js"></script>
+<script src="../../vendor/three/OrbitControls.js"></script>
+<script src="../../vendor/three/CSS2DRenderer.js"></script>
+<script src="js/params.js?v=2026-11-02k"></script>
+<script src="js/parts.js?v=2026-11-02k"></script>
+<script src="js/model.js?v=2026-11-02k"></script>
+<script src="js/dims.js?v=2026-11-02k"></script>
+<script src="js/cut.js?v=2026-11-02k"></script>
+<script src="js/dxf.js?v=2026-11-02k"></script>
+<script src="js/nest.js?v=2026-11-02k"></script>
+<script src="js/ui.js?v=2026-11-02k"></script>
+</body>
+</html>

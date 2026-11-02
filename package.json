@@ -3,6 +3,7 @@
   "scripts": {
     "test": "node --test tests/unit/*.test.js",
     "test:e2e": "playwright test",
+    "test:editor": "node editor/mangal/tools/smoke.js",
     "lynx": "node tools/lynx-capture.js"
   },
   "devDependencies": {
