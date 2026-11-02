@@ -167,8 +167,9 @@
     </div>
   </section>
 
-  <!-- Второй путь — в редактор: до его выхода editor/ ведёт в 404, выходят вместе -->
-  <section class="proj wrap" id="proj" aria-labelledby="projT">
+  <!-- Второй путь — в редактор. Скрыт, пока редактора нет (editor/ — 404): лендинг вышел раньше него (решение Виталия 02.11).
+       Вышел редактор — убрать hidden и test.skip у теста proj в tests/e2e/blocks.spec.js -->
+  <section class="proj wrap" id="proj" aria-labelledby="projT" hidden>
     <h2 id="projT">Посмотрите, каким будет ваш проект</h2>
     <p class="lead">Мангал, печь, рысь. Размеры меняете сами — бесплатно.</p>
     <a class="btn" href="editor/">Подогнать под свои размеры →</a>

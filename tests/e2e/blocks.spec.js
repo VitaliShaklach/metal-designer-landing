@@ -42,7 +42,14 @@ test('copy: таблица, шаги и строка под ними — дос�
   await expect(page.locator('.cta-bar')).not.toContainText('бесплатно');   // полоса на телефоне — только кнопка
 });
 
+test('projHidden: пока редактора нет, блока «Посмотрите, каким будет ваш проект» и ссылки на editor/ не видно', async ({page}) => {
+  await page.goto('/');
+  await expect(page.locator('#proj')).toBeHidden();
+  await expect(page.locator('a[href="editor/"]:visible')).toHaveCount(0);
+});
+
 test('proj: «Посмотрите, каким будет ваш проект» — после «Сейчас / с Metal Designer», перед «Как работаем»', async ({page}) => {
+  test.skip(true, 'блок скрыт до выхода редактора (index.html, #proj hidden)');
   await page.goto('/');
   await expect(page.locator('#proj h2')).toHaveText('Посмотрите, каким будет ваш проект');
   await expect(page.locator('#proj p')).toHaveText('Мангал, печь, рысь. Размеры меняете сами — бесплатно.');
