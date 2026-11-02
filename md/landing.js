@@ -126,6 +126,7 @@ SLIDERS.forEach(([k, id]) => {
     state[k] = +el.value;
     showState();
     redraw();
+    flashHint();
   });
 });
 
@@ -136,13 +137,13 @@ SIZE.t.options.forEach(v => {
   b.type = 'button';
   b.textContent = `${v} мм`;
   b.dataset.t = v;
-  b.addEventListener('click', () => { state.t = v; showState(); redraw(); });
+  b.addEventListener('click', () => { state.t = v; showState(); redraw(); flashHint(); });
   thick.appendChild(b);
 });
 
 // Глубокие прорези: галочка снята — прорезей нет ни на модели, ни в цифрах
 const deep = document.getElementById('cDeep');
-deep.addEventListener('change', () => { state.deep = deep.checked ? 1 : 0; redraw(); });
+deep.addEventListener('change', () => { state.deep = deep.checked ? 1 : 0; redraw(); flashHint(); });
 
 // Ползунки, кнопки толщины и галочка показывают state
 function showState() {
@@ -173,11 +174,26 @@ function showGet(open) {
   getBtn.textContent = open ? 'Скрыть чертежи ↑' : 'Показать чертежи и DXF ↓';
   getBtn.setAttribute('aria-expanded', String(open));
 }
+const calmMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;   // кому мешает анимация — без плавной прокрутки
 getBtn.addEventListener('click', () => {
   showGet(getSec.hidden);
-  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;   // кому мешает анимация — без плавной прокрутки
-  if (!getSec.hidden) getSec.scrollIntoView({behavior: calm ? 'auto' : 'smooth', block: 'start'});
+  if (!getSec.hidden) getSec.scrollIntoView({behavior: calmMotion() ? 'auto' : 'smooth', block: 'start'});
   drawDocs(true);
+});
+
+// Строка под ползунками: после правки размеров мигает (через 0,3 с после последней), ссылка в строке раскрывает блок ниже
+const hint = document.getElementById('hint');
+let flashTimer = 0, flashOff = 0;
+function flashHint() {
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => {
+    hint.classList.add('flash');
+    clearTimeout(flashOff);
+    flashOff = setTimeout(() => hint.classList.remove('flash'), 3000);
+  }, 300);
+}
+document.getElementById('hintGo').addEventListener('click', () => {
+  if (getSec.hidden) getBtn.click(); else getSec.scrollIntoView({behavior: calmMotion() ? 'auto' : 'smooth', block: 'start'});
 });
 
 // Чертежи А3 и карты деталей А4: листы строятся, только пока их вкладка открыта. Открыли вкладку — сразу;
@@ -389,7 +405,7 @@ function setItem(next) {
   if (item === 'rys') {
     showGet(false);
     initLynx(document.getElementById('lynx3d'), document.getElementById('lynxPoster'));
-    lynxStatsLoad ??= fetch('lynx/stats.json').then(r => r.json())
+    lynxStatsLoad ??= fetch('lynx/stats.json?v=2026-11-02g').then(r => r.json())
       .then(st => { document.getElementById('lynxStats').innerHTML = lynxStatsHtml(st); })
       .catch(() => { lynxStatsLoad = null; });   // не загрузилось — без цифр, следующий показ попробует снова
   } else if (ok) {

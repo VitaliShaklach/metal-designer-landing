@@ -132,8 +132,11 @@ async function capture(version, rework) {
     // Сначала быстрое: ошибка всплывёт сразу, а не после раскроя
     console.log(`Рысь ${version}: картинка 3D…`);
     out['poster.jpg'] = await shotFigure(browser, url, id);
-    console.log(`Переработка (${rework})…`);
-    out['rework.jpg'] = await shotFigure(browser, url, rework);
+    // Переработка: первая фигура — rework.jpg, следующие — rework-2.jpg, rework-3.jpg…
+    for (const [i, f] of rework.entries()) {
+      console.log(`Переработка (${f})…`);
+      out[i ? `rework-${i + 1}.jpg` : 'rework.jpg'] = await shotFigure(browser, url, f);
+    }
 
     const page = await browser.newPage({viewport: {width: 1400, height: 900}});
     page.on('pageerror', e => console.error('Ошибка на странице:', e.message));
@@ -167,10 +170,10 @@ async function capture(version, rework) {
 
 if (require.main === module) {
   const args = process.argv.slice(2), at = args.indexOf('--rework');
-  const rework = at >= 0 ? args.splice(at, 2)[1] : 'lynx';
-  const version = Number(args[0] || 5);
-  if (!Number.isInteger(version) || version < 1 || !rework) {
-    console.error('Запуск: npm run lynx -- <версия> [--rework <id фигуры>]');
+  const rework = (at >= 0 ? args.splice(at, 2)[1] || '' : 'lynx,lynx3').split(',').filter(Boolean);
+  const version = Number(args[0] || 14);
+  if (!Number.isInteger(version) || version < 1 || !rework.length) {
+    console.error('Запуск: npm run lynx -- <версия> [--rework <id фигуры>,<id>…]');
     process.exit(1);
   }
   capture(version, rework).catch(e => { console.error('Не собрал рысь:', e.message); process.exit(1); });

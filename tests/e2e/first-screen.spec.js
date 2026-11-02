@@ -72,3 +72,19 @@ test('noWebGL: вместо 3D надпись, цифры на месте', asyn
   // единственная ошибка в консоли — сам three.js сообщает, что WebGL нет
   expect(w.errors.filter(e => !/WebGLRenderer: Error creating WebGL context/.test(e))).toEqual([]);
 });
+
+test('hint: строка под ползунками мигает после правки, не мигает при открытии; «Показать чертежи и DXF ↓» раскрывает блок', async ({page}) => {
+  const w = watch(page);
+  await page.goto('/');
+  const hint = page.locator('#hint');
+  await page.waitForTimeout(600);
+  await expect(hint).not.toHaveClass(/flash/);
+  await page.locator('#sT button[data-t="5"]').click();
+  await expect(hint).toHaveClass(/flash/);
+  await expect(hint).not.toHaveClass(/flash/, {timeout: 6000});
+  await expect(page.locator('#get')).toBeHidden();
+  await page.locator('#hintGo').click();
+  await expect(page.locator('#get')).toBeVisible();
+  await expect(page.locator('#getBtn')).toHaveAttribute('aria-expanded', 'true');
+  expect(w.pageErrors).toEqual([]);
+});

@@ -56,7 +56,7 @@ async function startLynx(box) {
   if (!ok) return false;
   try { renderer = new THREE.WebGLRenderer({antialias: true, alpha: true}); } catch (e) { return false; }
   try {
-    const r = await fetch('lynx/model.json');
+    const r = await fetch('lynx/model.json?v=2026-11-02g');
     if (!r.ok) throw new Error(r.status);
     model = await r.json();
   } catch (e) { renderer.dispose(); return false; }

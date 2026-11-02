@@ -14,9 +14,9 @@
 <meta property="og:url" content="https://vitalishaklach.github.io/metal-designer-landing/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="fonts/fonts.css?v=2026-11-02e">
-<link rel="stylesheet" href="css/landing.css?v=2026-11-02e">
-<link rel="stylesheet" href="css/md.css?v=2026-11-02e">
+<link rel="stylesheet" href="fonts/fonts.css?v=2026-11-02i">
+<link rel="stylesheet" href="css/landing.css?v=2026-11-02i">
+<link rel="stylesheet" href="css/md.css?v=2026-11-02i">
 </head>
 <body>
 <header class="top wrap">
@@ -63,8 +63,10 @@
       <div class="thick" id="sT" role="group" aria-label="Толщина металла всех деталей"><span>Металл</span></div>
       <label class="deep"><input type="checkbox" id="cDeep"><span>Глубокие прорези</span></label>
     </div>
+    <p class="hint" id="hint" data-item="mangal">Двигаете размеры — раскрой, масса, DXF и чертежи пересчитываются сами. <button type="button" class="hintgo" id="hintGo">Показать чертежи и DXF ↓</button></p>
     <div class="stats" id="lstats" data-item="mangal"></div>
     <button class="btn getbtn" id="getBtn" type="button" aria-expanded="false" aria-controls="get" data-item="mangal">Показать чертежи и DXF ↓</button>
+    <a class="btn btn-alt" href="editor/" data-item="mangal">Нужно больше, чем размеры? Править форму и металл в редакторе →</a>
 
     <!-- Рысь: только показываем готовое из lynx/. Картинки lazy — пока блок скрыт, они не грузятся -->
     <div class="lynx" data-item="rys" hidden>
@@ -76,6 +78,7 @@
           <img src="lynx/photo-3.jpg" alt="Фото рыси сзади" loading="lazy"></li>
         <li class="r-rework"><span class="rcap">Переработка</span>
           <img src="lynx/rework.jpg" alt="Гранёная модель рыси с разметкой швов" loading="lazy">
+          <img src="lynx/rework-2.jpg" alt="Рысь 3: вариант с более мелкими гранями" loading="lazy">
           <p>Гранёная модель, разметка швов</p></li>
         <li class="r-now"><span class="rcap">Стало</span>
           <div id="lynx3d" role="img" aria-label="Рысь из стальных плит, высота 1 м, в 3D: крутится мышью или пальцем вбок"></div>
@@ -85,7 +88,8 @@
           <img src="lynx/sheet.jpg" alt="Лист чертежа рыси" loading="lazy"></li>
       </ol>
       <div class="stats" id="lynxStats"></div>
-      <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать фото своей фигуры</a>
+      <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать фото и пожелания в Telegram</a>
+      <a class="btn btn-alt" href="editor/">Нужно больше, чем размеры? Править форму и металл в редакторе →</a>
     </div>
   </section>
 
@@ -167,12 +171,17 @@
     </div>
   </section>
 
-  <!-- Второй путь — в редактор. Скрыт, пока редактора нет (editor/ — 404): лендинг вышел раньше него (решение Виталия 02.11).
-       Вышел редактор — убрать hidden и test.skip у теста proj в tests/e2e/blocks.spec.js -->
-  <section class="proj wrap" id="proj" aria-labelledby="projT" hidden>
-    <h2 id="projT">Посмотрите, каким будет ваш проект</h2>
-    <p class="lead">Мангал, печь, рысь. Размеры меняете сами — бесплатно.</p>
-    <a class="btn" href="editor/">Подогнать под свои размеры →</a>
+  <!-- Второй путь — в редактор. editor/ пока 404: Виталий добавит его по ходу, лендинг пока никому не показывает (решение 02.11) -->
+  <section class="proj wrap" id="proj" aria-labelledby="projT">
+    <h2 id="projT">Ползунки — это только начало</h2>
+    <p class="lead">Размеры меняете сами — бесплатно. В редакторе правите не только размеры, а саму форму и всё про металл:</p>
+    <ul class="checks">
+      <li>тяните точки и грани: выдавить, вдавить, разрезать, провести шов</li>
+      <li>толщина, материал, лист, гильотина или лазер, сварка и зазоры</li>
+      <li>раскрой, DXF и чертежи пересчитываются на ваших глазах</li>
+      <li>можно открыть свою модель (OBJ, STL, GLB)</li>
+    </ul>
+    <a class="btn" href="editor/">Открыть в редакторе →</a>
   </section>
 
   <section class="how wrap" id="how" aria-labelledby="howT">
@@ -192,7 +201,7 @@
       <li><span>Viber</span> <a href="viber://chat?number=%2B375295751190">написать в Viber</a></li>
       <li><span>Почта</span> <a href="mailto:vashaklach@gmail.com">vashaklach@gmail.com</a></li>
     </ul>
-    <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать фото и пожелания</a>
+    <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать фото и пожелания в Telegram</a>
   </section>
 </main>
 
@@ -202,28 +211,28 @@
 <dialog class="lbox" id="lbox" aria-label="Картинка крупно"><img alt=""></dialog>
 
 <div class="cta-bar">
-  <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать фото и пожелания</a>
+  <a class="btn btn-main" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать фото и пожелания в Telegram</a>
 </div>
 
-<script src="vendor/three/three.min.js?v=2026-11-02e"></script>
-<script src="vendor/three/OrbitControls.js?v=2026-11-02e"></script>
-<script src="vendor/three/CSS2DRenderer.js?v=2026-11-02e"></script>
-<script src="md/params.js?v=2026-11-02e"></script>
-<script src="md/parts.js?v=2026-11-02e"></script>
-<script src="md/model.js?v=2026-11-02e"></script>
-<script src="md/dims.js?v=2026-11-02e"></script>
-<script src="md/cut.js?v=2026-11-02e"></script>
-<script src="md/dxf.js?v=2026-11-02e"></script>
-<script src="md/defaults.js?v=2026-11-02e"></script>
-<script src="md/stats.js?v=2026-11-02e"></script>
-<script src="md/views.js?v=2026-11-02e"></script>
-<script src="md/sheet-kit.js?v=2026-11-02e"></script>
-<script src="md/sheets.js?v=2026-11-02e"></script>
-<script src="md/nest.js?v=2026-11-02e"></script>
-<script src="md/cards.js?v=2026-11-02e"></script>
-<script src="md/link.js?v=2026-11-02e"></script>
-<script src="md/lynx.js?v=2026-11-02e"></script>
-<script src="md/landing.js?v=2026-11-02e"></script>
-<script src="md/controls.js?v=2026-11-02e"></script>
+<script src="vendor/three/three.min.js?v=2026-11-02i"></script>
+<script src="vendor/three/OrbitControls.js?v=2026-11-02i"></script>
+<script src="vendor/three/CSS2DRenderer.js?v=2026-11-02i"></script>
+<script src="md/params.js?v=2026-11-02i"></script>
+<script src="md/parts.js?v=2026-11-02i"></script>
+<script src="md/model.js?v=2026-11-02i"></script>
+<script src="md/dims.js?v=2026-11-02i"></script>
+<script src="md/cut.js?v=2026-11-02i"></script>
+<script src="md/dxf.js?v=2026-11-02i"></script>
+<script src="md/defaults.js?v=2026-11-02i"></script>
+<script src="md/stats.js?v=2026-11-02i"></script>
+<script src="md/views.js?v=2026-11-02i"></script>
+<script src="md/sheet-kit.js?v=2026-11-02i"></script>
+<script src="md/sheets.js?v=2026-11-02i"></script>
+<script src="md/nest.js?v=2026-11-02i"></script>
+<script src="md/cards.js?v=2026-11-02i"></script>
+<script src="md/link.js?v=2026-11-02i"></script>
+<script src="md/lynx.js?v=2026-11-02i"></script>
+<script src="md/landing.js?v=2026-11-02i"></script>
+<script src="md/controls.js?v=2026-11-02i"></script>
 </body>
 </html>

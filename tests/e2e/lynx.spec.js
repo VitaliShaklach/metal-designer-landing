@@ -48,7 +48,7 @@ test('switch: «Рысь» — лента, 5 плиток, тексты, адр�
   }
   // все картинки ленты загрузились; постер «Стало» не нужен, пока показано 3D
   const imgs = page.locator('.ribbon img:not(#lynxPoster)');
-  await expect(imgs).toHaveCount(6);
+  await expect(imgs).toHaveCount(7);
   await expect.poll(() => imgs.evaluateAll(l => l.every(i => i.complete && i.naturalWidth > 0))).toBe(true);
   await hashIs(page, '#item=rys');
   clean(w);
@@ -155,22 +155,22 @@ test('lightbox: картинка ленты открывается крупно 
     await page.keyboard.press('Escape');
     await expect(page.locator('#lbox')).toBeHidden();
   }
-  await page.locator('.r-rework img').click();
+  await page.locator('.r-rework img').nth(1).click();
   await expect(page.locator('#lbox')).toBeVisible();
   await page.locator('#lbox').click();
   await expect(page.locator('#lbox')).toBeHidden();
   clean(w);
 });
 
-test('cta: под лентой кнопка «Прислать фото своей фигуры» в Telegram (на телефоне вместо неё — полоса внизу)', async ({page, isMobile}) => {
+test('cta: под лентой кнопка «Прислать фото и пожелания в Telegram» в Telegram (на телефоне вместо неё — полоса внизу)', async ({page, isMobile}) => {
   test.skip(isMobile, 'на телефоне кнопка скрыта: главная всегда видна в .cta-bar');
   const w = watch(page);
   await page.goto('/#item=rys');
-  const a = page.locator('.lynx a', {hasText: 'Прислать фото своей фигуры'});
+  const a = page.locator('.lynx a.btn-main', {hasText: 'Прислать фото и пожелания в Telegram'});
   await expect(a).toBeVisible();
   await expect(a).toHaveAttribute('href', 'https://t.me/SHVA_1984');
   // кнопка — после ленты и цифр
-  const [r, st, b] = await Promise.all(['.ribbon', '#lynxStats', '.lynx a'].map(s => page.locator(s).boundingBox()));
+  const [r, st, b] = await Promise.all(['.ribbon', '#lynxStats', '.lynx a.btn-main'].map(s => page.locator(s).boundingBox()));
   expect(st.y).toBeGreaterThanOrEqual(r.y + r.height);
   expect(b.y).toBeGreaterThanOrEqual(st.y + st.height);
   clean(w);
@@ -184,7 +184,7 @@ test('layout: лента читается «было → стало», без г
     const r = s => document.querySelector(s).getBoundingClientRect();
     return {
       scrollW: document.documentElement.scrollWidth, innerW: innerWidth,
-      was: [...document.querySelectorAll('.r-was img, .r-rework img')].map(i => i.getBoundingClientRect()).map(b => ({top: b.top, bottom: b.bottom})),
+      was: [...document.querySelectorAll('.r-was img, .r-rework img:first-of-type')].map(i => i.getBoundingClientRect()).map(b => ({top: b.top, bottom: b.bottom})),
       steps: ['.r-was', '.r-rework', '.r-now', '.r-draw'].map(s => { const b = r(s); return {top: b.top, bottom: b.bottom, left: b.left, width: b.width}; }),
       now: r('.r-now'), draw: r('.r-draw'),
     };
@@ -220,7 +220,7 @@ const lynxCam = page => page.evaluate(() => {
   return {inView: pts.every(p => Math.abs(p.x) <= 1.001 && Math.abs(p.y) <= 1.001), pos: camera.position.toArray(),
     az: Math.atan2(camera.position.x, camera.position.z)};
 });
-const modelReqs = w => w.requests.filter(u => u.endsWith('/lynx/model.json'));
+const modelReqs = w => w.requests.filter(u => u.split('?')[0].endsWith('/lynx/model.json'));
 
 test('lynx3d: «Рысь» — в «Стало» холст 3D, рысь вся в кадре, постер скрыт', async ({page}) => {
   const w = watch(page);
@@ -243,7 +243,7 @@ test('lynx3d: «Рысь» — в «Стало» холст 3D, рысь вся 
 
 test('noModel: lynx/model.json не загрузился — постер, 3D скрыто, цифры на месте, без ошибок', async ({page}) => {
   const w = watch(page);
-  await page.route('**/lynx/model.json', r => r.abort());
+  await page.route('**/lynx/model.json*', r => r.abort());
   await page.goto('/');
   await btn(page, 'Рысь').click();
   await expect(page.locator('#lynxPoster')).toBeVisible();
@@ -310,7 +310,7 @@ test('phoneLayout: 3D рыси не выше 380 px, «Было» строкой
     const r = s => document.querySelector(s).getBoundingClientRect();
     return {
       scrollW: document.documentElement.scrollWidth, innerW: innerWidth, box: r('#lynx3d'), draw: r('.r-draw'),
-      was: [...document.querySelectorAll('.r-was img, .r-rework img')].map(i => i.getBoundingClientRect()).map(b => ({top: b.top, bottom: b.bottom})),
+      was: [...document.querySelectorAll('.r-was img, .r-rework img:first-of-type')].map(i => i.getBoundingClientRect()).map(b => ({top: b.top, bottom: b.bottom})),
     };
   });
   expect(m.scrollW).toBeLessThanOrEqual(m.innerW);
