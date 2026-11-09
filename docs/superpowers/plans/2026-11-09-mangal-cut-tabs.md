@@ -34,6 +34,8 @@
 
 ### Задача 1: Тестовый стенд, словарь, прорези вдвое реже
 
+> **09.11, #56:** «вдвое реже» Виталий отменил, шаг остаётся 30. Сделаны стенд, словарь и шампуры только в вырезанных прорезях. Шаги ниже про `SLOT=6` не выполнять.
+
 **Файлы:**
 - Создать: `editor/mangal/tools/load.js`, `editor/mangal/tools/slots.test.js`, `GLOSSARY.md`
 - Изменить: `editor/mangal/js/params.js:3` (`SLOT`), `editor/mangal/js/model.js:268` (шампуры), `package.json` (`test:editor`)

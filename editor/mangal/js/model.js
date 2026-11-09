@@ -35,7 +35,7 @@ function ringShape(ro,ri){const s=new THREE.Shape();s.absarc(0,0,ro,0,Math.PI*2,
 // контур боковины жаровни (тот же — для 3D и для DXF)
 function grillWallShape(back){
   const h=H1-t,s=new THREE.Shape(),deep=S.deep?DEEP_X:[];s.moveTo(0,0);s.lineTo(L1,0);s.lineTo(L1,h);
-  const nt=[...slots().filter(x=>!deep.some(d=>Math.abs(d-x)<DEEP_W)&&!DIV_POS.some(p=>Math.abs(L1-p-x)<.9)&&!(back&&Math.abs(x-GN_X)<GN_W/2+.5)).map(x=>[x,0]),...deep.map(x=>[x,1]),...(back?[[GN_X,2]]:[]),...DIV_POS.map(p=>[L1-p,3])].sort((a,b)=>b[0]-a[0]);
+  const nt=[...cutSlots(back).map(x=>[x,0]),...deep.map(x=>[x,1]),...(back?[[GN_X,2]]:[]),...DIV_POS.map(p=>[L1-p,3])].sort((a,b)=>b[0]-a[0]);
   nt.forEach(([x,dp])=>{if(dp===3){s.lineTo(x+DIV_SW/2,h);s.lineTo(x+DIV_SW/2,h-DIV_SD);s.lineTo(x-DIV_SW/2,h-DIV_SD);s.lineTo(x-DIV_SW/2,h);}
     else if(dp===2){s.lineTo(x+GN_W/2,h);s.lineTo(x+GN_W/2,h-GN_D);s.lineTo(x-GN_W/2,h-GN_D);s.lineTo(x-GN_W/2,h);}
     else if(!dp){s.lineTo(x+SLOT_W/2,h);s.lineTo(x+SLOT_W/2,h-SLOT_D);s.lineTo(x-SLOT_W/2,h-SLOT_D);s.lineTo(x-SLOT_W/2,h);}
@@ -265,7 +265,7 @@ function buildParts(tag){
   const skewer=(x,yb)=>{box(.3,1.1,W+20,x-.15,yb,-9,M.skewer);                        // yb — низ шампура (дно прорези)
     const ring=new THREE.Mesh(new THREE.TorusGeometry(2,.25,8,20),M.skewer);ring.position.set(x,yb+.6,-11);ring.rotation.y=Math.PI/2;group.add(ring);
     for(let z=6;z<W-4;z+=4.3){const m=box(3.2,3.2,3.6,x-1.6,yb-1.2+Math.random()*.4,z,M.meat);m.rotation.y=Math.random()*.4;}};
-  if(g&&S.skew)slots().filter((x,i)=>x>10&&x<52&&i%2===0).forEach(x=>skewer(x,T-SLOT_D));
+  if(g&&S.skew){const fr=cutSlots(false),bk=cutSlots(true);slots().filter((x,i)=>x>10&&x<52&&i%2===0&&fr.includes(x)&&bk.includes(x)).forEach(x=>skewer(x,T-SLOT_D));}   // через одну прорезь и только в вырезанную в обеих боковинах
   if(g&&S.skewD&&S.deep)DEEP_X.forEach(x=>skewer(x,T-DEEP_D));
 }
 

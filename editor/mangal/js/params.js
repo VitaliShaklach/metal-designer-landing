@@ -109,6 +109,8 @@ const DOOR_T=.3, HK_L=3.7, FL_H=15;
 const DH=()=>H2-FL_H, hkY=()=>Math.round(DH()/2);   // высота дверцы; крючок — посередине дверцы
 function holes(){const m=3,n=Math.floor((L1-2*m)/S.pitch)+1,s=(L1-(n-1)*S.pitch)/2;return Array.from({length:n},(_,i)=>+(s+i*S.pitch).toFixed(2));}
 function slots(){const n=Math.floor((L1-4)/SLOT)+1,s=(L1-(n-1)*SLOT)/2;return Array.from({length:n},(_,i)=>s+i*SLOT);}
+// прорези под шампуры, которые на боковине правда вырезаны: без тех, что попали на глубокие прорези, прорези под перегородку и (в задней) вырез под ручку решётки
+function cutSlots(back){const deep=S.deep?DEEP_X:[];return slots().filter(x=>!deep.some(d=>Math.abs(d-x)<DEEP_W)&&!DIV_POS.some(p=>Math.abs(L1-p-x)<.9)&&!(back&&Math.abs(x-GN_X)<GN_W/2+.5));}
 // логотип Claude Code — сквозной вырез в торце на стороне, противоположной ручке мангала:
 // отдельный мангал — левый торец (задняя стенка); с печью — глухой верх топки над дверцей (сквозь логотип видно огонь). Сетка 16 × 10 клеток, клетка LOGO_U;
 // глаза — островки металла, держатся на перемычках LOGO_BR к верхнему краю выреза (как трафарет), иначе выпадут
