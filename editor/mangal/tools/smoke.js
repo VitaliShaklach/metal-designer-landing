@@ -26,7 +26,7 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
         else{if(roofEl||roofPt)throw new Error('крыша выключена, а элемент «Крыша» есть в списке');if(roofDim.length)throw new Error('крыша выключена, а размеры остались: '+roofDim.join(', '));
           const m=all.match(roofRx);if(m)throw new Error('крыша выключена, а в тексте «'+m[0]+'»: '+all.slice(Math.max(0,m.index-60),m.index+40).replace(/<[^>]+>/g,''));}}`,ctx);
       // раскрой листа: детали для раскладки (у боковин в Node контур пустой — пропускаются), раскладка и рисунок
-      vm.runInContext("{const N=nestJob(),res=N.groups.map(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE,NEST_CELL);let v;do{v=g.next();}while(!v.done);return v.value;});nestDraw(N,res);nestUI();nestUI(true);}",ctx);
+      vm.runInContext("{const N=nestJob(),res=N.groups.map(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);return v.value;});nestDraw(N,res);nestUI();nestUI(true);}",ctx);
       // колосник мангала: на листе 5 мм, когда он есть на модели; галочка «на листе» снята — нет; у половины 18 × 19 отверстий Ø10
       vm.runInContext(`{const has=N=>N.groups.some(G=>G.types.some(t=>NEST_CGR(t.p))),a=nestJob(),b=nestJob({cgr:false}),want=gOn()&&S.cgr;
         if(has(a)!==want||a.hasCgr!==want)throw new Error('колосник мангала: на листе '+has(a)+', ждали '+want);if(has(b))throw new Error('колосник мангала остался при снятой галочке');
@@ -59,7 +59,7 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
         return r;})()`,ctx);
       if(ah.air)airMM=ah.air;if(ah.hook)hookMM=ah.hook;
       // DXF всего листа: рамка — 4 отрезка SHEET, все точки CUT/BEND внутри рамки с краем 10 мм, контуры замкнуты (каждый конец CUT — у чётного числа отрезков), окружностей — сколько у деталей
-      const dx=vm.runInContext(`(()=>{const N=nestJob(),out=[];N.groups.forEach(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE,NEST_CELL);let v;do{v=g.next();}while(!v.done);
+      const dx=vm.runInContext(`(()=>{const N=nestJob(),out=[];N.groups.forEach(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);
         v.value.sheets.forEach(sh=>out.push({mm:G.mm,W:N.W,H:N.H,txt:nestDxf(N,G,sh),circ:sh.items.reduce((a,it)=>a+G.items[it.id].ty.m.circles.length,0)}));});return out;})()`,ctx);
       if(!dx.length)throw new Error('DXF листа: нет листов');
       dx.forEach(d=>{const t=d.txt.split(/\r?\n/),E=[];for(let i=0;i<t.length-1;i+=2)if(t[i]==='0'&&(t[i+1]==='LINE'||t[i+1]==='CIRCLE')){const e={k:t[i+1]};let j=i+2;while(j<t.length-1&&t[j]!=='0'){e[t[j]]=t[j+1];j+=2;}E.push(e);}
@@ -74,7 +74,7 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
       vm.runInContext(`{const N=nestJob({gil:true}),N0=nestJob();
         N.groups.forEach(G=>G.items.forEach(i=>{if(i.ty.kind!=='list')throw new Error('gil: на листе под лазер деталь '+i.ty.kind+' — '+i.ty.p.name);}));
         if(N0.groups.reduce((a,G)=>a+G.items.length,0)!==N0.groups.reduce((a,G)=>a+G.types.reduce((b,t)=>b+t.q,0),0))throw new Error('без галочки на листе не все детали');
-        const res=N.groups.map(G=>{const g=nestGen(G.items,N.LW,N.LH,N.gap,NEST_EDGE,NEST_CELL);let v;do{v=g.next();}while(!v.done);return v.value;});nestDraw(N,res);
+        const res=N.groups.map(G=>{const g=nestGen(G.items,N.LW,N.LH,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);return v.value;});nestDraw(N,res);
         N.groups.forEach((G,gi)=>{const R=res[gi],rows=gilRows(N,G,R),csv=gilCsv(N,G,R),lab=[];
           if(R.sheets.length!==(G.items.length?R.sheets.length||1:0))throw new Error('gil: лист без деталей');
           R.sheets.forEach((sh,si)=>{const [w,h]=nestPiece(N,sh);if(w%10&&w!==N.LW||h%10&&h!==N.LH||w>N.LW||h>N.LH)throw new Error('gil: кусок листа '+w+' × '+h);lab.push('Кусок листа под лазер '+w+' × '+h,nestFile(N,G,R,si));
@@ -111,7 +111,7 @@ const mkReal=(flags,search)=>{const U=mk(),TH=new Proxy({Shape:SPath,Path:SPath}
   const ctx={THREE:TH,__U:U,document:U,window:{addEventListener:()=>{}},location:{hash:'',href:'http://x/',search:search||'?view=1,1,1,0,0,0&flags='+encodeURIComponent(JSON.stringify(flags))},
     addEventListener:()=>{},requestAnimationFrame:()=>{},ResizeObserver:U,MutationObserver:U,devicePixelRatio:1,performance:{now:()=>0},navigator:U,URLSearchParams,console,Math,JSON,Set,Object,Array,Number,String,Symbol,setTimeout,clearTimeout};
   vm.createContext(ctx);vm.runInContext(['params','parts','model','dims','cut','dxf','nest','ui'].map(f=>fs.readFileSync(P+'/js/'+f+'.js','utf8')).join('\n;\n'),ctx,{filename:'all.js'});return ctx;};
-const GILCHK=`(N,lbl)=>{const out=[];N.groups.forEach(G=>{const g=nestGen(G.items,N.LW,N.LH,N.gap,NEST_EDGE,NEST_CELL);let v;do{v=g.next();}while(!v.done);const R=v.value,P=gilScheme(N,G,R),E=N.edge,e=1e-6;
+const GILCHK=`(N,lbl)=>{const out=[];N.groups.forEach(G=>{const g=nestGen(G.items,N.LW,N.LH,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);const R=v.value,P=gilScheme(N,G,R),E=N.edge,e=1e-6;
     if(R.too.length)throw new Error(lbl+': кусок под лазер — не поместилось '+R.too.length);if(P.too.length)throw new Error(lbl+': на схеме не поместилось '+P.too.length);
     const want={},got={},k=r=>r.kind==='piece'?'piece'+r.si:r.kind+r.no;
     G.types.forEach(ty=>{if(ty.kind!=='list')want[ty.kind+ty.no]=ty.q;});R.sheets.forEach((sh,si)=>want['piece'+si]=1);
@@ -173,7 +173,7 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
   const mkItems=S=>{const I=[];S.forEach(([w,h,q],k)=>{for(let j=0;j<q;j++)I.push({id:I.length,no:k+1,pts:R(w,h)});});return I;};
   // и с колосником мангала (2 половины 382 × 390 — тоже лист 5 мм)
   for(const [gap,items,one,cg] of [[5,mkItems(set),1,0],[20,mkItems(set),0,0],[5,mkItems([...set,[382,390,2]]),1,1]]){const errs=[];let N;
-    try{const g=ctx.nestGen(items,2500,1250,gap,10,5);let v;do{v=g.next();}while(!v.done);N=v.value;}catch(e){errs.push(e.message);}
+    try{const g=ctx.nestGen(items,2500,1250,gap,10);let v;do{v=g.next();}while(!v.done);N=v.value;}catch(e){errs.push(e.message);}
     if(N){const all=N.sheets.flatMap(s=>s.items);
       if(N.too.length)errs.push('не поместилось '+N.too.length);if(all.length!==items.length)errs.push('на листах '+all.length+' из '+items.length);
       if(one&&N.sheets.length!==1)errs.push('листов '+N.sheets.length+', ждали 1');

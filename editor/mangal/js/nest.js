@@ -1,67 +1,56 @@
 /* ---------- раскрой: листовые детали на лист металла ----------
    Детали — те же, что уходят в DXF (laserParts + partMM), в мм. Разная толщина — разные листы: 5 мм — основной, 3 / 15 — свои.
-   Раскладка по внешнему контуру; отверстия и внутренние контуры только рисуются. Лист — длинной стороной по горизонтали, y вверх, как в DXF.
-   Раскладка — копия из art/js/prod.js (area2, ptSegD, inPoly, segX, polyGap, polyDist, nestOrient, nestGen): общего кода у разделов нет.
-   Отличия от art (помечены «мангал:»): без зеркала, клетка 5 мм, клетка ровно на ползазора свободна; для скорости — nearPoly, polyClose и шаги на подготовке. */
+   Лист — длинной стороной по горизонтали, y вверх, как в DXF.
+   Раскладка — по рамкам деталей (MaxRects), перенос nest/bestSpot/occupy/freshSheet с лендинга (md/nest.js): детали мангала почти прямоугольные,
+   рамки заполнены на 90 % и больше. На схему и в DXF деталь идёт настоящим контуром (отверстия и внутренние контуры только рисуются).
+   Отличия от лендинга: зазор и край — параметры, а не глобальные; деталь — контур pts, рамка — его габарит; на выходе — поворот и сдвиг tr. */
 const area2=P=>{let a=0;P.forEach((p,i)=>{const q=P[(i+1)%P.length];a+=p[0]*q[1]-q[0]*p[1];});return a/2;};
-// ---------- раскладка по форме ----------
-// Лист — сетка клеток cell мм. Каждая деталь пробуется во всех положениях «сторона вдоль листа»;
-// ставим туда, где правый край раскладки получается ближе всего к началу листа — детали заполняют пустоты между собой.
-// Занятость — клетки, которых касается деталь; проверка — та же деталь, расширенная на зазор. W — длинная сторона листа.
+// ---------- геометрия контуров: зазор между деталями (тесты) и место для номера (nestLabelPt) ----------
 function ptSegD(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],l=dx*dx+dy*dy||1,t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l));return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);}
 function inPoly(p,P){let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const a=P[i],b=P[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;}
 function segX(a,b,c,d){const o=(p,q,r)=>Math.sign((q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]));return o(a,b,c)*o(a,b,d)<0&&o(c,d,a)*o(c,d,b)<0;}
 function polyGap(A,B){let d=Infinity;for(let i=0;i<A.length;i++){const a=A[i],a2=A[(i+1)%A.length];for(let j=0;j<B.length;j++){const b=B[j],b2=B[(j+1)%B.length];if(segX(a,a2,b,b2))return 0;d=Math.min(d,ptSegD(a,b,b2),ptSegD(b,a,a2));}}if(inPoly(A[0],B)||inPoly(B[0],A))return 0;return d;}
-// мангал: есть ли сторона контура ближе d к точке — то же, что polyDist(P)(p) < d, но без Math.hypot и с ранним выходом (сетка детали в разы быстрее)
-function nearPoly(P,p,d){const d2=d*d;for(let i=0,n=P.length;i<n;i++){const a=P[i],b=P[i+1<n?i+1:0],dx=b[0]-a[0],dy=b[1]-a[1],l=dx*dx+dy*dy||1,t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l)),ex=p[0]-a[0]-t*dx,ey=p[1]-a[1]-t*dy;if(ex*ex+ey*ey<d2)return true;}return false;}
-// мангал: polyGap(A,B) < g — тот же ответ, но далёкие пары сторон отсеиваются по габариту и выход на первой близкой (боковины жаровни — 140 × 140 сторон)
-function polyClose(A,B,g){for(let i=0;i<A.length;i++){const a=A[i],a2=A[(i+1)%A.length],x0=Math.min(a[0],a2[0])-g,x1=Math.max(a[0],a2[0])+g,y0=Math.min(a[1],a2[1])-g,y1=Math.max(a[1],a2[1])+g;
-    for(let j=0;j<B.length;j++){const b=B[j],b2=B[(j+1)%B.length];if(Math.max(b[0],b2[0])<x0||Math.min(b[0],b2[0])>x1||Math.max(b[1],b2[1])<y0||Math.min(b[1],b2[1])>y1)continue;
-      if(segX(a,a2,b,b2)||ptSegD(a,b,b2)<g||ptSegD(b,a,a2)<g)return true;}}
-  return inPoly(A[0],B)||inPoly(B[0],A);}
 function polyDist(P){return p=>{let d=Infinity;P.forEach((a,i)=>{d=Math.min(d,ptSegD(p,a,P[(i+1)%P.length]));});return d;};}
-function nestOrient(P,cell,r,flips=[false]){const out=[],seen=new Set();
-  flips.forEach(flip=>{const Q0=flip?P.map(p=>[-p[0],p[1]]):P,seenA=new Set();Q0.forEach((a,i)=>{const b=Q0[(i+1)%Q0.length];[0,Math.PI].forEach(add=>{
-    const ang=-Math.atan2(b[1]-a[1],b[0]-a[0])+add,c=Math.cos(ang),s=Math.sin(ang);
-    const ak=Math.round(ang*1e9);if(seenA.has(ak))return;seenA.add(ak);   // мангал: этот угол уже был — положение то же (у боковины 136 сторон, а углов 4)
-    let Q=Q0.map(p=>[c*p[0]-s*p[1],s*p[0]+c*p[1]]);
-    const mx=Math.min(...Q.map(q=>q[0])),my=Math.min(...Q.map(q=>q[1]));Q=Q.map(q=>[q[0]-mx,q[1]-my]);
-    const key=Q.map(q=>Math.round(q[0])+','+Math.round(q[1])).sort().join(';');if(seen.has(key))return;seen.add(key);
-    // клетки, чьи центры внутри детали, раздутой на ползазора (r — ползазора, мм); точный зазор проверяется отдельно
-    // мангал: клетка ровно на ползазора не занята (< r, в art ≤ r) — иначе при зазоре, кратном клетке (5 мм), она занята у обеих соседних деталей и они отходят на клетку дальше
-    // и клетка дальше ползазора от габарита детали — сразу свободна: до контура ещё дальше (у боковин жаровни 140 точек — без этого секунда на деталь)
-    const o=Math.ceil(r/cell)+1,qw=Math.max(...Q.map(q=>q[0])),qh=Math.max(...Q.map(q=>q[1])),w=Math.ceil(qw/cell)+2*o+1,h=Math.ceil(qh/cell)+2*o+1,core=new Uint8Array(w*h);
-    for(let y=0;y<h;y++)for(let x=0;x<w;x++){const p=[(x-o+.5)*cell,(y-o+.5)*cell],bd=Math.hypot(Math.max(0,-p[0],p[0]-qw),Math.max(0,-p[1],p[1]-qh));
-      if(bd<r-1e-6&&(inPoly(p,Q)||nearPoly(Q,p,r-1e-6)))core[y*w+x]=1;}
-    const rows=m=>{const R=[];for(let y=0;y<h;y++){let x=0;const iv=[];while(x<w){if(m[y*w+x]){const s0=x;while(x<w&&m[y*w+x])x++;iv.push([s0,x-1]);}else x++;}R.push(iv);}return R;};
-    const cr=rows(core);out.push({Q,w,h,o,core:cr,dil:cr,flip,tr:{f:flip,c,s,x:-mx,y:-my}});});});});
-  return out;}
-// мангал: деталь только поворачивается (flips=[false]) — на листе она такая же, как в DXF; клетка 5 мм (в art — 2,5), зазор всё равно точный (polyGap)
-function* nestGen(items,W,H,gap,margin,cell=5,mode=2){const r=gap/2,GW=Math.floor((W-2*margin)/cell),GH=Math.floor((H-2*margin)/cell);
-  // мангал: сетки деталей — по одной за шаг (yield), чтобы страница не замирала на подготовке
-  const it=[];for(const o of items){it.push({id:o.id,no:o.no,area:Math.abs(area2(o.pts)),or:nestOrient(o.pts,cell,r,[false])});yield {done:0,of:items.length};}
-  it.sort((a,b)=>mode===2?Math.max(...b.or.map(o=>o.w))-Math.max(...a.or.map(o=>o.w)):b.area-a.area);
+// ---------- раскладка рамок (MaxRects, как на лендинге) ----------
+// Свободные прямоугольники листа W × H: рамка детали занимает w + зазор, поэтому рабочее поле шире на зазор (край margin — с каждой стороны)
+const nestFresh=(W,H,gap,margin)=>[{x:margin,y:margin,w:W-2*margin+gap,h:H-2*margin+gap}];
+// куда положить рамку w × h: место, где её правый край ближе всего к началу листа, затем ниже; поворот на 90° — если так ближе
+function nestSpot(free,w,h,gap){let best=null;
+  for(const [bw,bh,rot] of [[w,h,false],[h,w,true]]){const W2=bw+gap,H2=bh+gap;
+    for(const f of free){if(W2>f.w+1e-6||H2>f.h+1e-6)continue;const c={x:f.x,y:f.y,w:bw,h:bh,rot};
+      if(!best||c.x+c.w<best.x+best.w-1e-6||(Math.abs(c.x+c.w-best.x-best.w)<1e-6&&c.y<best.y))best=c;}}
+  return best;}
+// занять место: свободные прямоугольники, которые задевает рамка, режутся на куски вокруг неё; вложенные — выбрасываются
+function nestOccupy(free,r,gap){const R={x:r.x,y:r.y,w:r.w+gap,h:r.h+gap},out=[];
+  for(const f of free){if(R.x>=f.x+f.w||R.x+R.w<=f.x||R.y>=f.y+f.h||R.y+R.h<=f.y){out.push(f);continue;}
+    if(R.x>f.x)out.push({x:f.x,y:f.y,w:R.x-f.x,h:f.h});
+    if(R.x+R.w<f.x+f.w)out.push({x:R.x+R.w,y:f.y,w:f.x+f.w-R.x-R.w,h:f.h});
+    if(R.y>f.y)out.push({x:f.x,y:f.y,w:f.w,h:R.y-f.y});
+    if(R.y+R.h<f.y+f.h)out.push({x:f.x,y:R.y+R.h,w:f.w,h:f.y+f.h-R.y-R.h});}
+  const inside=(a,b)=>a.x>=b.x&&a.y>=b.y&&a.x+a.w<=b.x+b.w&&a.y+a.h<=b.y+b.h;
+  return out.filter((a,i)=>!out.some((b,j)=>j!==i&&inside(a,b)&&(!inside(b,a)||j<i)));}
+// items — {id,no,pts}: каждая штука отдельно; W — длинная сторона листа. Порядок — по большей стороне рамки, затем по площади, по убыванию;
+// деталь — на первый лист, где есть место, иначе новый лист; не влезла и в пустой — в too. yield {done,of} на каждую деталь (страница не замирает).
+// tr — поворот и сдвиг контура на лист: T(q) = [c·q0 − s·q1 + x, s·q0 + c·q1 + y]; повёрнутая на 90° (c=0, s=1) — T(q) = [−q1 + x, q0 + y].
+// len — правый край раскладки от начала листа (с краем), used — доля металла листа, dense — доля металла в занятой полосе
+function* nestGen(items,W,H,gap,margin){
+  const it=items.map(o=>{const xs=o.pts.map(p=>p[0]),ys=o.pts.map(p=>p[1]),x0=Math.min(...xs),y0=Math.min(...ys),x1=Math.max(...xs),y1=Math.max(...ys);
+    return {id:o.id,no:o.no,pts:o.pts,area:Math.abs(area2(o.pts)),x0,y0,x1,y1,w:x1-x0,h:y1-y0};})
+    .sort((a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)||b.w*b.h-a.w*a.h);
   const sheets=[],too=[];
-  const newSheet=()=>{const sh={items:[],occ:new Uint8Array(GW*GH),pre:new Int32Array((GW+1)*GH),len:0};sheets.push(sh);return sh;};
-  const free=(sh,R,x,y)=>{for(let ry=0;ry<R.length;ry++){const iv=R[ry];if(!iv.length)continue;const base=(y+ry)*(GW+1);for(const [a,b] of iv)if(sh.pre[base+x+b+1]-sh.pre[base+x+a])return false;}return true;};
-  const gapOK=(sh,o,x,y)=>{const ox=margin+(x+o.o)*cell,oy=margin+(y+o.o)*cell,P=o.Q.map(q=>[q[0]+ox,q[1]+oy]),bx=[Math.min(...P.map(p=>p[0]))-gap,Math.min(...P.map(p=>p[1]))-gap,Math.max(...P.map(p=>p[0]))+gap,Math.max(...P.map(p=>p[1]))+gap];
-    if(bx[0]<margin-.01||bx[1]<margin-.01||bx[2]>W-margin+gap+.01||bx[3]>H-margin+gap+.01)return false;
-    for(const it of sh.items){const b=it.bb;if(b[0]>bx[2]||b[2]<bx[0]||b[1]>bx[3]||b[3]<bx[1])continue;if(polyClose(P,it.pts,gap))return false;}return true;};
-  const fit=(sh,o,limit)=>{for(let x=0;x+o.w<=GW;x++){if(x+o.w>=limit)return null;for(let y=0;y+o.h<=GH;y++)if(free(sh,o.dil,x,y)&&gapOK(sh,o,x,y))return {x,y};}return null;};
-  const place=(sh,o,x,y)=>{o.core.forEach((iv,ry)=>{const Y=y+ry;if(Y>=GH)return;iv.forEach(([a,b])=>{for(let X=x+a;X<=x+b&&X<GW;X++)sh.occ[Y*GW+X]=1;});
-      const base=Y*(GW+1);let acc=0;for(let X=0;X<GW;X++){sh.pre[base+X]=acc;acc+=sh.occ[Y*GW+X];}sh.pre[base+GW]=acc;});};
-  for(let pi=0;pi<it.length;pi++){const p=it[pi];let done=false;yield {done:pi,of:it.length};
-    for(const sh of sheets.concat([null])){const S=sh||newSheet();let best=null;
-      p.or.forEach(o=>{if(o.w>GW||o.h>GH)return;const f=fit(S,o,best?(mode?best.x+1+o.w:best.score):Infinity);if(f){const score=mode?f.x*1e4+f.y:f.x+o.w;if(!best||score<best.score||score===best.score&&f.y<best.y)best={o,...f,score,right:f.x+o.w};}});
-      if(best){place(S,best.o,best.x,best.y);const ox=margin+(best.x+best.o.o)*cell,oy=margin+(best.y+best.o.o)*cell;
-        const pts=best.o.Q.map(q=>[q[0]+ox,q[1]+oy]);const t=best.o.tr;S.items.push({id:p.id,no:p.no,flip:best.o.flip,tr:{...t,x:t.x+ox,y:t.y+oy},area:p.area,x:0,y:0,pts,bb:[Math.min(...pts.map(q=>q[0])),Math.min(...pts.map(q=>q[1])),Math.max(...pts.map(q=>q[0])),Math.max(...pts.map(q=>q[1]))]});S.len=Math.max(S.len,margin+best.right*cell);done=true;break;}
-      if(!sh){sheets.pop();break;}}
-    if(!done)too.push({id:p.id,no:p.no});}
-  sheets.forEach(s=>{const a=s.items.reduce((q,o)=>q+o.area,0);s.used=a/(W*H);s.dense=a/((s.len-margin)*(H-2*margin)||1);delete s.occ;delete s.pre;});
+  for(let i=0;i<it.length;i++){const p=it[i];yield {done:i,of:it.length};
+    let S=sheets.find(s=>nestSpot(s.free,p.w,p.h,gap));
+    if(!S){if(!nestSpot(nestFresh(W,H,gap,margin),p.w,p.h,gap)){too.push({id:p.id,no:p.no});continue;}
+      S={items:[],free:nestFresh(W,H,gap,margin),len:0};sheets.push(S);}
+    const r=nestSpot(S.free,p.w,p.h,gap);S.free=nestOccupy(S.free,r,gap);
+    const tr=r.rot?{f:false,c:0,s:1,x:r.x+p.y1,y:r.y-p.x0}:{f:false,c:1,s:0,x:r.x-p.x0,y:r.y-p.y0},
+      pts=p.pts.map(q=>[tr.c*q[0]-tr.s*q[1]+tr.x,tr.s*q[0]+tr.c*q[1]+tr.y]),bb=[r.x,r.y,r.x+r.w,r.y+r.h];
+    S.items.push({id:p.id,no:p.no,flip:false,tr,area:p.area,pts,bb});S.len=Math.max(S.len,bb[2]);}
+  sheets.forEach(s=>{const a=s.items.reduce((q,o)=>q+o.area,0);s.used=a/(W*H);s.dense=a/((s.len-margin)*(H-2*margin)||1);delete s.free;});
   return {sheets,too,W,H,gap,used:sheets.length?sheets.reduce((a,s)=>a+s.used,0)/sheets.length:0};}
 
 /* ---------- детали для раскладки ---------- */
-const NEST_SHEETS={'1000x2000':[2000,1000],'1250x2500':[2500,1250],'1500x3000':[3000,1500]},NEST_EDGE=10,NEST_CELL=5;   // [длина, ширина]; от края 10 мм — как в art
+const NEST_SHEETS={'1000x2000':[2000,1000],'1250x2500':[2500,1250],'1500x3000':[3000,1500]},NEST_EDGE=10;   // [длина, ширина]; от края 10 мм — как в art
 // контур → точки без повтора последней и без двойных подряд; меньше 3 точек, не числа или нулевая площадь — null
 function nestLoop(l){if(!Array.isArray(l))return null;const P=[],same=(a,b)=>Math.abs(a[0]-b[0])<1e-6&&Math.abs(a[1]-b[1])<1e-6;
   for(const p of l){if(!Array.isArray(p)||!Number.isFinite(p[0])||!Number.isFinite(p[1]))return null;if(!P.length||!same(P[P.length-1],p))P.push([p[0],p[1]]);}
@@ -279,7 +268,7 @@ function nestUI(now){clearTimeout(NST.t);if(!now){NST.t=setTimeout(()=>nestUI(tr
   const box=document.getElementById('nestBox');if(box){if(box.querySelector('svg'))box.classList.add('busy');else box.innerHTML='<p class="tabnote">Раскладываю…</p>';}
   nestWait(true);nestMsg('Раскладываю…');
   const step=()=>{if(NST.run!==run)return;const t0=performance.now();
-    while(run.gi<N.groups.length){const G=N.groups[run.gi];if(!run.g)run.g=nestGen(G.items,N.LW,N.LH,N.gap,NEST_EDGE,NEST_CELL);const v=run.g.next();
+    while(run.gi<N.groups.length){const G=N.groups[run.gi];if(!run.g)run.g=nestGen(G.items,N.LW,N.LH,N.gap,NEST_EDGE);const v=run.g.next();
       if(v.done){run.res.push(v.value);run.g=null;run.gi++;}else run.done=N.groups.slice(0,run.gi).reduce((a,G)=>a+G.items.length,0)+v.value.done;
       if(performance.now()-t0>60)break;}
     if(run.gi<N.groups.length){nestMsg(`Раскладываю… ${run.done} из ${all}`);nestCnt(`· ${run.done} из ${all}`);setTimeout(step,0);return;}
