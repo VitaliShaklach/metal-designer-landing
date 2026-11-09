@@ -34,23 +34,24 @@ function nestOccupy(free,r,gap){const R={x:r.x,y:r.y,w:r.w+gap,h:r.h+gap},out=[]
 // tr — поворот и сдвиг контура на лист: T(q) = [c·q0 − s·q1 + x, s·q0 + c·q1 + y]; повёрнутая на 90° (c=0, s=1) — T(q) = [−q1 + x, q0 + y].
 // len — правый край раскладки от начала листа (с краем), used — доля металла листа, dense — доля металла в занятой полосе
 function* nestGen(items,W,H,gap,margin){
-  const it=items.map(o=>{const xs=o.pts.map(p=>p[0]),ys=o.pts.map(p=>p[1]),x0=Math.min(...xs),y0=Math.min(...ys),x1=Math.max(...xs),y1=Math.max(...ys);
+  const parts=items.map(o=>{const xs=o.pts.map(p=>p[0]),ys=o.pts.map(p=>p[1]),x0=Math.min(...xs),y0=Math.min(...ys),x1=Math.max(...xs),y1=Math.max(...ys);
     return {id:o.id,no:o.no,pts:o.pts,area:Math.abs(area2(o.pts)),x0,y0,x1,y1,w:x1-x0,h:y1-y0};})
     .sort((a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)||b.w*b.h-a.w*a.h);
   const sheets=[],too=[];
-  for(let i=0;i<it.length;i++){const p=it[i];yield {done:i,of:it.length};
-    let S=sheets.find(s=>nestSpot(s.free,p.w,p.h,gap));
-    if(!S){if(!nestSpot(nestFresh(W,H,gap,margin),p.w,p.h,gap)){too.push({id:p.id,no:p.no});continue;}
-      S={items:[],free:nestFresh(W,H,gap,margin),len:0};sheets.push(S);}
-    const r=nestSpot(S.free,p.w,p.h,gap);S.free=nestOccupy(S.free,r,gap);
-    const tr=r.rot?{f:false,c:0,s:1,x:r.x+p.y1,y:r.y-p.x0}:{f:false,c:1,s:0,x:r.x-p.x0,y:r.y-p.y0},
-      pts=p.pts.map(q=>[tr.c*q[0]-tr.s*q[1]+tr.x,tr.s*q[0]+tr.c*q[1]+tr.y]),bb=[r.x,r.y,r.x+r.w,r.y+r.h];
-    S.items.push({id:p.id,no:p.no,flip:false,tr,area:p.area,pts,bb});S.len=Math.max(S.len,bb[2]);}
+  for(let i=0;i<parts.length;i++){const part=parts[i];yield {done:i,of:parts.length};
+    // место ищется один раз: на первом листе, где есть; нет — на новом листе; нет и там — деталь больше листа
+    let S=null,spot=null;for(const s of sheets)if((spot=nestSpot(s.free,part.w,part.h,gap))){S=s;break;}
+    if(!S){const free=nestFresh(W,H,gap,margin);spot=nestSpot(free,part.w,part.h,gap);
+      if(!spot){too.push({id:part.id,no:part.no});continue;}S={items:[],free,len:0};sheets.push(S);}
+    S.free=nestOccupy(S.free,spot,gap);
+    const tr=spot.rot?{f:false,c:0,s:1,x:spot.x+part.y1,y:spot.y-part.x0}:{f:false,c:1,s:0,x:spot.x-part.x0,y:spot.y-part.y0},
+      pts=part.pts.map(q=>[tr.c*q[0]-tr.s*q[1]+tr.x,tr.s*q[0]+tr.c*q[1]+tr.y]),bb=[spot.x,spot.y,spot.x+spot.w,spot.y+spot.h];
+    S.items.push({id:part.id,no:part.no,flip:false,tr,area:part.area,pts,bb});S.len=Math.max(S.len,bb[2]);}
   sheets.forEach(s=>{const a=s.items.reduce((q,o)=>q+o.area,0);s.used=a/(W*H);s.dense=a/((s.len-margin)*(H-2*margin)||1);delete s.free;});
   return {sheets,too,W,H,gap,used:sheets.length?sheets.reduce((a,s)=>a+s.used,0)/sheets.length:0};}
 
 /* ---------- детали для раскладки ---------- */
-const NEST_SHEETS={'1000x2000':[2000,1000],'1250x2500':[2500,1250],'1500x3000':[3000,1500]},NEST_EDGE=10;   // [длина, ширина]; от края 10 мм — как в art
+const NEST_SHEETS={'1000x2000':[2000,1000],'1250x2500':[2500,1250],'1500x3000':[3000,1500]},NEST_EDGE=10;   // [длина, ширина]; от края листа 10 мм
 // контур → точки без повтора последней и без двойных подряд; меньше 3 точек, не числа или нулевая площадь — null
 function nestLoop(l){if(!Array.isArray(l))return null;const P=[],same=(a,b)=>Math.abs(a[0]-b[0])<1e-6&&Math.abs(a[1]-b[1])<1e-6;
   for(const p of l){if(!Array.isArray(p)||!Number.isFinite(p[0])||!Number.isFinite(p[1]))return null;if(!P.length||!same(P[P.length-1],p))P.push([p[0],p[1]]);}

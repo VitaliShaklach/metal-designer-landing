@@ -50,8 +50,8 @@ test('DXF листа совпадает с рисунком, в том числ�
         v.value.sheets.forEach(sh=>out.push({dxf:nestDxf(N,G,sh),items:sh.items.map(it=>({no:it.no,s:it.tr.s,pts:it.pts}))}));});return out;})()`);
     for(const sh of sheets){const L=cutLines(sh.dxf),near=(p,x,y)=>Math.abs(p[0]-x)<=0.01&&Math.abs(p[1]-y)<=0.01;
       for(const it of sh.items){if(it.s===1)rotated++;
-        // каждая сторона контура со схемы — отрезок CUT в DXF (в любую сторону)
-        for(let i=0;i+1<it.pts.length;i++){const a=it.pts[i],b=it.pts[i+1];
+        // каждая сторона контура со схемы, включая замыкающую (последняя точка → первая), — отрезок CUT в DXF (в любую сторону)
+        for(let i=0;i<it.pts.length;i++){const a=it.pts[i],b=it.pts[(i+1)%it.pts.length];
           assert.ok(L.some(l=>near(a,l[0],l[1])&&near(b,l[2],l[3])||near(b,l[0],l[1])&&near(a,l[2],l[3])),
             `${mode}: деталь ${it.no}${it.s===1?' (повёрнута)':''}, сторона ${a.map(v=>v.toFixed(2))} → ${b.map(v=>v.toFixed(2))} не в DXF`);}}}
   }
