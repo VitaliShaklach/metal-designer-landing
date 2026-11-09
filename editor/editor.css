@@ -3,28 +3,39 @@
 .edbar a{color:#f6f7f3;text-decoration:none}
 .edbar a:hover,.edbar a:focus-visible{text-decoration:underline}
 .edbar-tg{color:#ffb98f}
+/* «← Все изделия» — заметная кнопка, 44 px под палец */
+.edbar .edbar-back{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;background:#c4480c;color:#fff;font-weight:600;font-size:15px;border-radius:2px}
+.edbar .edbar-back:hover,.edbar .edbar-back:focus-visible{background:#a33a08;text-decoration:none}
+.edbar .edbar-back:focus-visible{outline:3px solid #ffb98f;outline-offset:2px}
 
 /* Главная editor/: в стиле лендинга (калька, Oswald/Golos), без скриптов */
 .home{--paper:#f6f7f3;--ink:#1c2a40;--blue:#2a3d5e;--muted:#4b5a70;--rule:rgba(42,61,94,.28);--accent:#c4480c;--accent-dark:#a33a08;--stage:#e3e7e1;margin:0;color:var(--ink);background-color:var(--paper);font:16px/1.5 "Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;background-image:linear-gradient(rgba(42,61,94,.11) 1px,transparent 1px),linear-gradient(90deg,rgba(42,61,94,.11) 1px,transparent 1px),linear-gradient(rgba(42,61,94,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(42,61,94,.05) 1px,transparent 1px);background-size:40px 40px,40px 40px,8px 8px,8px 8px}
 .home *,.home *::before,.home *::after{box-sizing:border-box}
 .home .wrap{max-width:1120px;margin:0 auto;padding:0 16px}
-.home .top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding-top:12px;padding-bottom:10px;border-bottom:1px solid var(--blue);font:13px/1.5 "JetBrains Mono",ui-monospace,Consolas,monospace}
-.home .top a{color:var(--blue)}
+.home .top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:12px;padding-bottom:12px;border-bottom:1px solid var(--blue);font:13px/1.5 "JetBrains Mono",ui-monospace,Consolas,monospace}
 .home .top .brand{font-weight:500;white-space:nowrap}
-.home .top .back{white-space:nowrap}
+.home .top-tg{display:inline-flex;align-items:center;min-height:40px;padding:0 16px;background:var(--accent);color:#fff;font:500 14px/1.2 "Golos Text",system-ui,sans-serif;text-decoration:none;white-space:nowrap}
+.home .top-tg:hover{background:var(--accent-dark)}
+.home .top-tg:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .home h1{margin:0;padding-top:20px;font:600 clamp(30px,6vw,52px)/1.05 "Oswald","Arial Narrow",sans-serif;text-transform:uppercase}
 .home .lede{margin:10px 0 0;max-width:640px;color:var(--muted)}
 .cards{max-width:920px;display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0 0;padding:0}
-.card{display:flex;flex-direction:column;background:rgba(255,255,255,.82);border:1px solid var(--blue);color:var(--ink);text-decoration:none}
-.card:hover{border-color:var(--accent)}
+.card{display:flex;flex-direction:column;background:#fff;border:1px solid var(--blue);color:var(--ink);text-decoration:none;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+.card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 8px 20px rgba(28,42,64,.14)}
 .card:focus-visible,.cta a:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
-.card-pic{display:block;aspect-ratio:16/10;width:100%;height:auto;object-fit:cover;background:var(--stage);border-bottom:1px solid var(--rule)}
-.card-lynx .card-pic{object-fit:contain}
-.card-body{display:flex;flex-direction:column;gap:6px;padding:14px 16px 16px}
+/* картинки на одном фоне: рысь снята на #dce1dd, белый фон мангала умножением становится тем же цветом */
+.card-frame{display:block;aspect-ratio:16/10;background:#dce1dd;border-bottom:1px solid var(--rule);overflow:hidden}
+.card-pic{display:block;width:100%;height:100%;object-fit:contain}
+.card-mangal .card-pic{mix-blend-mode:multiply;object-fit:cover}
+.card-body{display:flex;flex-direction:column;gap:8px;flex:1;padding:16px 18px 18px}
 .card h2{margin:0;font:600 26px/1.1 "Oswald","Arial Narrow",sans-serif;text-transform:uppercase}
 .card p{margin:0;color:var(--muted)}
-.card-go{margin-top:6px;color:var(--accent);font-weight:500}
-.card:hover .card-go{color:var(--accent-dark);text-decoration:underline}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.chips span{padding:2px 8px;border:1px solid var(--rule);background:var(--paper);color:var(--blue);font:12px/1.6 "JetBrains Mono",ui-monospace,Consolas,monospace}
+.card-go{align-self:flex-start;margin-top:auto;padding:10px 22px;background:var(--accent);color:#fff;font-weight:600}
+.card-body .chips{margin-bottom:6px}
+.card:hover .card-go{background:var(--accent-dark)}
+@media (prefers-reduced-motion:reduce){.card{transition:none}.card:hover{transform:none}}
 .cta{margin:24px 0 32px;padding:20px;background:#fff;border:1px solid var(--blue);border-left:6px solid var(--accent)}
 .cta h2{margin:0 0 6px;font:600 24px/1.2 "Oswald","Arial Narrow",sans-serif}
 .cta p{margin:0 0 14px;color:var(--muted)}
@@ -33,4 +44,6 @@
 @media (max-width:640px){
   .cards{grid-template-columns:1fr}
   .cta .tg{display:block;text-align:center}
+  .card-go{align-self:stretch;text-align:center}
+  .home .top .brand{white-space:normal}
 }

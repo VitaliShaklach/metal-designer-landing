@@ -26,7 +26,7 @@ test('mangal: полоса сверху', async ({page}) => {
   await openEditor(page, '/editor/mangal/');
   const back = page.locator('.edbar-back'), tg = page.locator('.edbar-tg');
   await expect(back).toHaveAttribute('href', '../');
-  await expect(back).toContainText('← На главную');
+  await expect(back).toContainText('← Все изделия');
   await expect(tg).toHaveAttribute('href', 'https://t.me/SHVA_1984');
   await expect(tg).toHaveText('Прислать фото и пожелания в Telegram');
 });
@@ -111,7 +111,7 @@ test('lynx: полоса сверху', async ({page}) => {
   await openEditor(page, '/editor/lynx/');
   const back = page.locator('.edbar-back'), tg = page.locator('.edbar-tg');
   await expect(back).toHaveAttribute('href', '../');
-  await expect(back).toContainText('← На главную');
+  await expect(back).toContainText('← Все изделия');
   await expect(tg).toHaveAttribute('href', 'https://t.me/SHVA_1984');
   await expect(tg).toHaveText('Прислать фото и пожелания в Telegram');
 });
@@ -264,6 +264,23 @@ test('home: призыв писать Виталию', async ({page}) => {
   const tg = page.locator('a[href="https://t.me/SHVA_1984"]').first();
   await expect(tg).toBeVisible();
   await expect(tg).toHaveAttribute('target', '_blank');
+});
+
+test('home: нет перехода на лендинг', async ({page}) => {
+  await openEditor(page, '/editor/');
+  const hrefs = await page.locator('a').evaluateAll(as => as.map(a => a.getAttribute('href')));
+  expect(hrefs.filter(h => h === '../' || h === '../index.html' || h === '/')).toEqual([]);
+});
+
+for (const p of ['mangal', 'lynx']) test(`${p}: кнопка «Все изделия» заметная, не ниже 44 px`, async ({page}) => {
+  await openEditor(page, `/editor/${p}/`);
+  const back = page.locator('.edbar-back');
+  await expect(back).toBeVisible();
+  const [h, bg] = await back.evaluate(e => [e.getBoundingClientRect().height, getComputedStyle(e).backgroundColor]);
+  expect(h).toBeGreaterThanOrEqual(44);
+  expect(bg).toBe('rgb(196, 72, 12)');
+  await back.click();
+  await expect(page).toHaveURL(/\/editor\/$/);
 });
 
 test('home: на телефоне без горизонтальной прокрутки', async ({page}, info) => {
