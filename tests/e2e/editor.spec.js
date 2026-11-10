@@ -259,6 +259,28 @@ test('mangal: вид модели раскрой не убирает — чел�
   expect(r.errors).toEqual([]);
 });
 
+// #74: колосник по умолчанию не на листе, и у зашедшего раньше (старое md-ncgr=true) тоже; строка и DXF в таблице остаются
+test('mangal: колосник по умолчанию не на листе, строка и DXF в таблице, галочка запоминается', async ({page}) => {
+  test.slow();
+  await page.addInitScript(() => localStorage.setItem('md-ncgr', 'true'));
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await expect(page.locator('#nCgrBox')).toBeVisible();
+  await expect(page.locator('#nCgr')).not.toBeChecked();
+  await mangalCut(page);
+  const grate = page.locator('#nestBox .ntbl tr', {hasText: 'Колосник мангала'});
+  await expect(grate).toHaveCount(2);
+  await expect(grate.locator('button[data-act=part]')).toHaveCount(2);
+  await expect(grate.first()).toContainText('не на листе');
+  await expect(page.locator('#nestBox svg title', {hasText: 'Колосник мангала'})).toHaveCount(0);
+  await page.locator('#nCgr').check();
+  await mangalNoCut(page);
+  await mangalCut(page);
+  await expect(page.locator('#nestBox svg title', {hasText: 'Колосник мангала'})).toHaveCount(2);
+  await page.reload();
+  await expect(page.locator('#nCgr')).toBeChecked();
+  expect(r.errors).toEqual([]);
+});
+
 // Каждая правка — новый расчёт (~3 с на SwiftShader), поэтому правки — в трёх тестах
 test('mangal: правки убирают раскрой — скобы задвижек, колосник на листе, лист', async ({page}) => {
   test.slow();
@@ -267,7 +289,7 @@ test('mangal: правки убирают раскрой — скобы задв
   await press(page, '#cHook');   // зовёт только build3D, а скобы уходят с листа
   await mangalNoCut(page);
   await mangalCut(page);
-  await page.locator('#nCgr').uncheck();
+  await page.locator('#nCgr').check();
   await mangalNoCut(page);
   await mangalCut(page);
   await page.locator('#nSheet').selectOption('1500x3000');
