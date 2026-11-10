@@ -45,6 +45,7 @@ test('mangal: подпись версии внизу', async ({page}) => {
 test('mangal: DXF скачивается', async ({page}) => {
   await openEditor(page, '/editor/mangal/');
   await page.locator('[role=tab][data-tab=cut]').click();
+  await page.locator('#nestRun').click();
   const btn = page.locator('#nestBox .dxfbtn.dl').first();
   await expect(btn).toBeVisible();
   const [d] = await Promise.all([page.waitForEvent('download'), btn.click()]);
@@ -197,9 +198,119 @@ test('mangal: во время раскроя виден индикатор, по
     new MutationObserver(() => window.__nestSeen.push(!e.hidden)).observe(e, {attributes: true, attributeFilter: ['hidden']});
   });
   await page.locator('[role=tab][data-tab=cut]').click();
+  await page.locator('#nestRun').click();
   await expect.poll(() => page.evaluate(() => window.__nestSeen.join())).toMatch(/^true,false/);
   await expect(page.locator('#nestWait')).toBeHidden();
   await expect(page.locator('#nestBox svg').first()).toBeVisible();
+});
+
+// ---------- мангал: раскрой по кнопке «Рассчитать» ----------
+
+// Раскрой посчитан: лист и таблица на месте, «Рассчитать» неактивна, архив можно скачать
+async function mangalCut(page) {
+  await page.locator('#nestRun').click();
+  await expect(page.locator('#nestBox svg').first()).toBeVisible();
+  await expect(page.locator('#nestBox .ntbl').first()).toBeVisible();
+  await expect(page.locator('#nestRun')).toBeDisabled();
+  await expect(page.locator('#dxfAll')).toBeEnabled();
+}
+// Результата нет: листа нет, «Рассчитать» снова активна, скачивать нечего
+async function mangalNoCut(page) {
+  await expect(page.locator('#nestRun')).toBeEnabled();
+  await expect(page.locator('#nestRun')).toHaveText('Рассчитать');
+  await expect(page.locator('#nestBox svg')).toHaveCount(0);
+  await expect(page.locator('#dxfAll')).toBeDisabled();
+}
+// Галочка или кнопка настроек — нажатием из кода: на телефоне панель настроек — закрытая шторка
+const press = (page, sel) => page.evaluate(s => document.querySelector(s).click(), sel);
+// Задержка сравнения ключа — 0,3 с; ждём с запасом, что результат НЕ пропал
+const settle = page => page.waitForTimeout(800);
+
+test('mangal: до «Рассчитать» раскроя нет — ни по #cut, ни из памяти браузера', async ({page}) => {
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await expect(page.locator('#tab-cut')).toBeVisible();
+  await settle(page);
+  await mangalNoCut(page);
+  await page.evaluate(() => localStorage.setItem('md-tab', '"cut"'));
+  await page.goto('/editor/mangal/');
+  await expect(page.locator('#tab-cut')).toBeVisible();
+  await settle(page);
+  await mangalNoCut(page);
+  await mangalCut(page);
+  expect(r.errors).toEqual([]);
+});
+
+test('mangal: вид модели раскрой не убирает — человек, размеры, вращение, другая вкладка', async ({page}) => {
+  test.slow();   // «Показать все» размеры и вращение на SwiftShader — секунды
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await mangalCut(page);
+  await press(page, '#cMan');
+  await page.locator('[role=tab][data-tab=dims]').click();
+  await page.locator('#dAll').click();
+  const c = await page.locator('#stage canvas').boundingBox();
+  await page.mouse.move(c.x + c.width / 2, c.y + c.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(c.x + c.width / 2 + 120, c.y + c.height / 2 + 40, {steps: 5});
+  await page.mouse.up();
+  await page.locator('[role=tab][data-tab=cut]').click();
+  await settle(page);
+  await expect(page.locator('#nestBox svg').first()).toBeVisible();
+  await expect(page.locator('#nestRun')).toBeDisabled();
+  expect(r.errors).toEqual([]);
+});
+
+// Каждая правка — новый расчёт (~3 с на SwiftShader), поэтому правки — в трёх тестах
+test('mangal: правки убирают раскрой — скобы задвижек, колосник на листе, лист', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await mangalCut(page);
+  await press(page, '#cHook');   // зовёт только build3D, а скобы уходят с листа
+  await mangalNoCut(page);
+  await mangalCut(page);
+  await page.locator('#nCgr').uncheck();
+  await mangalNoCut(page);
+  await mangalCut(page);
+  await page.locator('#nSheet').selectOption('1500x3000');
+  await mangalNoCut(page);
+  expect(r.errors).toEqual([]);
+});
+
+test('mangal: правки убирают раскрой — зазор, режим, высота топки', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await mangalCut(page);
+  await page.locator('#nGap').fill('8');
+  await mangalNoCut(page);
+  await mangalCut(page);
+  await press(page, '#modeSeg [data-v=stove]');
+  await mangalNoCut(page);
+  await mangalCut(page);
+  await page.locator('#hFire').evaluate(e => { e.value = String(+e.value + 2); e.dispatchEvent(new Event('input')); });
+  await mangalNoCut(page);
+  expect(r.errors).toEqual([]);
+});
+
+// «Заготовки с гильотины» (до #59) — через ту же кнопку; «гильотина | лазер» у детали меняет схему гильотины
+test('mangal: правки убирают раскрой — гильотина и «гильотина | лазер» у детали', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await mangalCut(page);
+  await page.locator('#nGil').check();
+  await mangalNoCut(page);
+  await mangalCut(page);
+  await expect(page.locator('#nestBox .gilsv').first()).toBeVisible();
+  await page.locator('#nestBox .gsel button[aria-pressed=false]').first().click();
+  await mangalNoCut(page);
+  expect(r.errors).toEqual([]);
+});
+
+test('mangal: детали поменяли во время счёта — устаревший раскрой не показывается', async ({page}) => {
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await page.evaluate(() => { document.getElementById('nestRun').click(); document.getElementById('cHook').click(); });
+  await mangalNoCut(page);
+  await settle(page);
+  await mangalNoCut(page);
+  expect(r.errors).toEqual([]);
 });
 
 test('lynx: во время раскроя виден индикатор', async ({page}) => {

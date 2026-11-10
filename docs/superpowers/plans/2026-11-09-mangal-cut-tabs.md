@@ -89,8 +89,9 @@ test('глубокие прорези 100, 150, 200, 250 мм от правог�
 
 **Интерфейсы:**
 - Производит (`calc.js`, без зависимостей от изделия):
-  `makeCalc({btn: HTMLButtonElement, box: HTMLElement, pdf?: HTMLButtonElement, key: () => string, run: (done: (html: string) => void) => void}): {stale(): void, ready(): boolean}`.
-  Кнопка: если результат по текущему `key()` уже есть — ничего; иначе `btn.disabled = true`, текст «Считаю…», `run(done)`; `done` с устаревшим ключом отбрасывается (ревью, п. 5). `stale()` — `box.innerHTML = ''`, `btn` активна с текстом «Рассчитать», `pdf.disabled = true`.
+  `makeCalc({btn: HTMLButtonElement, box: HTMLElement, save?: HTMLButtonElement | HTMLButtonElement[], wait?: HTMLElement, key: () => string, run: (done: (html: string) => void, live: () => boolean) => void}): {stale(): void, check(k?: string): void, ready(): boolean, held(): boolean}`.
+  Кнопка: если результат по текущему `key()` уже есть — ничего; иначе `btn.disabled = true`, текст «Считаю…», `wait` виден, `run(done, live)`; `done` с устаревшим ключом отбрасывается (ревью, п. 5). Пока результат свежий, `btn` неактивна. `stale()` — `box.innerHTML = ''`, идущий расчёт брошен (`live()` → `false`), `btn` активна с текстом «Рассчитать», `save` неактивна.
+  > **#73, сделано иначе:** `pdf` → `save` (у мангала это ZIP, у рыси PDF — модулю всё равно). Сбрасывать по месту вызова (`render()`) нельзя: 11 галочек меняют детали, но зовут только `build3D()`. Поэтому сброс по ключу: везде, где правка (у мангала — `nestUI()`, задержка 0,3 с), изделие зовёт `check(ключ)` — ключ другой → `stale()`. Нет ни результата, ни расчёта (`held()` = `false`) — ключ не считается.
 - Производит (`nest.js`):
   - `nestOpts(): {gap, sk, W, H, edge, cgr: boolean, gilSel: {[file]: boolean}, engr: boolean}` — `cgr` из `md-ncgr2` (по умолчанию `false`; старый `md-ncgr` не читается); `gilSel` из `md-gilsel2` (старый `md-gilsel` не читается); `md-ngil` больше не используется.
   - `gilOn(ty, o): boolean` = `o.gilSel[ty.p.file] ?? (NEST_CGR(ty.p) ? o.cgr : gilDef(ty.m, ty.p.mm) === 'gil')`. Колосник — одна настройка: в «Гильотине» его галочка пишет `cgr`, не `gilSel`.
@@ -101,9 +102,9 @@ test('глубокие прорези 100, 150, 200, 250 мм от правог�
   - `offList(N, G): string` — «Не на схеме: Задвижка поддува × 2, Скоба задвижки × 4» или `''`.
   - `variantFiles(N, res, v: 'list'|'zag'|'gil'): [name: string, data: string][]` и `zipName(v): string` = `${MODE_FILE()}_${L}x${W}x${H}_${толщины через '-'}mm_${{list:'laser-list', zag:'laser-zagotovki', gil:'gilotina'}[v]}.zip` (размеры жаровни в мм для мангала; для печи — её; толщины через «-» — мой выбор для нескольких толщин).
   - Удаляются: `nestPiece`, `kind:'piece'` и `GIL_KIND.piece`, `N.gil`, `LW/LH`, `partOut`-ветка `gil`, `gilSet` с переключателем, `nGil`.
-- `ui.js`: `render()` в конце вызывает `CALC.forEach(c => c.stale())` — только при изменении деталей; `build3D()` от галочек вида и размеров `stale` не вызывает (решение грилинга 2).
+- ~~`ui.js`: `render()` в конце вызывает `CALC.forEach(c => c.stale())`~~ — заменено сравнением ключа (`check`, см. выше, #73): галочки вида ключ не меняют и результат не трогают (решение грилинга 2).
 
-- [ ] **Шаг 1: Тест** `calc.test.js` (DOM — простые объекты `{disabled, textContent, innerHTML, addEventListener}`): `run` вызывается по клику; второй клик при том же ключе — не вызывается; `stale()` чистит `box` и делает `pdf.disabled`; `done` после смены ключа — `box` пуст.
+- [ ] **Шаг 1: Тест** `calc.test.js` (DOM — простые объекты `{disabled, textContent, innerHTML, addEventListener}`): `run` вызывается по клику; второй клик при том же ключе — не вызывается; `stale()` чистит `box` и делает `save.disabled`; `done` после смены ключа — `box` пуст.
 - [ ] **Шаг 2: Тест** `variants.test.js`:
   - `по умолчанию колосник выключен`: `nestOpts().cgr === false`; при `localStorage` `{md-ncgr:true, md-gilsel:{grill_side_back_5mm_x1.dxf:'laser'}, md-ngil:true}` — тоже `false`, `gilSel` пуст (ревью, п. 1).
   - `колосник выключен`: его нет в `items`, есть в `types`, его DXF есть в `variantFiles(N,res,'list')`.
@@ -287,7 +288,7 @@ test('глубокие прорези 100, 150, 200, 250 мм от правог�
 
 **Интерфейсы:**
 - Потребляет: `makeCalc` (задача 3). Три экземпляра: `nest`, `sheets` (`run` вызывает `ensureNest`, если `CUR.N` нет — решение грилинга 9), `cards`.
-- `stale()` всех трёх — там, где рысь пересобирает `CUR` (смена фигуры, точек, граней, толщины, параметров детали); смена вкладки, вида 3D, масштаба — не вызывает.
+- `check(ключ)` всех трёх — там, где рысь пересобирает `CUR` (смена фигуры, точек, граней, толщины, параметров детали), как у мангала в `nestUI` (#73): ключ другой — результат убран. Смена вкладки, вида 3D, масштаба ключ не меняет.
 
 - [ ] **Шаг 1: Тест** e2e: открыть «Чертежи» — ничего не считается, «Скачать PDF» неактивна; «Рассчитать» на «Чертежах» без готового раскроя — листы с «Раскрой листа» появляются (таймаут 10 мин, как в `tools/lynx-capture.js`); смена толщины — листы пропали; «Лазер · DXF» и «Карты» — то же поведение.
 - [ ] **Шаг 2:** падает; реализовать; `smoke.js` рыси зелёный.

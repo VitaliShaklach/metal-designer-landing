@@ -238,7 +238,6 @@ svg.cutsk .fl{fill:var(--accent);fill-opacity:.25}
 .nestbar input:focus-visible,.nestbar select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media (max-width:900px){.nestbar input,.nestbar select{font-size:16px}}   /* iPhone не увеличивает страницу при вводе */
 .nestbox{display:flex;flex-direction:column;gap:16px;min-width:0}
-.nestbox.busy svg{opacity:.45}
 .nsheet{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0}
 .nsheet figcaption{font:13px/1.4 var(--f-mono);color:var(--muted)}
 .nblock{display:flex;flex-direction:column;gap:10px;min-width:0}
@@ -275,6 +274,11 @@ table.gtbl{min-width:520px}
 table.gtbl td:first-child,table.gtbl th:first-child{width:1%;white-space:nowrap}
 /* схема гильотины: серый — готовая деталь, светло-оранжевый — дальше на лазер (заготовка и кусок листа под лазер) */
 .nestbar [hidden]{display:none}
+/* «Рассчитать» (editor/common/calc.js): главная кнопка вкладки; неактивна, пока идёт расчёт или результат свежий. Скачать — только с результатом */
+.nestbar .calcbtn{font-weight:600;border-color:var(--accent);background:var(--accent);color:var(--panel)}
+.nestbar .calcbtn:hover{border-color:var(--accent);filter:brightness(1.08)}
+.nestbar button:disabled,.nestbar button:disabled:hover{opacity:.45;cursor:default;filter:none;border-color:var(--line)}
+.nestbar .calcbtn:disabled,.nestbar .calcbtn:disabled:hover{border-color:var(--accent)}
 svg.gilsv .gp rect{stroke:var(--ink);stroke-width:1px}
 svg.gilsv .gp.gil rect{fill:var(--gilf)}
 svg.gilsv .gp.las rect{fill:var(--lasf)}

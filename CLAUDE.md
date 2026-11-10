@@ -32,7 +32,7 @@
 - `img/og.png` — карточка ссылки для мессенджеров, 1200 × 630.
 - `lynx/` — рысь для первого экрана, готовые файлы одной версии: `model.json` (точки и грани), `stats.json` (плитки цифр), `photo-1..3.jpg` (было), `rework.jpg` и `rework-2.jpg` (гранёная модель со швами и рысь 3), `poster.jpg` (3D картинкой), `nest.jpg` и `sheet.jpg` (первый лист раскроя и чертежей). Руками не правим — собирает `tools/lynx-capture.js`.
 - `tools/lynx-capture.js` — сборщик `lynx/` из `C:\dev\metal-designer\art\private\lynx.html` (только для разработки, на сайт не влияет). `C:\dev` только читает: отдаёт его через `python -m http.server` на 127.0.0.1 и снимает страницу в Playwright.
-- `editor/` — редактор: `index.html` (главная), `mangal/` и `lynx/` (у каждой свои `js/`, `css/`, `img/`, `tools/smoke.js`), `editor.css` (общий вид главной и полосы сверху), `img/` (картинки карточек).
+- `editor/` — редактор: `index.html` (главная), `mangal/` и `lynx/` (у каждой свои `js/`, `css/`, `img/`, `tools/smoke.js`), `editor.css` (общий вид главной и полосы сверху), `img/` (картинки карточек), `common/` — общее для всех изделий: `calc.js` (кнопка «Рассчитать»: тяжёлый расчёт только по ней, результат держится, пока не поменялся ключ задания; тест `calc.test.js`).
 - `tests/` — автотесты: `unit/` (расчёты, ссылка, листы, карты в Node), `e2e/` (страница в браузере), `engine.js` и `golden.json` (стенд движка и собственный замороженный эталон цифр лендинга; с `C:\dev` не сверяется), `serve.py` (локальный сервер).
 - `package.json`, `playwright.config.js` — только для тестов; на сайт не влияют, `node_modules/` в git не попадает.
 - `docs/superpowers/specs/` — документы дизайна; `docs/superpowers/plans/` — планы работ.

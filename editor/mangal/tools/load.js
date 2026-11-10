@@ -1,4 +1,4 @@
-// стенд для тестов редактора мангала: все скрипты страницы в vm, Three.js и DOM — пустышки.
+// стенд для тестов редактора мангала: все скрипты страницы (и общий calc.js) в vm, Three.js и DOM — пустышки.
 // THREE.Shape/Path — простые заглушки с точками (как mkReal в smoke.js), чтобы контуры деталей были настоящими.
 const fs=require('fs'),vm=require('vm'),path=require('path');
 const P=path.join(__dirname,'..');
@@ -16,7 +16,7 @@ function loadMangal(flags={}){
     URLSearchParams,console,Math,JSON,Set,Map,Object,Array,Number,String,Symbol,setTimeout,clearTimeout};
   vm.createContext(ctx);
   // классические скрипты делят одну лексическую область — склеиваем
-  vm.runInContext(FILES.map(f=>fs.readFileSync(P+'/js/'+f+'.js','utf8')).join('\n;\n'),ctx,{filename:'mangal.js'});
+  vm.runInContext([P+'/../common/calc.js',...FILES.map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n'),ctx,{filename:'mangal.js'});
   return ctx;}
 
 // выражение в области скриптов мангала; результат — копия через JSON, чтобы assert.deepEqual сравнивал обычные объекты

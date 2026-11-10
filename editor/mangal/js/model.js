@@ -93,7 +93,7 @@ function build3D(){
   group.children.forEach(o=>{if(o.userData.dim)return;const p=o.userData.part;
     if(sp&&!sp.has(p))o.visible=false;
     if(S.parts&&!S.parts.has(PDF_PART[p]))o.visible=false;});
-  if(typeof nestUI==='function')nestUI();   // раскрой и DXF зависят от тех же галочек (многие зовут только build3D)
+  if(typeof nestUI==='function')nestUI();   // задание на раскрой зависит от тех же галочек (многие зовут только build3D): поменялось — результат раскроя убирается
 }
 function buildParts(tag){
   // жаровня

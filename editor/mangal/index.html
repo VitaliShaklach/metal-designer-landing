@@ -12,9 +12,9 @@
 <meta property="og:url" content="https://vitalishaklach.github.io/metal-designer/mangal/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-09c">
-<link rel="stylesheet" href="../editor.css?v=2026-11-09c">
-<link rel="stylesheet" href="css/style.css?v=2026-11-09c">
+<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-09d">
+<link rel="stylesheet" href="../editor.css?v=2026-11-09d">
+<link rel="stylesheet" href="css/style.css?v=2026-11-09d">
 </head>
 <body>
 <div class="edbar">
@@ -171,7 +171,7 @@
     </div>
 
     <div class="tabpane" id="tab-cut" role="tabpanel" hidden>
-      <div class="dimbar nestbar"><label>Между деталями, мм <input id="nGap" type="number" value="5" min="1" step="0.5" inputmode="decimal"></label><label>Лист <select id="nSheet"><option value="1000x2000">1000 × 2000</option><option value="1250x2500" selected>1250 × 2500</option><option value="1500x3000">1500 × 3000</option></select></label><label id="nCgrBox"><input type="checkbox" id="nCgr" checked> Колосник мангала на листе</label><label id="nGilBox" title="Металл режут в размер на гильотине, на лазер везут готовые заготовки: лазер режет только отверстия, вырезы и пазы с кромки, а детали сложной формы — из куска листа"><input type="checkbox" id="nGil"> Заготовки с гильотины</label><label id="nEdgeBox" title="Отступ от края листа на схеме гильотины: заводскую кромку срезают" hidden>Подрезка кромки, мм <input id="nEdge" type="number" value="10" min="0" max="30" step="1" inputmode="numeric"></label><button id="nGilReset" title="Вернуть «гильотина | лазер» по умолчанию: уже 50 мм — лазер, остальное — гильотина" hidden>Сбросить выбор</button><button id="dxfAll">Скачать всё (ZIP)</button><span class="dxfmsg" id="nestMsg"></span><span class="dxfmsg" id="dxfMsg"></span></div>
+      <div class="dimbar nestbar"><label>Между деталями, мм <input id="nGap" type="number" value="5" min="1" step="0.5" inputmode="decimal"></label><label>Лист <select id="nSheet"><option value="1000x2000">1000 × 2000</option><option value="1250x2500" selected>1250 × 2500</option><option value="1500x3000">1500 × 3000</option></select></label><label id="nCgrBox"><input type="checkbox" id="nCgr" checked> Колосник мангала на листе</label><label id="nGilBox" title="Металл режут в размер на гильотине, на лазер везут готовые заготовки: лазер режет только отверстия, вырезы и пазы с кромки, а детали сложной формы — из куска листа"><input type="checkbox" id="nGil"> Заготовки с гильотины</label><label id="nEdgeBox" title="Отступ от края листа на схеме гильотины: заводскую кромку срезают" hidden>Подрезка кромки, мм <input id="nEdge" type="number" value="10" min="0" max="30" step="1" inputmode="numeric"></label><button id="nGilReset" title="Вернуть «гильотина | лазер» по умолчанию: уже 50 мм — лазер, остальное — гильотина" hidden>Сбросить выбор</button><button id="nestRun" class="calcbtn">Рассчитать</button><button id="dxfAll" disabled>Скачать всё (ZIP)</button><span class="dxfmsg" id="dxfMsg"></span></div>
       <p class="tabnote">Листовые детали для лазера, по толщинам. «Скачать DXF листа» — весь лист одним файлом, детали стоят как на рисунке; «⬇&#xFE0E; DXF» в строке — одна деталь. Контур и отверстия — слой CUT, гибы — BEND, рамка листа — SHEET (не резать). «Заготовки с гильотины» — металл режут в размер на гильотине, на лазер везут готовые заготовки. Лист становится схемой гильотины: прямоугольники заготовок, только сквозные резы, без зазора; серые — готовые детали, оранжевые — заготовки под лазер и кусок листа под лазер. У каждой детали в таблице переключатель «гильотина | лазер»: «гильотина» — деталь приходит прямоугольником по габариту, у заготовки лазер режет всё, что не лежит на сторонах габарита (файлы <code>_zag.dxf</code>, прямоугольник заготовки — слой BLANK, не резать); «лазер» — деталь целиком лазером из куска листа под лазер. По умолчанию уже 50 мм — «лазер», остальное — «гильотина». В DXF схемы гильотины заготовки — слой BLANK, номер и размер — TEXT. Врезки по заготовке — с запасом: по одной на паз с кромки, хотя цех может заходить с кромки без прожига. Покупное и прокат — во вкладке «Масса»</p>
       <div class="nestwait" id="nestWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Считаю раскрой, это может занять несколько минут</span><span class="nestCnt"></span></div>
       <div class="nestbox" id="nestBox"></div>
@@ -224,13 +224,14 @@
 <script src="../../vendor/three/three.min.js"></script>
 <script src="../../vendor/three/OrbitControls.js"></script>
 <script src="../../vendor/three/CSS2DRenderer.js"></script>
-<script src="js/params.js?v=2026-11-09c"></script>
-<script src="js/parts.js?v=2026-11-09c"></script>
-<script src="js/model.js?v=2026-11-09c"></script>
-<script src="js/dims.js?v=2026-11-09c"></script>
-<script src="js/cut.js?v=2026-11-09c"></script>
-<script src="js/dxf.js?v=2026-11-09c"></script>
-<script src="js/nest.js?v=2026-11-09c"></script>
-<script src="js/ui.js?v=2026-11-09c"></script>
+<script src="js/params.js?v=2026-11-09d"></script>
+<script src="js/parts.js?v=2026-11-09d"></script>
+<script src="js/model.js?v=2026-11-09d"></script>
+<script src="js/dims.js?v=2026-11-09d"></script>
+<script src="js/cut.js?v=2026-11-09d"></script>
+<script src="js/dxf.js?v=2026-11-09d"></script>
+<script src="../common/calc.js?v=2026-11-09d"></script>
+<script src="js/nest.js?v=2026-11-09d"></script>
+<script src="js/ui.js?v=2026-11-09d"></script>
 </body>
 </html>

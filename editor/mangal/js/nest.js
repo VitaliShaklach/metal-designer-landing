@@ -199,9 +199,10 @@ const partOut=(N,ty)=>!N.gil||ty.kind==='list'?[dxfName(ty.p),dxfText(ty.m)]:ty.
 // вкладка: на каждую толщину (5 → 3 → 15 мм) — заголовок, кнопки скачивания, лист, под ним детали этого листа (как была таблица «Лазер · DXF»);
 // № в таблице — тот же, что на листе; выбранное на модели подсвечено. С gil: вместо листа — схема гильотины (gilSvg) и легенда, под ней —
 // кусок листа под лазер с деталями «лазер»; в строках таблицы — переключатель «гильотина | лазер», рез и врезки по заготовке (мелко — «из листа»), ниже «На гильотину»
-function nestDraw(N,res){const box=document.getElementById('nestBox');if(!box)return;box.classList.remove('busy');NST.cur={N,res};
-  const isOn=ty=>!!S.sel.el&&inSel(PDF_ELEM(ty.p.pt),ty.p.pt),wide=!(box.clientWidth>0&&box.clientWidth<600);   // узкий экран (телефон): шрифт на листах крупнее — иначе номера ~4 px
-  box.innerHTML=N.groups.length?N.groups.map((G,gi)=>{const R=res[gi]||{sheets:[],too:[]},main=G.mm===5,ns=R.sheets.length,P=N.gil?gilScheme(N,G,R):null;
+function nestDraw(N,res){const box=document.getElementById('nestBox');if(!box)return;NST.cur={N,res};box.innerHTML=nestHtml(N,res);}
+function nestHtml(N,res){const box=document.getElementById('nestBox');
+  const isOn=ty=>!!S.sel.el&&inSel(PDF_ELEM(ty.p.pt),ty.p.pt),wide=!(box&&box.clientWidth>0&&box.clientWidth<600);   // узкий экран (телефон): шрифт на листах крупнее — иначе номера ~4 px
+  return N.groups.length?N.groups.map((G,gi)=>{const R=res[gi]||{sheets:[],too:[]},main=G.mm===5,ns=R.sheets.length,P=N.gil?gilScheme(N,G,R):null;
     let h=`<section class="nblock${main?' main':''}"><h3>Лист ${G.mm} мм</h3>`,bt='';
     if(P)P.sheets.forEach((sh,si)=>{bt+=`<button class="dxfbtn" data-act="gil" data-g="${gi}" data-s="${si}">Скачать схему гильотины (DXF)${P.sheets.length>1?' '+(si+1):''}</button>`;});
     R.sheets.forEach((sh,si)=>{bt+=`<button class="dxfbtn" data-act="sheet" data-g="${gi}" data-s="${si}">${N.gil?'Скачать DXF куска под лазер':'Скачать DXF листа'}${ns>1?' '+(si+1):''}</button>`;});
@@ -230,27 +231,44 @@ function nestDraw(N,res){const box=document.getElementById('nestBox');if(!box)re
     return h+'</section>';}).join(''):'<p class="tabnote">Листовых деталей нет</p>';}
 // «Скачать всё (ZIP)»: DXF каждого листа и каждой детали — то, что на вкладке; с gil — схемы гильотины, куски листа под лазер, детали zag по заготовке (_zag),
 // gil без DXF, и gilotina_<N>mm.csv на толщину
-function saveAll(){if(NST.run||!NST.cur)return;const {N,res}=NST.cur,F=[];
+// перед скачиванием ключ сверяется сразу: правка могла быть меньше 0,3 с назад, а старый раскрой качать нельзя
+const nestUpToDate=()=>{const c=nestCalc();c.check();return c.ready()&&!!NST.cur;};
+function saveAll(){if(!nestUpToDate())return;const {N,res}=NST.cur,F=[];
   N.groups.forEach((G,gi)=>{const R=res[gi];if(R&&N.gil){const P=gilScheme(N,G,R);P.sheets.forEach((sh,si)=>F.push([gilFile(N,G,P,si),gilDxf(N,G,sh)]));}
     if(R)R.sheets.forEach((sh,si)=>F.push([nestFile(N,G,R,si),nestDxf(N,G,sh)]));G.types.forEach(ty=>{const o=partOut(N,ty);if(o)F.push(o);});
     if(N.gil)F.push([`gilotina_${G.mm}mm.csv`,gilCsv(N,G,R)]);});
   if(F.length)saveOut(`${MODE_FILE()}_raskroy_${N.sk}.zip`,zipFiles(F));}
 // «гильотина | лазер» у детали: запомнить (ключ — p.file) и пересчитать; null — сбросить всё к умолчаниям
 function gilSet(file,v){const m=file?gilSelStore():{};if(file)m[file]=v;store('md-gilsel',m);nestUI(true);}
-// кнопки над листом и в таблице; пока идёт раскладка — не качаем (лист ещё старый)
+// кнопки над листом и в таблице; результат устарел — не качаем
 function nestClick(e){const b=e.target.closest&&e.target.closest('button[data-act]');if(!b||!NST.cur)return;
   const {N,res}=NST.cur,G=N.groups[+b.dataset.g],R=res[+b.dataset.g];if(!G)return;
   if(b.dataset.act==='gsel'){const ty=G.types[+b.dataset.t];if(ty&&ty.sel!==b.dataset.v)gilSet(ty.p.file,b.dataset.v);return;}
-  if(NST.run)return;
+  if(!nestUpToDate())return;
   if(b.dataset.act==='sheet'&&R&&R.sheets[+b.dataset.s])saveDxf(nestFile(N,G,R,+b.dataset.s),nestDxf(N,G,R.sheets[+b.dataset.s]));
   else if(b.dataset.act==='gil'&&R&&N.gil){const P=gilScheme(N,G,R),sh=P.sheets[+b.dataset.s];if(sh)saveDxf(gilFile(N,G,P,+b.dataset.s),gilDxf(N,G,sh));}
   else if(b.dataset.act==='part'&&G.types[+b.dataset.t]){const o=partOut(N,G.types[+b.dataset.t]);if(o)saveDxf(...o);}}
 
-/* ---------- когда считать: только при открытой вкладке, через 0,3 с после правки; кусками по ~60 мс, кэш по ключу ---------- */
-const NST={key:'',res:null,run:null,t:0,init:false,cur:null};   // cur — что сейчас нарисовано ({N,res}): для кнопок скачивания
-const nestWait=on=>{const e=document.getElementById('nestWait');if(e)e.hidden=!on;if(!on)nestCnt('');};
+/* ---------- когда считать: только по кнопке «Рассчитать» (editor/common/calc.js), кусками по ~60 мс — страница не замирает ----------
+   Результат держится, пока не поменялось задание: любая правка зовёт nestUI, через 0,3 с ключ задания (nestJob().key) сравнивается
+   с ключом результата. Другой (размеры, режим, детали, лист, зазор, колосник, гильотина) — результат убран, кнопка снова активна;
+   тот же (вращение, размеры на модели, галочки вида, выбор детали) — результат перерисован. */
+const NST={res:null,t:0,init:false,cur:null};   // res — раскладка последнего расчёта; cur — что сейчас нарисовано ({N,res}): для кнопок скачивания
 const nestCnt=t=>document.querySelectorAll('.nestCnt').forEach(e=>{e.textContent=t;});
-const nestMsg=t=>{const m=document.getElementById('nestMsg');if(m)m.textContent=t;};
+// расчёт по кнопке: раскладка всех толщин; live() — false, если задание поменялось и расчёт уже не нужен
+function nestRun(done,live){const N=nestJob(),all=N.groups.reduce((a,G)=>a+G.items.length,0),res=[];let gi=0,g=null,n=0;nestCnt('');
+  const step=()=>{if(!live())return;const t0=performance.now();
+    try{while(gi<N.groups.length){const G=N.groups[gi];if(!g)g=nestGen(G.items,N.LW,N.LH,N.gap,NEST_EDGE);const v=g.next();
+        if(v.done){res.push(v.value);g=null;gi++;}else n=N.groups.slice(0,gi).reduce((a,G)=>a+G.items.length,0)+v.value.done;
+        if(performance.now()-t0>60)break;}}
+    catch(e){nestCalc().stale();throw e;}   // упало посреди счёта — кнопка не висит на «Считаю…»
+    if(gi<N.groups.length){nestCnt(`· ${n} из ${all}`);setTimeout(step,0);return;}
+    if(done(nestHtml(N,res))){NST.res=res;NST.cur={N,res};}};   // результат принят — его и качаем
+  setTimeout(step,0);}
+// кнопка «Рассчитать» — при первом обращении: nest.js грузится и без страницы (тесты раскладки в smoke.js)
+let NCALC=null;
+const nestCalc=()=>NCALC||(NCALC=makeCalc({btn:document.getElementById('nestRun'),box:document.getElementById('nestBox'),save:document.getElementById('dxfAll'),
+  wait:document.getElementById('nestWait'),key:()=>nestJob().key,run:nestRun}));
 // поля «Между деталями», «Лист», «Подрезка кромки» и галочки: значения из памяти браузера (store — в ui.js, к первому показу вкладки он уже есть)
 function nestInit(){if(NST.init)return;NST.init=true;const gi=document.getElementById('nGap'),si=document.getElementById('nSheet'),ei=document.getElementById('nEdge');if(!gi||!si)return;
   const g=store('md-ngap'),s=store('md-sheet'),c=store('md-ncgr'),l=store('md-ngil'),ed=store('md-nedge'),ci=document.getElementById('nCgr'),li=document.getElementById('nGil');if(Number.isFinite(+g)&&g!==null)gi.value=g;if(s&&NEST_SHEETS[s])si.value=s;if(ci&&typeof c==='boolean')ci.checked=c;if(li&&typeof l==='boolean')li.checked=l;
@@ -259,19 +277,13 @@ function nestInit(){if(NST.init)return;NST.init=true;const gi=document.getElemen
   gi.addEventListener('input',ch);gi.addEventListener('change',()=>{gi.value=nestOpts().gap;ch();});si.addEventListener('change',ch);if(ci)ci.addEventListener('change',ch);if(li)li.addEventListener('change',()=>{ch();nestUI(true);});
   if(ei){ei.addEventListener('input',ch);ei.addEventListener('change',()=>{ei.value=nestOpts().edge;ch();});}
   const box=document.getElementById('nestBox'),all=document.getElementById('dxfAll'),rs=document.getElementById('nGilReset');if(box)box.addEventListener('click',nestClick);if(all)all.addEventListener('click',saveAll);if(rs)rs.addEventListener('click',()=>gilSet(null));}
+// любая правка (build3D, drawCut, поля и галочки раскроя, «гильотина | лазер» у детали) и показ вкладки; сам ничего не считает
 function nestUI(now){clearTimeout(NST.t);if(!now){NST.t=setTimeout(()=>nestUI(true),300);return;}
-  const pane=document.getElementById('tab-cut');if(!pane||pane.hidden!==false)return;
-  nestInit();const N=nestJob(),cb=document.getElementById('nCgrBox');if(cb)cb.hidden=!N.hasCgr;   // галочка колосника — только когда он есть (мангал, «Колосниковая решётка»)
+  const pane=document.getElementById('tab-cut'),vis=!!pane&&pane.hidden===false;
+  if(vis)nestInit();   // до nestJob: задание — по полям со значениями из памяти браузера
+  if(!vis&&!nestCalc().held())return;   // вкладка закрыта, результата нет — сравнивать нечего (nestJob считает контуры всех деталей)
+  const N=nestJob();nestCalc().check(N.key);   // раскрой от правки поменялся бы — результат убран, «Рассчитать» снова активна
+  if(!vis)return;
+  const cb=document.getElementById('nCgrBox');if(cb)cb.hidden=!N.hasCgr;   // галочка колосника — только когда он есть (мангал, «Колосниковая решётка»)
   ['nEdgeBox','nGilReset'].forEach(id=>{const e=document.getElementById(id);if(e)e.hidden=!N.gil;});   // подрезка кромки и «Сбросить выбор» — только с гильотиной
-  if(NST.res&&NST.key===N.key){NST.run=null;nestWait(false);nestMsg('');nestDraw(N,NST.res);return;}   // уже посчитано (лишний счёт, если шёл, — останавливаем)
-  if(NST.run&&NST.run.key===N.key)return;   // уже считается
-  const run={key:N.key,res:[],gi:0,g:null,done:0},all=N.groups.reduce((a,G)=>a+G.items.length,0);NST.run=run;
-  const box=document.getElementById('nestBox');if(box){if(box.querySelector('svg'))box.classList.add('busy');else box.innerHTML='<p class="tabnote">Раскладываю…</p>';}
-  nestWait(true);nestMsg('Раскладываю…');
-  const step=()=>{if(NST.run!==run)return;const t0=performance.now();
-    while(run.gi<N.groups.length){const G=N.groups[run.gi];if(!run.g)run.g=nestGen(G.items,N.LW,N.LH,N.gap,NEST_EDGE);const v=run.g.next();
-      if(v.done){run.res.push(v.value);run.g=null;run.gi++;}else run.done=N.groups.slice(0,run.gi).reduce((a,G)=>a+G.items.length,0)+v.value.done;
-      if(performance.now()-t0>60)break;}
-    if(run.gi<N.groups.length){nestMsg(`Раскладываю… ${run.done} из ${all}`);nestCnt(`· ${run.done} из ${all}`);setTimeout(step,0);return;}
-    NST.key=run.key;NST.res=run.res;NST.run=null;nestWait(false);nestMsg('');nestUI(true);};   // нарисовать; если детали сменились, пока считали, — посчитает заново
-  setTimeout(step,0);}
+  if(nestCalc().ready())nestDraw(N,NST.res);}   // тот же раскрой — перерисовать: выбор на модели, отверстия, единицы
