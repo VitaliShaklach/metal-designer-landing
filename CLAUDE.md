@@ -49,6 +49,8 @@ NODE_OPTIONS=--use-system-ca npm run test:editor    # smoke.js мангала и
 NODE_OPTIONS=--use-system-ca npx playwright test    # страница: desktop 1440 × 900 и phone 390 × 844
 ```
 
+Порт 8000 бывает занят `serve.py` из другой папки (другая сессия). Тогда Playwright по `reuseExistingServer` молча проверит чужие файлы. Проверка: `curl http://localhost:8000/<файл только этой ветки>` даёт 404. В этом случае запускать на своём порту: `STUDIO_E2E_PORT=8010 NODE_OPTIONS=--use-system-ca npx playwright test`.
+
 Оба должны быть зелёными перед коммитом. После этого — глазами на десктопе и на телефоне.
 
 Новая версия рыси (Виталий доделал её в `C:\dev\metal-designer`): `NODE_OPTIONS=--use-system-ca npm run lynx -- 6` — номер версии из `plates-lynx6.js`; раскрой считается минутами. Потом посмотреть картинки в `lynx/` глазами (не пустые, рысь целиком, без панелей редактора) и закоммитить `lynx/`. `--rework <id>,<id>…` — фигуры для картинок «Переработка»: первая — `rework.jpg`, следующие — `rework-2.jpg`… (по умолчанию `lynx,lynx3`: исходная гранёная и рысь 3).

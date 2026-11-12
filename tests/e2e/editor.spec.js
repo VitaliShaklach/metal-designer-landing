@@ -1,7 +1,7 @@
 // Редактор (editor/): страницы открываются без ошибок и без сторонних серверов, DXF скачивается.
 const {test, expect} = require('@playwright/test');
 
-const HOST = 'localhost:8000';
+const HOST = `localhost:${process.env.STUDIO_E2E_PORT || 8000}`;   // свой сервер (playwright.config.js)
 
 // Открывает страницу и собирает за всё время: запросы не на свой сервер, ответы 4xx/5xx, ошибки страницы и консоли.
 async function openEditor(page, path) {

@@ -2,6 +2,7 @@
 # У http.server очередь — 5: при параллельных тестах Windows отказывает в соединении (ERR_CONNECTION_REFUSED),
 # и часть скриптов страницы не загружается. Запуск из корня репозитория: python tests/serve.py
 import http.server
+import os
 import socket
 
 
@@ -15,5 +16,7 @@ class Server(http.server.ThreadingHTTPServer):
         super().server_bind()
 
 
-print('http://localhost:8000/', flush=True)
-Server(('::', 8000), http.server.SimpleHTTPRequestHandler).serve_forever()
+# порт — STUDIO_E2E_PORT (по умолчанию 8000): если 8000 держит сервер из другой папки, Playwright гоняется на своём порту
+PORT = int(os.environ.get('STUDIO_E2E_PORT', '8000'))
+print(f'http://localhost:{PORT}/', flush=True)
+Server(('::', PORT), http.server.SimpleHTTPRequestHandler).serve_forever()

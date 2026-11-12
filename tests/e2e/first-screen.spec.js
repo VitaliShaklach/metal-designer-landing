@@ -57,7 +57,7 @@ test('offline: все запросы — на свой сервер', async ({pa
   await page.goto('/');
   await page.waitForLoadState('networkidle');
   expect(w.requests.length).toBeGreaterThan(0);
-  expect(w.requests.filter(u => !u.startsWith('http://localhost:8000/'))).toEqual([]);
+  expect(w.requests.filter(u => !u.startsWith(`http://localhost:${process.env.STUDIO_E2E_PORT || 8000}/`))).toEqual([]);
 });
 
 test('noWebGL: вместо 3D надпись, цифры на месте', async ({page}) => {
