@@ -1,10 +1,10 @@
 // чистка многогранника: короткие рёбра → одна точка; лишние швы (малый излом, у эталона пусто) → список
-// как модуль: const C=require('./clean.js')(g)  — g: имя → значение из vm-контекста с mesh.js и edit.js
+// обычный скрипт мастерской (studio/lib/engine.js, STUDIO_JS): makeClean(g) — g: имя → значение из контекста с mesh.js и edit.js; в Node ещё require('studio/js/clean.js')(g)
 //   C.solve(E,pins,o)            — выравнивание с минимальной правкой (точки pins на месте, плиты плоские, прочие — как можно ближе к прежним)
 //   C.collapseShort(E,o)         — {E, log, I}; o: maxLen=13, sym=true, tol=.5 мм неплоскости, minW=15; o.keep — без compact; I — номер исходной грани у каждой грани
 //   C.mergeSeam(E,f1,f2,o)       — {E, moved, why} плиты f1 и f2 (и зеркальные) — одна, выравнивание; why — почему нельзя; o.keep — без compact (нумерация точек та же)
 //   C.extraSeams(E,o)            — [{f1,f2,L,dih,at,edges,mid}] швы с изломом ≤ o.ang (15°) без линии и излома эталона; o.samples и o.surfD из creases.js, o.map — в координаты эталона
-module.exports=function(g){const V3=g('V3'),polyNorm=g('polyNorm'),polyC=g('polyC'),polyDev=g('polyDev'),mirrorMap=g('mirrorMap'),openVerts=g('openVerts'),selfXPolys=g('selfXPolys'),compact=g('compact');
+function makeClean(g){const V3=g('V3'),polyNorm=g('polyNorm'),polyC=g('polyC'),polyDev=g('polyDev'),mirrorMap=g('mirrorMap'),openVerts=g('openVerts'),selfXPolys=g('selfXPolys'),compact=g('compact');
   const solve3=(M,r)=>{const d=(a,b,c)=>a[0]*(b[1]*c[2]-b[2]*c[1])-a[1]*(b[0]*c[2]-b[2]*c[0])+a[2]*(b[0]*c[1]-b[1]*c[0]);const c0=[M[0][0],M[1][0],M[2][0]],c1=[M[0][1],M[1][1],M[2][1]],c2=[M[0][2],M[1][2],M[2][2]],D=d(c0,c1,c2);if(Math.abs(D)<1e-12)return null;return [d(r,c1,c2)/D,d(c0,r,c2)/D,d(c0,c1,r)/D];};
   function solve(E,pins,o){o=o||{};const LAM0=o.lam??.05,IT=o.it||400,DEC=o.dec??.985,PIN=50,sym=o.sym!==false;
     const mm=sym?mirrorMap(E.V):null,open=openVerts(E),VP=E.V.map(()=>[]);E.P.forEach((Q,fi)=>Q.forEach(i=>VP[i].push(fi)));
@@ -69,4 +69,5 @@ module.exports=function(g){const V3=g('V3'),polyNorm=g('polyNorm'),polyC=g('poly
     const R=solve(T,new Map(),{it:o.it||600,sym}),st=stats(R),moved=Math.max(0,...R.V.map((v,i)=>V3.len(V3.sub(v,E.V[i]))));
     const why=st.dev>Math.max(o.tol??.5,st0.dev+.05)?'неплоско '+st.dev.toFixed(2)+' мм':st.sx>st0.sx?'самопересечение':st.nar>st0.nar?'узкая плита':null;
     return {E:o.keep?R:compact(R),moved,why,n:jobs.length};}
-  return {solve,collapseShort,mergeSeam,extraSeams,width,stats};};
+  return {solve,collapseShort,mergeSeam,extraSeams,width,stats};}
+if(typeof module!=='undefined')module.exports=makeClean;

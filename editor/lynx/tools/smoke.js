@@ -99,7 +99,7 @@ run(`XS=Q=>{const n=Q.length;for(let i=0;i<n;i++)for(let j=i+2;j<n;j++)if(!(i===
 console.log("     контуры реза рыси (t 2, зазор 0,5 / 1, с толщиной и без): "+run("CX.n")+", выродилось "+run("CX.bad")+"; пересекают сами себя ["+run("CX.x")+"], больше детали или вывернуты ["+run("CX.big")+"]");
 ok(run("CX.x.length")===0&&run("CX.big.length")===0&&run("CX.bad")<run("CX.n")*.1,"контур реза не пересекает сам себя (вывернутая петля узкого шипа срезана), не больше детали и обходит её в ту же сторону; у рыси ни одна деталь не выродилась");
 // чистка: у куба срезаны два угла крошечными треугольниками (рёбра 4 мм) — сводятся обратно в точку, куб снова из 6 граней
-{const C=require('./plates/clean.js')(run);run(`CB=blankBox(300,400,260);[[6,1],[7,-1]].forEach(([v,s])=>{const p=CB.V[v],n=CB.V.length;CB.V.push([p[0]-s*3,p[1],p[2]],[p[0],p[1]-3,p[2]],[p[0],p[1],p[2]-3]);
+{const C=require('../../../studio/js/clean.js')(run);run(`CB=blankBox(300,400,260);[[6,1],[7,-1]].forEach(([v,s])=>{const p=CB.V[v],n=CB.V.length;CB.V.push([p[0]-s*3,p[1],p[2]],[p[0],p[1]-3,p[2]],[p[0],p[1],p[2]-3]);
     CB.P=CB.P.map(Q=>{const k=Q.indexOf(v);if(k<0)return Q;const nb=[Q[(k+Q.length-1)%Q.length],Q[(k+1)%Q.length]],pick=w=>{const d=V3.sub(CB.V[w],p);return Math.abs(d[0])>1?n:Math.abs(d[1])>1?n+1:n+2;};
       const r=Q.slice();r.splice(k,1,pick(nb[0]),pick(nb[1]));return r;});const tri=[n,n+1,n+2];CB.P.push(s>0?tri:tri.reverse());});CB.S=[];`);
   const r=C.collapseShort(run('CB'));run('CB2='+JSON.stringify(r.E));
@@ -294,7 +294,7 @@ ok(run("nestGap('laser')===5&&nestGap('plasma')===7&&ngapAfterCut(5,false,'plasm
   &&/\$\('sCut'\)[^\n]*ST\.ngap=ngapAfterCut\(ST\.ngap,ST\.ngapOwn,ST\.cut\);\$\('sNGap'\)\.value=ST\.ngap/.test(UI)&&/\$\('sNGap'\)[^\n]*ST\.ngapOwn=true/.test(UI)&&/ngapOwn:false/.test(UI),
   "раскрой: «Между деталями на листе» от резки — лазер 5 мм, плазма 7; поменяли руками — смена резки не трогает");
 // скачивание (DXF, JSON): ссылка-blob живёт ≥ 60 с — iPad Safari не успевал за 2 с; все скачивания идут через saveBlob
-{const src=/const BLOB_TTL=\d+;\nfunction saveBlob[^\n]*/.exec(UI),ev=[],A={style:{},click(){ev.push('click:'+this.download+':'+this.href+':'+this.inDom);},remove(){this.inDom=false;}};
+{const src=/const BLOB_TTL=\d+;\r?\nfunction saveBlob[^\r\n]*/.exec(UI),ev=[],A={style:{},click(){ev.push('click:'+this.download+':'+this.href+':'+this.inDom);},remove(){this.inDom=false;}};
   const sb={document:{createElement:()=>A,body:{appendChild:a=>{a.inDom=true;}}},URL:{createObjectURL:()=>'blob:x',revokeObjectURL:u=>ev.push('revoke:'+u)},Blob:function(){},setTimeout:(f,ms)=>{ev.push('timer:'+ms);f();}};
   if(src){vm.createContext(sb);vm.runInContext(src[0]+';saveBlob("Д11_N2_raskroy.dxf",new Blob())',sb);}
   ok(src&&ev.join(' ')==='click:Д11_N2_raskroy.dxf:blob:x:true timer:'+(+/BLOB_TTL=(\d+)/.exec(UI)[1])+' revoke:blob:x'&&+/BLOB_TTL=(\d+)/.exec(UI)[1]>=60000

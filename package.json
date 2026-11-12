@@ -4,7 +4,8 @@
     "test": "node --test tests/unit/*.test.js",
     "test:e2e": "playwright test",
     "test:editor": "node editor/mangal/tools/smoke.js && node editor/lynx/tools/smoke.js && node --test editor/mangal/tools/*.test.js editor/common/*.test.js",
-    "lynx": "node tools/lynx-capture.js"
+    "lynx": "node tools/lynx-capture.js",
+    "test:studio": "node --test --test-concurrency=1 studio/tests/*.test.js"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1"
