@@ -72,6 +72,58 @@ test('mangal: на телефоне без горизонтальной прок
   expect(sw).toBeLessThanOrEqual(iw);
 });
 
+// Вкладки как на лендинге (#75): порядок, подпись «что внутри», старые адреса и память, стрелки
+test('mangal: вкладки — порядок, подписи, старые адреса', async ({page}) => {
+  await openEditor(page, '/editor/mangal/');
+  const tabs = page.locator('.tabbar [role=tab]');
+  expect(await tabs.evaluateAll(t => t.map(b => b.dataset.tab))).toEqual(['dims', 'mass', 'cut', 'buy', 'notes']);
+  expect(await tabs.locator('b').allTextContents()).toEqual(['Размеры', 'Раскрой и масса', 'Лазер · DXF', 'Что купить', 'Заметки']);
+  expect(await tabs.locator('small').allTextContents()).toEqual(
+    ['какие показать на модели', 'детали, вес, металл', 'лист, заготовки, гильотина', 'покупное со ссылками', 'как устроено']);
+  // стрелки: вправо с «Размеров» — «Раскрой и масса», влево с первой — последняя
+  await tabs.first().focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#tab-mass')).toBeVisible();
+  await expect(tabs.nth(1)).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('#tab-notes')).toBeVisible();
+  // старые адреса — ссылкой снаружи: страница открывается заново (смена одного хеша её не перезагружает)
+  for (const [h, pane] of [['mass', 'mass'], ['cut', 'cut'], ['dxf', 'cut']]) {
+    await page.goto('about:blank');
+    await page.goto('/editor/mangal/#' + h);
+    await expect(page.locator('#tab-' + pane)).toBeVisible();
+    await expect(page.locator(`[role=tab][data-tab=${pane}]`)).toHaveAttribute('aria-selected', 'true');
+  }
+  // запомненная вкладка
+  await page.locator('[role=tab][data-tab=buy]').click();
+  await page.goto('/editor/mangal/');
+  await expect(page.locator('#tab-buy')).toBeVisible();
+});
+
+test('mangal: вкладки — на телефоне столбцом с подписями, на десктопе в строку', async ({page}, info) => {
+  await openEditor(page, '/editor/mangal/');
+  const bar = await page.locator('.tabbar').boundingBox();
+  const boxes = await page.locator('.tabbar [role=tab]').evaluateAll(t => t.map(b => b.getBoundingClientRect().toJSON()));
+  const small = page.locator('.tabbar [role=tab] small');
+  if (info.project.name === 'phone') {
+    for (let i = 0; i < boxes.length; i++) {
+      expect(Math.abs(boxes[i].width - bar.width)).toBeLessThanOrEqual(1);   // во всю ширину
+      if (i) expect(boxes[i].top).toBeGreaterThanOrEqual(boxes[i - 1].bottom);   // одна под другой
+    }
+    for (const s of await small.all()) await expect(s).toBeVisible();
+    for (const t of ['dims', 'mass', 'cut', 'buy', 'notes']) {
+      await page.locator(`[role=tab][data-tab=${t}]`).click();
+      const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+      expect(sw, t).toBeLessThanOrEqual(iw);
+    }
+  } else {
+    expect(new Set(boxes.map(b => Math.round(b.top))).size).toBe(1);   // в строку
+    const bar2 = await page.locator('.tabbar').evaluate(e => [e.scrollWidth, e.clientWidth]);
+    expect(bar2[0]).toBeLessThanOrEqual(bar2[1]);   // все вкладки влезли, ничего не спрятано за краем
+  }
+});
+
 // ---------- рысь (editor/lynx/) ----------
 
 // Ждёт, пока рысь построится: индикатор скрыт, холст один

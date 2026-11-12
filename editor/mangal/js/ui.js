@@ -199,7 +199,7 @@ document.getElementById('dFold').addEventListener('click',()=>{const all=[...doc
 // после каждой перерисовки списка — подпись кнопки
 new MutationObserver(foldBtn).observe(document.getElementById('dimList'),{childList:true});foldBtn();
 
-/* ---------- вкладки под 3D: Размеры | Раскрой (листы и DXF) | Масса | Что купить | Заметки ---------- */
+/* ---------- вкладки под 3D: Размеры | Раскрой и масса (mass) | Лазер · DXF (cut) | Что купить | Заметки ---------- */
 const TABS=[...document.querySelectorAll('.tabbar button')];
 function showTab(k){if(k==='dxf')k='cut';if(!TABS.some(b=>b.dataset.tab===k))k='dims';   // «Лазер · DXF» (до v1.2) теперь в «Раскрое» — старые ссылки и память
   TABS.forEach(b=>{const on=b.dataset.tab===k;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;document.getElementById('tab-'+b.dataset.tab).hidden=!on;});
