@@ -1,7 +1,9 @@
-// отчёт Проверки по фигуре: node studio/tools/report.js <lynx14 | файл.json> [--ref <obj>] [--half left|right]
+// отчёт Проверки по фигуре: node studio/tools/report.js <lynx14 | файл.json> [--ref <obj>] [--half left|right] [--frame meshy|lynx14]
 //   lynx14 — фигура сайта (MODELS_POLY); файл — «Сохранить» редактора (md-art) или figure.json мастерской (md-studio)
-//   печатает таблицу «Правило | Сколько | Худшее» и строки замера спеки (раздел «Зачем»), всё в мм сайта
-const fs=require('fs'),{loadFigureEngine}=require('../lib/engine.js');
+//   печатает таблицу «Правило | Сколько | Худшее» и строки замера спеки (раздел «Зачем»), всё в мм сайта.
+//   --ref — эталон (OBJ Meshy; текстура — PNG рядом с тем же именем): правило 11, эталон в правиле 7 и похожесть по половине, как замер 10.11 спеки:
+//   точки — медиана, 90 %, дальше 2 мм; грани дальше 0,5 / 1 / 1,5 / 2 мм. Половина по умолчанию левая; рамка — lynx14 у рыси 14, иначе meshy
+const fs=require('fs'),{loadFigureEngine}=require('../lib/engine.js'),{buildRef}=require('../lib/refbuild.js');
 
 function loadFigure(run,arg){
   if(/\.json$/i.test(arg)){const j=JSON.parse(fs.readFileSync(arg,'utf8'));if(!j.V||!j.P)throw new Error('в файле нет V и P: это не фигура из граней');
@@ -25,13 +27,15 @@ function measure(run,E,sc){const V3=run('V3'),polyDev=run('polyDev'),V=E.V,P=E.P
 
 const fmt=(x,d=2)=>String(+x.toFixed(d)).replace('.',',');
 function report(arg,opt={}){const {run}=loadFigureEngine(),F=loadFigure(run,arg),sc=F.H/run('meshBox')(F.E.V).size[1];
-  const t0=Date.now(),iss=run('checkFigure')(F.E,{scale:sc,kind:F.kind,slots:F.slots,keep:F.keep,th:F.th}),dt=Date.now()-t0;
+  const half=opt.half||'left',frame=opt.frame||(arg==='lynx14'?'lynx14':'meshy'),png=opt.ref&&/\.obj$/i.test(opt.ref)?opt.ref.replace(/\.obj$/i,'.png'):null;
+  const R=opt.ref?run('refIndex')(buildRef(opt.ref,png&&fs.existsSync(png)?png:null,{half,frame})):null;
+  const t0=Date.now(),iss=run('checkFigure')(F.E,{scale:sc,kind:F.kind,slots:F.slots,keep:F.keep,th:F.th,ref:R}),dt=Date.now()-t0;
   const RULES=run('RULES'),LOW=run('RULE_LOW'),lines=[];
   lines.push(`Фигура «${F.name}»: высота на сайте ${F.H} мм, scale ${fmt(sc,4)}, ${F.kind==='wall'?'настенная':'стоящая'}; Проверка — ${dt} мс`);
-  if(opt.ref)lines.push(`Эталон ${opt.ref}${opt.half?' ('+opt.half+')':''}: похожесть (правило 11) и эталон в правиле 7 подключит задача 2 — пока без эталона`);
+  if(R)lines.push(`Эталон ${opt.ref}: ${half==='left'?'левая':'правая'} половина и её зеркало, рамка ${frame}, ${R.T?'калька из текстуры':'без текстуры (линий нет)'}`);
   lines.push('','Правило | Сколько | Худшее','---|---|---');
   RULES.forEach(r=>{const own=iss.filter(i=>i.rule===r.n&&!i.info),info=iss.filter(i=>i.rule===r.n&&i.info);
-    if(r.n===11){lines.push(`${r.n}. ${r.title} | — | эталон — задача 2`);return;}
+    if(r.n===11&&!R){lines.push(`${r.n}. ${r.title} | — | нет эталона (--ref)`);return;}
     if(r.n===17){lines.push(`${r.n}. ${r.title} | — | при публикации`);return;}
     const w=own.length?own.reduce((a,b)=>LOW.has(r.n)?(b.val<a.val?b:a):(b.val>a.val?b:a)).text:'';
     lines.push(`${r.n}. ${r.title} | ${own.length}${info.length?' (+ сведений '+info.length+')':''} | ${w}`);});
@@ -44,10 +48,18 @@ function report(arg,opt={}){const {run}=loadFigureEngine(),F=loadFigure(run,arg)
     `Точки почти на прямой (углов граней больше 172°): ${m.straight}`,
     `Пары точек ближе 8 мм: ${m.near}`,
     `Открытые рёбра: ${m.open}`);
-  return {text:lines.join('\n'),issues:iss,measure:m};}
+  // похожесть по половине (её точки и грани; refHalf — из зеркальной пары грань этой стороны и грани поперёк середины)
+  let sim=null;
+  if(R){const s=half==='right'?-1:1,pts=F.E.V.filter(p=>s*p[0]<=0).map(p=>run('refDist')(R,p)*sc).sort((a,b)=>a-b),D=run('faceDev')(F.E,R,sc),hf=run('refHalf')(F.E,half);
+    const side=half==='left'?'левой':'правой';
+    sim={median:pts[pts.length>>1],p90:pts[Math.min(pts.length-1,Math.floor(pts.length*.9))],far2:pts.filter(d=>d>2).length,points:pts.length,faces:hf.length,far:[.5,1,1.5,2].map(t=>hf.filter(i=>D[i]>t).length)};
+    lines.push('','Похожесть на эталон (мм сайта):',
+      `Точки ${side} половины: медиана ${fmt(sim.median)} мм, 90 % — до ${fmt(sim.p90)} мм, дальше 2 мм — ${sim.far2} из ${sim.points}`,
+      `Грани ${side} половины дальше 0,5 / 1 / 1,5 / 2 мм: ${sim.far.join(' / ')} из ${sim.faces}`);}
+  return {text:lines.join('\n'),issues:iss,measure:m,similarity:sim};}
 
 if(require.main===module){const a=process.argv.slice(2),opt={},pos=[];
-  for(let i=0;i<a.length;i++){if(a[i]==='--ref')opt.ref=a[++i];else if(a[i]==='--half')opt.half=a[++i];else pos.push(a[i]);}
-  if(!pos[0]){console.error('как: node studio/tools/report.js <lynx14 | файл.json> [--ref <obj>] [--half left|right]');process.exit(2);}
+  for(let i=0;i<a.length;i++){if(a[i]==='--ref')opt.ref=a[++i];else if(a[i]==='--half')opt.half=a[++i];else if(a[i]==='--frame')opt.frame=a[++i];else pos.push(a[i]);}
+  if(!pos[0]){console.error('как: node studio/tools/report.js <lynx14 | файл.json> [--ref <obj>] [--half left|right] [--frame meshy|lynx14]');process.exit(2);}
   try{console.log(report(pos[0],opt).text);}catch(e){console.error(e.message);process.exit(1);}}
 module.exports={report,measure};

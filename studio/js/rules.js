@@ -4,8 +4,11 @@
    checkFigure(E,o) → Issue[]: {rule, at, faces, verts, val, text, fix, info}; at — мм модели (туда летит камера).
    o: {th, scale, kind:'stand'|'wall', slots: контуры прорезей (номера точек), keep: [{rule, at}], t: толщина листа (мм),
        region: {c: точка в мм модели, r: радиус в мм сайта} — «Здесь криво»: только этот шар и пороги вдвое строже,
-       skip: номера правил, которые не считать (12 — долгое: детали и гибка; 15 считается вместе с ним)}.
-   Правило 11 и эталон в правиле 7 — studio/js/ref.js (задача 2), правило 17 — DXF при публикации (задача 8). */
+       skip: номера правил, которые не считать (12 — долгое: детали и гибка; 15 считается вместе с ним),
+       ref: эталон — refIndex(…) из studio/js/ref.js (или сам {V, F, trace}); base: фигура {V, P}, какой её открыли}.
+   Правило 11 — грани дальше th.ref от эталона; эталона нет — от base, и в списке строка-сведение; ни того ни другого — правила 11 нет.
+   Правило 7 с эталоном: шов лишний, только если на эталоне рядом нет ни излома, ни линии (studio/js/ref.js refSeam).
+   Правило 17 — DXF при публикации (задача 8). */
 const TH_DEFAULT={planar:.1,edge:5,near:8,ang:5,lineLo:172,lineHi:179.5,width:15,seam:5,ref:2,sym:.1,H:1000};   // sym — допуск зеркальной точки (правило 10)
 const RULES=[
   {n:1,title:'Грань плоская',color:'#e0a020'},
@@ -39,8 +42,13 @@ function ruleCounts(issues){const r={};issues.forEach(i=>{if(!i.info)r[i.rule]=(
 let RULES_CLEAN=null;
 const rulesClean=()=>RULES_CLEAN||(RULES_CLEAN=makeClean(n=>({V3,polyNorm,polyC,polyDev,mirrorMap,openVerts,selfXPolys,compact,mirrorPoly,mergeTwo})[n]));
 
+// индекс эталона или открытой фигуры — один на объект (Проверка пересчитывается после каждой правки, эталон тот же)
+// o.base — фигура, какой её открыли: её не правят на месте (правки движка — копии, ecopy), иначе индекс устареет
+const REF_CACHE=new WeakMap();
+function refOf(x){if(x.isRef)return x;let R=REF_CACHE.get(x);if(!R)REF_CACHE.set(x,R=refIndex(x));return R;}
+
 function checkFigure(E,o){o=o||{};const sc=o.scale||1,base=Object.assign({},TH_DEFAULT,o.th||{}),th=o.region?thStrict(base):base,skip=new Set(o.skip||[]);
-  const V=E.V,P=E.P,out=[];
+  const V=E.V,P=E.P,out=[],REF=o.ref?refOf(o.ref):null;
   const add=(rule,at,faces,verts,val,text,info=false)=>out.push({rule,at:at.slice(),faces,verts,val,text,fix:!info&&RULE_FIX.has(rule),info});
   // рёбра: ключ → {a, b, f: грани, d: обход ребра в грани (a→b — 1, b→a — −1)}; грани у точки. Повтор точки в грани (a = b) — не ребро, это правило 14
   const ek=(a,b)=>a<b?a+'_'+b:b+'_'+a,ED=new Map(),VF=V.map(()=>[]);
@@ -77,8 +85,10 @@ function checkFigure(E,o){o=o||{};const sc=o.scale||1,base=Object.assign({},TH_D
   // 7. нет лишних швов: излом между соседними гранями меньше порога (одна строка на пару граней).
   //    Швы S (проведённые руками) не исключаем: у рыси 14 они на всех рёбрах, и конвейер (шаг 8 спеки) ставит их на все рёбра — иначе правило не сработало бы никогда
   if(!skip.has(7)){const PR=new Map();ED.forEach(e=>{if(e.f.length!==2||e.f[0]===e.f[1]||DEG[e.f[0]]||DEG[e.f[1]])return;const k=Math.min(...e.f)+'_'+Math.max(...e.f);(PR.get(k)||PR.set(k,[]).get(k)).push(e);});
-    PR.forEach((es,k)=>{const [f1,f2]=k.split('_').map(Number),a=V3.dot(V3.norm(NV[f1]),V3.norm(NV[f2])),dih=Math.acos(Math.max(-1,Math.min(1,a)))*180/Math.PI;if(dih>=th.seam)return;
-      const vs=[...new Set(es.flatMap(e=>[e.a,e.b]))];add(7,V3.mul(vs.reduce((s,i)=>V3.add(s,V[i]),[0,0,0]),1/vs.length),[f1,f2],vs,dih,`лишний шов: излом ${fmtN(dih,1)}°`);});}
+    PR.forEach((es,k)=>{const [f1,f2]=k.split('_').map(Number),n1=V3.norm(NV[f1]),n2=V3.norm(NV[f2]),dih=Math.acos(Math.max(-1,Math.min(1,V3.dot(n1,n2))))*180/Math.PI;if(dih>=th.seam)return;
+      // эталон: излом рядом или нарисованная линия — шов нужен
+      if(REF){const w=refSeam(REF,V,es,n1,n2,sc,th.seam);if(w.crease||w.line)return;}
+      const vs=[...new Set(es.flatMap(e=>[e.a,e.b]))];add(7,V3.mul(vs.reduce((s,i)=>V3.add(s,V[i]),[0,0,0]),1/vs.length),[f1,f2],vs,dih,`лишний шов: излом ${fmtN(dih,1)}°`+(REF?', на эталоне ни излома, ни линии':''));});}
   // 8. нет дыр: открытые рёбра, кроме контуров прорезей и стены настенной (z = 0); одна строка на связный кусок края
   if(!skip.has(8)){const SL=new Set();(o.slots||[]).forEach(L=>L.forEach((a,k)=>SL.add(ek(a,L[(k+1)%L.length]))));
     const wall=e=>o.kind==='wall'&&Math.abs(V[e.a][2])<.5&&Math.abs(V[e.b][2])<.5;
@@ -99,6 +109,11 @@ function checkFigure(E,o){o=o||{};const sc=o.scale||1,base=Object.assign({},TH_D
       else add(10,V3.mul(V3.add(p,[-V[bj][0],V[bj][1],V[bj][2]]),.5),[...new Set(VF[i].concat(VF[bj]))],bj===i?[i]:[i,bj],bj===i?d/2:d,bj===i?`точка у середины не на середине: ${fmtN(d/2)} мм`:`точки не зеркальны на ${fmtN(d)} мм`);});
     const FK=new Map(P.map((Q,fi)=>[[...Q].sort((a,b)=>a-b).join(),fi]));
     P.forEach((Q,fi)=>{if(DEG[fi]||Q.some(i=>MM[i]<0))return;if(!FK.has(Q.map(i=>MM[i]).sort((a,b)=>a-b).join()))add(10,polyC(V,Q),[fi],Q.slice(),0,'у грани нет зеркальной');});}
+  // 11. похожесть: грань дальше th.ref от эталона (точки грани и сетка внутри через 10 мм сайта); эталона нет — от открытой фигуры
+  const R11=!skip.has(11)&&(REF||o.base&&refOf(o.base));
+  if(R11&&R11.n){const R=R11,D=faceDev(E,R,sc);
+    if(!REF){const b=meshBox(V);add(11,V3.mul(V3.add(b.min,b.max),.5),[],[],0,'Эталона нет: похожесть меряю от открытой фигуры',true);}
+    P.forEach((Q,fi)=>{if(!DEG[fi]&&D[fi]>th.ref)add(11,D.pos[fi],[fi],Q.slice(),D[fi],`грань ушла от эталона на ${fmtN(D[fi])} мм`);});}
   // 12. производство: детали, контуры реза, гибка — без исключений и без bad (долго: skip:[12]); 15 — гибка отказалась гнуть, потому что развёртка налезает (информационная строка)
   if(!skip.has(12)){const t=o.t||2,c0=meshBox(V),cc=V3.mul(V3.add(c0.min,c0.max),.5),err=(what,e,at=cc,fs=[])=>add(12,at,fs,[],0,what+': '+e.message);
     let R=null,B=null;try{R=parts().R;}catch(e){err('детали не строятся',e);}

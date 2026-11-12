@@ -18,3 +18,11 @@ test('отчёт по файлу «Сохранить» редактора: ку
   const r=report(f);
   assert.equal(r.issues.length,0);assert.match(r.text,/«Куб».*scale 1,/);
 });
+
+const {LYNX_REF}=require('../lib/sources.js');
+test('отчёт с эталоном: похожесть точек и граней', {skip:fs.existsSync(LYNX_REF)?false:'нет эталона '+LYNX_REF}, () => {
+  const r=report('lynx14',{ref:LYNX_REF});
+  assert.match(r.text,/Точки левой половины: медиана [\d,]+ мм, 90 % — до [\d,]+ мм, дальше 2 мм — \d+ из \d+/);
+  assert.match(r.text,/Грани левой половины дальше 0,5 \/ 1 \/ 1,5 \/ 2 мм: \d+ \/ \d+ \/ \d+ \/ \d+ из 557/);
+  assert.match(r.text,/11\. Похожесть \| \d+/);
+});
