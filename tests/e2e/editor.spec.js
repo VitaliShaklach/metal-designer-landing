@@ -364,17 +364,90 @@ test('mangal: правки убирают раскрой — зазор, реж�
   expect(r.errors).toEqual([]);
 });
 
-// «Заготовки с гильотины» (до #59) — через ту же кнопку; «гильотина | лазер» у детали меняет схему гильотины
-test('mangal: правки убирают раскрой — гильотина и «гильотина | лазер» у детали', async ({page}) => {
-  test.slow();
+// ---------- мангал: «Лазер · DXF» — внутренние вкладки, «С листа» (#76) ----------
+
+const SUBS = ['list', 'zag', 'gil'];   // варианты: «Лазер → С листа», «Лазер → Из заготовок», «Гильотина»
+// открыть вариант: «С листа» и «Из заготовок» — внутри «Лазера»
+async function openSub(page, v) {
+  await page.locator(`.subtabs [role=tab][data-sub=${v === 'gil' ? 'gil' : 'laser'}]`).click();
+  if (v !== 'gil') await page.locator(`.subtabs [role=tab][data-sub=${v}]`).click();
+  await expect(page.locator('#sub-' + v)).toBeVisible();
+}
+
+test('mangal: «Лазер · DXF» — внутренние вкладки, сразу «Лазер → С листа», лист общий', async ({page}) => {
+  test.slow();   // вкладки по очереди, 3D на SwiftShader
+  // старая память браузера: «Заготовки с гильотины» и «гильотина | лазер» у детали — страницу не ломают
+  await page.addInitScript(() => { localStorage.setItem('md-ngil', 'true'); localStorage.setItem('md-gilsel', '{"grill_bottom":"laser"}'); });
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  const top = page.locator('#tab-cut > .subtabs [role=tab]');
+  expect(await top.locator('b').allTextContents()).toEqual(['Лазер', 'Гильотина']);
+  expect(await page.locator('#sub-laser .subtabs [role=tab] b').allTextContents()).toEqual(['С листа', 'Из заготовок']);
+  await expect(page.locator('[data-sub=laser]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('[data-sub=list]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#sub-list')).toBeVisible();
+  await expect(page.locator('#sub-zag')).toBeHidden();
+  await expect(page.locator('#sub-gil')).toBeHidden();
+  // лист — над вариантами, один; зазор и колосник — в «С листа»; простыни текста и старых галочек нет
+  await expect(page.locator('#nSheet')).toHaveCount(1);
+  expect(await page.locator('#nSheet').evaluate(e => !e.closest('.subpane'))).toBe(true);
+  expect(await page.locator('#nGap').evaluate(e => e.closest('.subpane').id)).toBe('sub-list');
+  await expect(page.locator('#nCgrBox')).toContainText('Колосник на листе');
+  await expect(page.locator('#nGil, #nEdge, #nGilReset')).toHaveCount(0);
+  const hint = page.locator('#sub-list .vhint');
+  await expect(hint).toBeVisible();
+  expect((await hint.textContent()).length).toBeLessThanOrEqual(80);
+  expect(await page.locator('#tab-cut .tabnote:not(.vhint):not(.stub)').count()).toBe(0);
+  // до «Рассчитать» схемы нет; заглушки вариантов — строкой
+  await expect(page.locator('#nestBox svg')).toHaveCount(0);
+  for (const v of ['zag', 'gil']) {
+    await openSub(page, v);
+    await expect(page.locator(`#sub-${v} .stub`)).toBeVisible();
+  }
+  await openSub(page, 'list');
+  expect(r.errors).toEqual([]);
+});
+
+test('mangal: «С листа» — схема, таблица, итоги и архив лазерщика', async ({page}) => {
   const r = await openEditor(page, '/editor/mangal/#cut');
   await mangalCut(page);
-  await page.locator('#nGil').check();
-  await mangalNoCut(page);
+  const tot = page.locator('#nestBox .ntot').first();
+  for (const t of ['Рез', 'Врезки', 'Лист', 'Заполнение']) await expect(tot).toContainText(t);
+  await expect(tot).toContainText('1 лист 1250 × 2500');
+  const [d] = await Promise.all([page.waitForEvent('download'), page.locator('#dxfAll').click()]);
+  expect(d.suggestedFilename()).toBe('mangal_800x420x200_5mm_laser-list.zip');
+  expect(r.errors).toEqual([]);
+});
+
+test('mangal: печь — архив «С листа» с толщинами через «-»', async ({page}) => {
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await press(page, '#modeSeg [data-v=stove]');
   await mangalCut(page);
-  await expect(page.locator('#nestBox .gilsv').first()).toBeVisible();
-  await page.locator('#nestBox .gsel button[aria-pressed=false]').first().click();
-  await mangalNoCut(page);
+  await expect(page.locator('#nestBox .ntot')).toHaveCount(3);
+  const [d] = await Promise.all([page.waitForEvent('download'), page.locator('#dxfAll').click()]);
+  expect(d.suggestedFilename()).toBe('pech_600x440x500_5-3-15mm_laser-list.zip');
+  expect(r.errors).toEqual([]);
+});
+
+test('mangal: внутренние вкладки — на телефоне столбцом, без прокрутки вбок на каждом варианте', async ({page}, info) => {
+  test.slow();   // вкладки по очереди, 3D на SwiftShader
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await mangalCut(page);
+  for (const sel of ['#tab-cut > .subtabs', '#sub-laser .subtabs']) {
+    const bar = await page.locator(sel).boundingBox();
+    const boxes = await page.locator(sel + ' [role=tab]').evaluateAll(t => t.map(b => b.getBoundingClientRect().toJSON()));
+    if (info.project.name === 'phone') {
+      boxes.forEach((b, i) => {
+        expect(Math.abs(b.width - bar.width), sel).toBeLessThanOrEqual(1);
+        if (i) expect(b.top, sel).toBeGreaterThanOrEqual(boxes[i - 1].bottom);
+      });
+      for (const s of await page.locator(sel + ' [role=tab] small').all()) await expect(s).toBeVisible();
+    } else expect(new Set(boxes.map(b => Math.round(b.top))).size, sel).toBe(1);
+  }
+  for (const v of SUBS) {
+    await openSub(page, v);
+    const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+    expect(sw, v).toBeLessThanOrEqual(iw);
+  }
   expect(r.errors).toEqual([]);
 });
 

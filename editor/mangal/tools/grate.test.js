@@ -4,7 +4,7 @@ const {loadMangal,run}=require('./load.js');
 
 // поля раскроя как на странице (галочка «Колосник мангала на листе» в HTML снята) и память браузера ls — {ключ: значение}
 function page(ctx,ls={}){const mem=Object.fromEntries(Object.entries(ls).map(([k,v])=>[k,JSON.stringify(v)]));
-  ctx.__mem=mem;ctx.__els={nGap:{value:'5'},nSheet:{value:'1250x2500'},nCgr:{checked:false},nGil:{checked:false},nEdge:{value:'10'}};
+  ctx.__mem=mem;ctx.__els={nGap:{value:'5'},nSheet:{value:'1250x2500'},nCgr:{checked:false}};
   run(ctx,`(()=>{const on=new Map(),D0=document,el=id=>{const e=__els[id];if(!e)return D0.getElementById(id);e.addEventListener=e.addEventListener||((t,f)=>on.set(id+':'+t,f));return e;};
     localStorage={getItem:k=>k in __mem?__mem[k]:null,setItem:(k,v)=>{__mem[k]=String(v);}};
     document=new Proxy({},{get:(t,k)=>k==='getElementById'?el:D0[k]});__fire=(id,t)=>on.get(id+':'+t)();
@@ -67,8 +67,7 @@ test('печь и «оба»: от галочки меняется только 
   }
 });
 
-test('галочка меняет ключ раскроя и с гильотиной: старая схема не остаётся', ()=>{
+test('галочка меняет ключ раскроя: старый лист не остаётся', ()=>{
   const c=loadMangal({mode:'grill'});
-  for(const gil of [false,true])
-    assert.notEqual(run(c,`nestJob({gil:${gil},cgr:false,sel:{}}).key`),run(c,`nestJob({gil:${gil},cgr:true,sel:{}}).key`),gil?'с гильотиной':'без гильотины');
+  assert.notEqual(run(c,'nestJob({cgr:false}).key'),run(c,'nestJob({cgr:true}).key'));
 });

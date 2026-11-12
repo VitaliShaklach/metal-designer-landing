@@ -275,10 +275,8 @@ table.ntbl tr.on td{background:var(--accent-soft)}
 table.ntbl th.dl{padding-left:6px;padding-right:6px;letter-spacing:0;font-size:10px}
 table.ntbl td.dl{padding-left:6px;padding-right:6px;width:1%;white-space:nowrap}
 .dxfbtn.dl{padding:4px 5px}
-/* заготовки с гильотины */
+/* «Из заготовок» и «Гильотина» (#60, #59): рез по заготовке, таблица «На гильотину» */
 td small.was{font-size:11px;color:var(--muted);white-space:nowrap}
-td small.kd{display:inline-block;margin:3px 0 1px 6px;padding:0 5px;font:600 11px var(--f-mono);border:1px solid var(--line);color:var(--muted)}
-td small.kd-zag{border-color:var(--accent);color:var(--accent)}
 td.nolz{color:var(--muted);font-size:13px;white-space:nowrap}
 .ngil{margin:4px 0 0;font:600 15px var(--f-display);text-transform:uppercase;letter-spacing:.05em}
 table.gtbl{min-width:520px}
@@ -303,13 +301,6 @@ svg.gilsv .gp.on text{font-weight:700}
 .glegend .lg.gil{background:var(--gilf)}
 .glegend .lg.las{background:var(--lasf)}
 .nblock:not(.main) svg.nestsv.gilsv{max-width:760px}
-.nsheet.nlaser svg.nestsv{max-width:760px}
-.gsel{display:inline-flex;margin:3px 0 1px 6px;border:1px solid var(--line);vertical-align:middle}
-.gsel button{font:600 11px var(--f-mono);padding:2px 6px;border:0;background:var(--panel);color:var(--muted);cursor:pointer}
-.gsel button+button{border-left:1px solid var(--line)}
-.gsel button[aria-pressed="true"]{background:var(--accent);color:#fff}
-.gsel button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-@media (max-width:900px){.gsel button{padding:5px 8px;font-size:12px}}
 /* ---------- индикатор раскроя: четыре символа, смена ступеньками на CSS (transform идёт без главного потока, пока страница считает) ---------- */
 .nestwait{display:flex;align-items:center;gap:8px;margin:8px 0;font:13px var(--f-mono);color:var(--muted)}
 .nestwait[hidden]{display:none}
@@ -321,3 +312,27 @@ svg.gilsv .gp.on text{font-weight:700}
 @keyframes nestSpin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.nestStar b{animation-duration:3.2s}}
 .nestCnt,#cdCnt{color:var(--ink,inherit);font-variant-numeric:tabular-nums}
+/* ---------- «Лазер · DXF»: внутренние вкладки Лазер (С листа | Из заготовок) | Гильотина (#76). Десктоп — кнопки в строку,
+   телефон — как основные вкладки: во всю ширину друг под другом с подписью «что внутри» ---------- */
+.subtabs{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 12px}
+.subtabs button{font:700 15px var(--f-display);text-transform:uppercase;letter-spacing:.05em;padding:8px 18px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--muted);cursor:pointer}
+.subtabs button:hover{color:var(--ink);border-color:var(--ink)}
+.subtabs button[aria-selected="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.subtabs button b{font:inherit}
+.subtabs button small{display:none}
+.subtabs button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.subtabs.vars{margin-top:0}
+.subtabs.vars button{font-size:13px;padding:6px 14px}
+.subtabs.vars button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.subpane[hidden]{display:none}
+.subpane>.tabnote{margin:0 0 10px}
+#sub-list>.nestbar{margin-bottom:14px}
+@media (max-width:719px){
+  .subtabs{flex-direction:column;flex-wrap:nowrap}
+  .subtabs button,.subtabs.vars button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:10px 14px;text-align:left;font-size:16px;color:var(--ink)}
+  .subtabs button small{display:block;font:13px/1.3 var(--f-body);text-transform:none;letter-spacing:0;color:var(--muted)}
+  .subtabs button[aria-selected="true"] small{color:inherit;opacity:.8}
+}
+/* итоги «С листа» для оценки: рез, врезки, лист, заполнение */
+.ntot{margin:0;display:flex;flex-wrap:wrap;gap:4px 18px;font:13px var(--f-mono);color:var(--muted)}
+.ntot b{color:var(--ink);font-weight:600}

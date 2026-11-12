@@ -4,7 +4,7 @@ const {loadMangal,run}=require('./load.js');
 
 // раскладка всех толщин: over — поля nestJob (зазор, лист, колосник); R — результат nestGen по группе
 const NEST=over=>`(()=>{const N=nestJob(${JSON.stringify(over)});
-  return N.groups.map(G=>{const g=nestGen(G.items,N.LW,N.LH,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);return {mm:G.mm,n:G.items.length,R:v.value};});})()`;
+  return N.groups.map(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);return {mm:G.mm,n:G.items.length,R:v.value};});})()`;
 const SHEET={gap:5,sk:'1250x2500',W:2500,H:1250};
 const MODES=[['grill',false],['grill',true],['stove',true],['both',true]];
 
@@ -46,7 +46,7 @@ test('DXF листа совпадает с рисунком, в том числ�
   for(const [mode,cgr] of MODES){
     const c=loadMangal({mode});
     const sheets=run(c,`(()=>{const N=nestJob(${JSON.stringify({...SHEET,cgr})}),out=[];
-      N.groups.forEach(G=>{const g=nestGen(G.items,N.LW,N.LH,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);
+      N.groups.forEach(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);
         v.value.sheets.forEach(sh=>out.push({dxf:nestDxf(N,G,sh),items:sh.items.map(it=>({no:it.no,s:it.tr.s,pts:it.pts}))}));});return out;})()`);
     for(const sh of sheets){const L=cutLines(sh.dxf),near=(p,x,y)=>Math.abs(p[0]-x)<=0.01&&Math.abs(p[1]-y)<=0.01;
       for(const it of sh.items){if(it.s===1)rotated++;
@@ -71,7 +71,7 @@ test('деталь больше листа — в «Не поместилось�
   const c=loadMangal({mode:'grill'});
   const r=run(c,`(()=>{const N=nestJob(${JSON.stringify({gap:5,sk:'1000x2000',W:2000,H:1000,cgr:false})}),G=N.groups[0],
       items=[...G.items.map(o=>({id:o.id,no:o.no,pts:o.pts})),{id:G.items.length,no:99,pts:[[0,0],[2600,0],[2600,100],[0,100]]}];
-    const g=nestGen(items,N.LW,N.LH,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);
+    const g=nestGen(items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);
     return {n:G.items.length,placed:v.value.sheets.reduce((a,s)=>a+s.items.length,0),too:v.value.too};})()`);
   assert.deepEqual(r.too.map(o=>o.no),[99]);
   assert.equal(r.placed,r.n);

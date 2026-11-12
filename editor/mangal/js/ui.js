@@ -207,6 +207,12 @@ function showTab(k){if(k==='dxf')k='cut';if(!TABS.some(b=>b.dataset.tab===k))k='
 TABS.forEach((b,i)=>{b.addEventListener('click',()=>showTab(b.dataset.tab));
   b.addEventListener('keydown',e=>{const d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(!d)return;const n=TABS[(i+d+TABS.length)%TABS.length];n.focus();showTab(n.dataset.tab);});});
 showTab((location.hash.match(/^#(dims|cut|mass|dxf|buy|notes)$/)||[])[1]||store('md-tab')||'dims');
+// внутренние вкладки «Лазер · DXF»: Лазер (С листа | Из заготовок) | Гильотина. Каждая открывает свою панель #sub-<data-sub>; выбор не запоминается —
+// страница всегда открывается на «Лазер → С листа»
+document.querySelectorAll('.subtabs').forEach(bar=>{const bs=[...bar.querySelectorAll(':scope>[role=tab]')];
+  const show=k=>bs.forEach(b=>{const on=b.dataset.sub===k;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;document.getElementById('sub-'+b.dataset.sub).hidden=!on;});
+  bs.forEach((b,i)=>{b.addEventListener('click',()=>show(b.dataset.sub));
+    b.addEventListener('keydown',e=>{const d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(!d)return;const n=bs[(i+d+bs.length)%bs.length];n.focus();show(n.dataset.sub);});});});
 
 /* ---------- клик по детали на модели — выбрать её; под курсором — имя детали ---------- */
 const PART_OF={cgrAngB:'cgrAng',cgrAngF:'cgrAng',rings:'plate',coal:null};   // теги 3D, у которых в списке другая деталь
