@@ -744,3 +744,30 @@ test('home: на телефоне без горизонтальной прокр
   const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   expect(sw).toBeLessThanOrEqual(iw);
 });
+
+// «Раскрой и масса» (#63): только металл цеха, описание в одну строку, итог = цифра в шапке, сборка — в «Заметках»
+test('mangal: «Раскрой и масса» — только металл, итог в шапке, подробности в «Заметках»', async ({page}) => {
+  const r = await openEditor(page, '/editor/mangal/#mass');
+  const rows = () => page.locator('#cut tbody tr:not(.grp):not(.tot)');
+  const names = () => rows().evaluateAll(tr => tr.map(x => x.cells[0].firstChild.textContent));
+  const n = await names();
+  expect(n.filter(x => /^(Колесо|Болт|Шайба|Гайка|Петля|Плита)/.test(x))).toEqual([]);
+  expect(n).toContain('Площадка под колесо (низ ножки)');
+  expect(n).toContain('Решётка сверху');
+  const notes = await page.locator('#cut tbody small').allTextContents();
+  expect(notes.filter(s => s.length > 80)).toEqual([]);
+  const tot = page.locator('#cut tr.tot td.n').last();
+  await expect(tot).toHaveText('62,9');
+  await expect(page.locator('#stats')).toContainText('≈ 62,9 кг');
+  // печь: без плиты, около 87,3 кг
+  await page.locator('#modeSeg [data-v=stove]').click();
+  await expect(tot).toHaveText('87,3');
+  await expect(page.locator('#stats')).toContainText('≈ 87,3 кг');
+  expect((await names()).filter(x => /^Плита/.test(x))).toEqual([]);
+  // «Заметки»: сборка по деталям — строки с подробностями, в том числе убранная плита
+  await page.locator('[role=tab][data-tab=notes]').click();
+  await expect(page.locator('#notesBox .asm h3')).toHaveText('Сборка по деталям');
+  expect(await page.locator('#notesBox .asm li').count()).toBeGreaterThan(5);
+  await expect(page.locator('#notesBox')).toContainText('Не приваривать: плита снимается');
+  expect(r.errors).toEqual([]);
+});

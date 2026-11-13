@@ -81,6 +81,10 @@ td small{color:var(--muted);display:block;font-size:12px}
 .notes li{max-width:64ch}
 .notes li b{font-weight:600}
 .notes h3{font-family:var(--f-display);font-weight:500;text-transform:uppercase;letter-spacing:.04em;font-size:17px;margin:0 0 12px}
+.notes .asm{grid-column:1/-1}   /* «Сборка по деталям» — на всю ширину, в две колонки газетой */
+.notes .asm ul{display:block;columns:2;column-gap:28px}
+.notes .asm li{break-inside:avoid;margin:0 0 10px}
+@media (max-width:900px){.notes .asm ul{columns:1}}
 .d3{font:500 11px/1.2 var(--f-mono);background:var(--panel);color:var(--ink);border:1px solid var(--accent);padding:1px 5px;white-space:nowrap}
 .n3{font:11px/1.25 var(--f-body);background:var(--panel);opacity:.92;color:var(--ink);padding:2px 6px;border-left:2px solid var(--accent);white-space:nowrap}
 input[type=range]{width:100%;accent-color:var(--accent)}
