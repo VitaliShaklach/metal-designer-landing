@@ -94,9 +94,10 @@ for(const [search,want] of [['',false],['?view=1,1,1,0,0,0',false],['?view=1,1,1
   console.log('крыша по ссылке',JSON.stringify(search.slice(0,40)),errs.length?'FAIL '+errs.join(' | '):'ok');fails+=errs.length;}
 
 // виды деталей на настоящих контурах: THREE.Shape/Path — простые заглушки (как в tools/dxf_side.js), остальное THREE — пустышка.
-// Гильотина по умолчанию (gilDef): задвижки и скобы (уже 50 мм) — лазер, остальные — гильотина; gil — прямоугольник без всего (дно жаровни),
-// zag — всё остальное с «гильотиной» (задняя боковина жаровни: рез меньше; в _zag.dxf BLANK — 4 отрезка, у CUT концы нечётной степени — на стороне заготовки;
-// перегородка жаровни с ушками и ручкой — тоже zag). Схема гильотины: все заготовки на листе, внутри листа с подрезкой, не пересекаются,
+// Гильотина по умолчанию (gilDef, #59): задвижки и скобы (уже 50 мм) и колосник печи 15 мм (толще 8 мм) не рубим, колосник мангала — по «Колосник на листе»,
+// остальные рубим (gilOn). Вид, если рубить: gil — прямоугольник без всего (дно жаровни), zag — всё остальное (задняя боковина жаровни: рез меньше;
+// в _zag.dxf BLANK — 4 отрезка, у CUT концы нечётной степени — на стороне заготовки; перегородка жаровни с ушками и ручкой — тоже zag; задвижка с отверстиями — zag).
+// Схема гильотины: только детали с галочкой «рубим», кусков листа нет; все на листе, внутри листа с подрезкой, не пересекаются,
 // режутся только сквозными резами (gilCuts), DXF схемы — SHEET 4, BLANK по 4 на заготовку, CUT 0
 class SPath{constructor(){this.pts=[];this.curves=[];this.holes=[];}moveTo(x,y){this.pts.push({x,y});}lineTo(x,y){const l=this.pts[this.pts.length-1];if(!l||l.x!==x||l.y!==y)this.pts.push({x,y});}
   absarc(x,y,r){this.curves=[{isEllipseCurve:true,aX:x,aY:y,xRadius:r}];}getPoints(){return this.pts;}}
@@ -107,7 +108,7 @@ const mkReal=(flags,search)=>{const U=mk(),TH=new Proxy({Shape:SPath,Path:SPath}
 const GILCHK=`(N,lbl)=>{const out=[];N.groups.forEach(G=>{const P=gilScheme(N,G),E=N.edge,e=1e-6;
     if(P.too.length)throw new Error(lbl+': на схеме не поместилось '+P.too.length);
     const want={},got={},k=r=>r.kind+r.no;
-    G.types.forEach(ty=>{if(ty.kind!=='list'&&!ty.offSheet)want[ty.kind+ty.no]=ty.q;});
+    G.types.forEach(ty=>{if(gilOn(ty,N))want[ty.kind+ty.no]=ty.q;});
     P.sheets.forEach(sh=>sh.items.forEach(it=>{got[k(it.r)]=(got[k(it.r)]||0)+1;const [a,b]=[it.w,it.h].sort((p,q)=>p-q),[c,d]=[it.r.w,it.r.h].sort((p,q)=>p-q);
       if(Math.abs(a-c)>e||Math.abs(b-d)>e)throw new Error(lbl+': размер заготовки на схеме '+it.w+' × '+it.h+' вместо '+it.r.w+' × '+it.r.h);}));
     if(JSON.stringify(Object.entries(want).sort())!==JSON.stringify(Object.entries(got).sort()))throw new Error(lbl+': на схеме не те заготовки '+JSON.stringify(got)+', ждали '+JSON.stringify(want));
@@ -133,10 +134,11 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
     st=vm.runInContext(`(()=>{const lp=laserParts(),c={gil:0,zag:0,list:0},CHK=${GILCHK};let cl=0,cz=0;
       const N=nestJob({edge:10}),T=N.groups.flatMap(G=>G.types),K=pt=>{const t=T.find(t=>t.p.pt===pt);return t&&t.kind;};
       if(T.length!==lp.length)throw new Error('не все детали в таблице');
-      T.forEach(ty=>{const m=ty.m,want=ty.p.pt==='air'||ty.p.pt==='hook'?'laser':'gil';if(!(m.w>0))throw new Error('нет контура: '+ty.p.name);
-        if(gilDef(m)!==want)throw new Error('умолчание: '+ty.p.name+' '+m.w+' × '+m.h+' — '+gilDef(m)+', ждали '+want);
-        const plain=!blankMM(ty.p,m).open&&m.loops.length===1&&!m.circles.length,k=want==='laser'?'list':plain?'gil':'zag';if(ty.kind!==k)throw new Error('вид '+ty.p.name+': '+ty.kind+', ждали '+k);
-        c[ty.kind]++;if(ty.p.mm===5){cl+=m.cut*ty.q;if(ty.kind==='zag')cz+=ty.b.cut*ty.q;else if(ty.kind==='list')cz+=m.cut*ty.q;}});
+      T.forEach(ty=>{const m=ty.m,want=ty.p.pt==='air'||ty.p.pt==='hook'||ty.p.mm>8?'laser':'gil';if(!(m.w>0))throw new Error('нет контура: '+ty.p.name);
+        if(gilDef(m,ty.p.mm)!==want)throw new Error('умолчание: '+ty.p.name+' '+m.w+' × '+m.h+' × '+ty.p.mm+' — '+gilDef(m,ty.p.mm)+', ждали '+want);
+        const on=gilOn(ty,N);if(on!==(NEST_CGR(ty.p)?N.cgr:want==='gil'))throw new Error('рубим '+ty.p.name+': '+on);
+        const plain=!blankMM(ty.p,m).open&&m.loops.length===1&&!m.circles.length,k=plain?'gil':'zag';if(ty.kind!==k)throw new Error('вид '+ty.p.name+': '+ty.kind+', ждали '+k);
+        c[on?ty.kind:'list']++;if(ty.p.mm===5){cl+=m.cut*ty.q;if(!on)cz+=m.cut*ty.q;else if(ty.kind==='zag')cz+=ty.b.cut*ty.q;}});
       if(gOn()){if(K('gBot')!=='gil')throw new Error('дно жаровни: '+K('gBot')+', ждали gil');
         const ty=T.find(t=>t.p.pt==='side0'),m=ty.m,b=ty.b;if(ty.kind!=='zag')throw new Error('задняя боковина жаровни: '+ty.kind+', ждали zag');
         if(!(b.cut<m.cut))throw new Error('боковина: рез по заготовке '+b.cut+' не меньше, чем из листа '+m.cut);
@@ -148,7 +150,7 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
         if(odd.length!==2*b.open)throw new Error('боковина _zag: концов '+odd.length+', ломаных '+b.open);
         if(S.div&&K('div')!=='zag')throw new Error('перегородка жаровни: '+K('div')+', ждали zag');}
       const a=CHK(N,'подрезка 10'),z=CHK(nestJob({edge:0}),'подрезка 0');
-      return \`gil \${c.gil} / zag \${c.zag} / list \${c.list}; 5 мм: из листа \${(cl/1000).toFixed(2)} м → по заготовкам \${(cz/1000).toFixed(2)} м; схема: \${(${gilRep})(a)}; без подрезки: \${(${gilRep})(z)}\`;})()`,ctx);}
+      return \`рубим: gil \${c.gil} / zag \${c.zag}, не рубим \${c.list}; 5 мм: из листа \${(cl/1000).toFixed(2)} м → по заготовкам \${(cz/1000).toFixed(2)} м; схема: \${(${gilRep})(a)}; без подрезки: \${(${gilRep})(z)}\`;})()`,ctx);}
   catch(e){errs.push(e.message+' '+((e.stack||'').split('\n')[1]||''));}
   console.log('виды',mode,JSON.stringify(extra).slice(0,30),st,errs.length?'FAIL '+errs.join(' | '):'ok');fails+=errs.length;}
 

@@ -12,9 +12,9 @@
 <meta property="og:url" content="https://vitalishaklach.github.io/metal-designer/mangal/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-12b">
-<link rel="stylesheet" href="../editor.css?v=2026-11-12b">
-<link rel="stylesheet" href="css/style.css?v=2026-11-12b">
+<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-13c">
+<link rel="stylesheet" href="../editor.css?v=2026-11-13c">
+<link rel="stylesheet" href="css/style.css?v=2026-11-13c">
 </head>
 <body>
 <div class="edbar">
@@ -189,7 +189,12 @@
         </div>
         <div class="subpane" id="sub-zag" role="tabpanel" aria-labelledby="st-zag" hidden><p class="tabnote stub">Скоро: DXF по заготовкам с гильотины — рез, врезки, число заготовок</p></div>
       </div>
-      <div class="subpane" id="sub-gil" role="tabpanel" aria-labelledby="st-gil" hidden><p class="tabnote stub">Скоро: схема гильотины и список заготовок — лист, заготовки, резы</p></div>
+      <div class="subpane" id="sub-gil" role="tabpanel" aria-labelledby="st-gil" hidden>
+        <p class="tabnote vhint">На оценку металла и рубки: схема гильотины и размеры заготовок</p>
+        <div class="dimbar nestbar"><label title="Отступ от края листа на схеме: заводскую кромку срезают">Подрезка кромки, мм <input id="nEdge" type="number" value="10" min="0" max="30" step="1" inputmode="numeric"></label><button id="gilRun" class="calcbtn">Рассчитать</button><button id="gilAll" disabled>Скачать архив (ZIP)</button><span class="dxfmsg" id="gilMsg"></span></div>
+        <div class="nestwait" id="gilWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Считаю схему гильотины</span></div>
+        <div class="nestbox" id="gilBox"></div>
+      </div>
     </div>
 
     <div class="tabpane" id="tab-mass" role="tabpanel" hidden>
@@ -239,14 +244,14 @@
 <script src="../../vendor/three/three.min.js"></script>
 <script src="../../vendor/three/OrbitControls.js"></script>
 <script src="../../vendor/three/CSS2DRenderer.js"></script>
-<script src="js/params.js?v=2026-11-12b"></script>
-<script src="js/parts.js?v=2026-11-12b"></script>
-<script src="js/model.js?v=2026-11-12b"></script>
-<script src="js/dims.js?v=2026-11-12b"></script>
-<script src="js/cut.js?v=2026-11-12b"></script>
-<script src="js/dxf.js?v=2026-11-12b"></script>
-<script src="../common/calc.js?v=2026-11-12b"></script>
-<script src="js/nest.js?v=2026-11-12b"></script>
-<script src="js/ui.js?v=2026-11-12b"></script>
+<script src="js/params.js?v=2026-11-13c"></script>
+<script src="js/parts.js?v=2026-11-13c"></script>
+<script src="js/model.js?v=2026-11-13c"></script>
+<script src="js/dims.js?v=2026-11-13c"></script>
+<script src="js/cut.js?v=2026-11-13c"></script>
+<script src="js/dxf.js?v=2026-11-13c"></script>
+<script src="../common/calc.js?v=2026-11-13c"></script>
+<script src="js/nest.js?v=2026-11-13c"></script>
+<script src="js/ui.js?v=2026-11-13c"></script>
 </body>
 </html>

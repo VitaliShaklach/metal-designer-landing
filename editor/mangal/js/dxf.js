@@ -63,11 +63,11 @@ function partMM(p){const G=p.geo(),xs=[],ys=[];G.loops.forEach(l=>l.forEach(([x,
   let cut=0;loops.forEach(l=>{for(let i=0;i<l.length-1;i++)cut+=Math.hypot(l[i+1][0]-l[i][0],l[i+1][1]-l[i][1]);});circles.forEach(c=>cut+=2*Math.PI*c[2]);
   return {loops,circles,bends,w:f(Math.max(...xs)-mx),h:f(Math.max(...ys)-my),cut,pierce:loops.length+circles.length};}
 /* ---------- заготовки с гильотины: металл режут в размер на гильотине, на лазер везут готовый прямоугольник ----------
-   Чем резать деталь, решает переключатель «гильотина | лазер» в строке таблицы (nestJob, GIL_MIN_W — умолчание):
-   gil  — «гильотина», готовая деталь: наружный контур — прямоугольник по габариту, внутри ничего — лазер не нужен;
-   zag  — «гильотина», заготовка под лазер: гильотина режет габарит, лазер — всё, что не лежит на сторонах габарита
+   Рубить ли деталь, решает галочка «рубим» во вкладке «Гильотина» (gilOn в nest.js, умолчание — gilDef). Вид детали, если её рубить:
+   gil  — готовая деталь: наружный контур — прямоугольник по габариту, внутри ничего — лазер не нужен;
+   zag  — заготовка под лазер: гильотина режет габарит, лазер — всё, что не лежит на сторонах габарита
           (отверстия, вырезы, пазы с кромки; у перегородки жаровни с ушками и ручкой — почти весь контур);
-   list — «лазер»: лазер режет деталь целиком из куска листа под лазер. */
+   list — не рубится (контура нет): лазер режет деталь целиком из листа. */
 const BLANK_EPS=.01;   // допуск «отрезок лежит на стороне габарита», мм
 // деталь по заготовке (мм): из наружного контура выкинуты отрезки на сторонах габарита — остаются открытые ломаные (пазы и вырезы с кромки);
 // внутренние контуры, окружности и гибы — как есть. blank — прямоугольник заготовки (слой BLANK).
@@ -112,10 +112,10 @@ function zipFiles(files){const enc=new TextEncoder(),parts=[],cen=[];let off=0;
 
 // сохранение: в опубликованной странице — через claude.use("downloads") (только .zip), локально — обычное скачивание
 const dlP=(window.claude&&window.claude.use)?window.claude.use('downloads').catch(()=>null):Promise.resolve(null);
-async function saveOut(name,data){const dl=await dlP,msg=document.getElementById('dxfMsg');
+async function saveOut(name,data,mid='dxfMsg'){const dl=await dlP,msg=document.getElementById(mid);   // mid — где написать «Скачано»: у каждого варианта своя строка
   if(dl){try{await dl.save({filename:name,data});msg.textContent='Сохранено: '+name;}catch(e){msg.textContent=e&&e.code==='declined'?'Сохранение отменено':'Не удалось сохранить: '+(e&&e.message||e);}return;}
   const a=document.createElement('a');a.href=URL.createObjectURL(data instanceof Blob?data:new Blob([data]));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);msg.textContent='Скачано: '+name;}
-async function saveDxf(name,text){const dl=await dlP;if(dl)saveOut(name.replace(/\.dxf$/,'.zip'),zipFiles([[name,text]]));else saveOut(name,text);}
+async function saveDxf(name,text,mid){const dl=await dlP;if(dl)saveOut(name.replace(/\.dxf$/,'.zip'),zipFiles([[name,text]]),mid);else saveOut(name,text,mid);}
 const savePart=p=>saveDxf(dxfName(p),dxfText(partMM(p)));
 const MODE_FILE=()=>({both:'mangal_s_pechyu',grill:'mangal',stove:'pech'})[S.mode];   // начало имён ZIP
 const PDF_ELEM=pt=>{for(const e of PARTS)if(e.d.some(d=>d[0]===pt))return e.id;return null;};
