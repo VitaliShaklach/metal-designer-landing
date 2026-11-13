@@ -19,7 +19,15 @@ function loadMangal(flags={}){
   vm.runInContext([P+'/../common/calc.js',...FILES.map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n'),ctx,{filename:'mangal.js'});
   return ctx;}
 
+// поля «Лазер · DXF» как на странице (колосник на листе снят, подрезка 10) и память браузера ls — {ключ: значение}
+function page(ctx,ls={}){const mem=Object.fromEntries(Object.entries(ls).map(([k,v])=>[k,typeof v==='string'?v:JSON.stringify(v)]));
+  ctx.__mem=mem;ctx.__els={nGap:{value:'5'},nSheet:{value:'1250x2500'},nCgr:{checked:false},nEdge:{value:'10'}};
+  run(ctx,`(()=>{const on=new Map(),D0=document,el=id=>{const e=__els[id];if(!e)return D0.getElementById(id);e.addEventListener=e.addEventListener||((t,f)=>on.set(id+':'+t,f));return e;};
+    localStorage={getItem:k=>k in __mem?__mem[k]:null,setItem:(k,v)=>{__mem[k]=String(v);}};
+    document=new Proxy({},{get:(t,k)=>k==='getElementById'?el:D0[k]});
+    NST.init=false;nestInit();})()`);}
+
 // выражение в области скриптов мангала; результат — копия через JSON, чтобы assert.deepEqual сравнивал обычные объекты
 function run(ctx,expr){const v=vm.runInContext(expr,ctx);return v===undefined?v:JSON.parse(JSON.stringify(v));}
 
-module.exports={loadMangal,run};
+module.exports={loadMangal,run,page};

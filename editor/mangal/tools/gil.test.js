@@ -1,14 +1,7 @@
 // «Лазер · DXF → Гильотина» (#59): галочка «рубим» у детали, схема без кусков листа, «Не на схеме», итоги и архив гильотинщика
 const test=require('node:test'),assert=require('node:assert/strict');
-const {loadMangal,run}=require('./load.js');
+const {loadMangal,run,page}=require('./load.js');
 
-// поля «Лазер · DXF» как на странице (колосник на листе снят, подрезка 10) и память браузера ls — {ключ: значение}
-function page(ctx,ls={}){const mem=Object.fromEntries(Object.entries(ls).map(([k,v])=>[k,typeof v==='string'?v:JSON.stringify(v)]));
-  ctx.__mem=mem;ctx.__els={nGap:{value:'5'},nSheet:{value:'1250x2500'},nCgr:{checked:false},nEdge:{value:'10'}};
-  run(ctx,`(()=>{const on=new Map(),D0=document,el=id=>{const e=__els[id];if(!e)return D0.getElementById(id);e.addEventListener=e.addEventListener||((t,f)=>on.set(id+':'+t,f));return e;};
-    localStorage={getItem:k=>k in __mem?__mem[k]:null,setItem:(k,v)=>{__mem[k]=String(v);}};
-    document=new Proxy({},{get:(t,k)=>k==='getElementById'?el:D0[k]});
-    NST.init=false;nestInit();})()`);}
 // схема гильотины всех толщин по заданию N (как по кнопке «Рассчитать»)
 const RES='(N=>N.groups.map(G=>gilScheme(N,G)))';
 // что рубим: имена деталей (по одному на тип) и что на схеме

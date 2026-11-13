@@ -275,9 +275,8 @@ table.ntbl tr.on td{background:var(--accent-soft)}
 table.ntbl th.dl{padding-left:6px;padding-right:6px;letter-spacing:0;font-size:10px}
 table.ntbl td.dl{padding-left:6px;padding-right:6px;width:1%;white-space:nowrap}
 .dxfbtn.dl{padding:4px 5px}
-/* «Из заготовок» (#60): рез по заготовке */
+/* «Из заготовок» (#60): рядом с резом и врезками по заготовке — те же с листа, мелко */
 td small.was{font-size:11px;color:var(--muted);white-space:nowrap}
-td.nolz{color:var(--muted);font-size:13px;white-space:nowrap}
 /* «Гильотина» (#59): таблица с галочкой «рубим»; снятая деталь — бледнее, галочка — нет */
 table.gtbl{min-width:560px}
 table.gtbl td:first-child,table.gtbl th:first-child,table.gtbl td:nth-child(2){width:1%;white-space:nowrap}
@@ -336,7 +335,7 @@ svg.gilsv .gp.on text{font-weight:700}
 .subtabs.vars button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
 .subpane[hidden]{display:none}
 .subpane>.tabnote{margin:0 0 10px}
-#sub-list>.nestbar,#sub-gil>.nestbar{margin-bottom:14px}
+#sub-list>.nestbar,#sub-zag>.nestbar,#sub-gil>.nestbar{margin-bottom:14px}
 @media (max-width:719px){
   .subtabs{flex-direction:column;flex-wrap:nowrap}
   .subtabs button,.subtabs.vars button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:10px 14px;text-align:left;font-size:16px;color:var(--ink)}

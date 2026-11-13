@@ -26,7 +26,7 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
         else{if(roofEl||roofPt)throw new Error('крыша выключена, а элемент «Крыша» есть в списке');if(roofDim.length)throw new Error('крыша выключена, а размеры остались: '+roofDim.join(', '));
           const m=all.match(roofRx);if(m)throw new Error('крыша выключена, а в тексте «'+m[0]+'»: '+all.slice(Math.max(0,m.index-60),m.index+40).replace(/<[^>]+>/g,''));}}`,ctx);
       // раскрой листа: детали для раскладки (у боковин в Node контур пустой — пропускаются), раскладка и рисунок
-      vm.runInContext("{const N=nestJob(),res=N.groups.map(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);return v.value;});nestDraw(N,res);nestUI();nestUI(true);}",ctx);
+      vm.runInContext("{const N=nestJob(),res=N.groups.map(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);return v.value;});LIST.draw(N,res);nestUI();nestUI(true);}",ctx);
       // колосник мангала: в таблице листа 5 мм, когда он есть на модели; на лист — только с галочкой (по умолчанию снята); у половины 18 × 19 отверстий Ø10
       vm.runInContext(`{const has=N=>N.groups.some(G=>G.types.some(t=>NEST_CGR(t.p))),on=N=>N.groups.reduce((a,G)=>a+G.items.filter(i=>NEST_CGR(i.ty.p)).length,0),a=nestJob(),b=nestJob({cgr:true}),want=gOn()&&S.cgr;
         if(a.cgr)throw new Error('колосник мангала на листе по умолчанию');if(has(a)!==want||a.hasCgr!==want)throw new Error('колосник мангала: в таблице '+has(a)+', ждали '+want);

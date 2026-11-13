@@ -12,9 +12,9 @@
 <meta property="og:url" content="https://vitalishaklach.github.io/metal-designer/mangal/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-13c">
-<link rel="stylesheet" href="../editor.css?v=2026-11-13c">
-<link rel="stylesheet" href="css/style.css?v=2026-11-13c">
+<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-13d">
+<link rel="stylesheet" href="../editor.css?v=2026-11-13d">
+<link rel="stylesheet" href="css/style.css?v=2026-11-13d">
 </head>
 <body>
 <div class="edbar">
@@ -187,7 +187,12 @@
           <div class="nestwait" id="nestWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Считаю раскрой, это может занять несколько минут</span><span class="nestCnt"></span></div>
           <div class="nestbox" id="nestBox"></div>
         </div>
-        <div class="subpane" id="sub-zag" role="tabpanel" aria-labelledby="st-zag" hidden><p class="tabnote stub">Скоро: DXF по заготовкам с гильотины — рез, врезки, число заготовок</p></div>
+        <div class="subpane" id="sub-zag" role="tabpanel" aria-labelledby="st-zag" hidden>
+          <p class="tabnote vhint">Врезки с запасом: каждый паз с кромки считается врезкой</p>
+          <div class="dimbar nestbar"><button id="zagRun" class="calcbtn">Рассчитать</button><button id="zagAll" disabled>Скачать архив (ZIP)</button><span class="dxfmsg" id="zagMsg"></span></div>
+          <div class="nestwait" id="zagWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Считаю заготовки</span></div>
+          <div class="nestbox" id="zagBox"></div>
+        </div>
       </div>
       <div class="subpane" id="sub-gil" role="tabpanel" aria-labelledby="st-gil" hidden>
         <p class="tabnote vhint">На оценку металла и рубки: схема гильотины и размеры заготовок</p>
@@ -244,14 +249,14 @@
 <script src="../../vendor/three/three.min.js"></script>
 <script src="../../vendor/three/OrbitControls.js"></script>
 <script src="../../vendor/three/CSS2DRenderer.js"></script>
-<script src="js/params.js?v=2026-11-13c"></script>
-<script src="js/parts.js?v=2026-11-13c"></script>
-<script src="js/model.js?v=2026-11-13c"></script>
-<script src="js/dims.js?v=2026-11-13c"></script>
-<script src="js/cut.js?v=2026-11-13c"></script>
-<script src="js/dxf.js?v=2026-11-13c"></script>
-<script src="../common/calc.js?v=2026-11-13c"></script>
-<script src="js/nest.js?v=2026-11-13c"></script>
-<script src="js/ui.js?v=2026-11-13c"></script>
+<script src="js/params.js?v=2026-11-13d"></script>
+<script src="js/parts.js?v=2026-11-13d"></script>
+<script src="js/model.js?v=2026-11-13d"></script>
+<script src="js/dims.js?v=2026-11-13d"></script>
+<script src="js/cut.js?v=2026-11-13d"></script>
+<script src="js/dxf.js?v=2026-11-13d"></script>
+<script src="../common/calc.js?v=2026-11-13d"></script>
+<script src="js/nest.js?v=2026-11-13d"></script>
+<script src="js/ui.js?v=2026-11-13d"></script>
 </body>
 </html>

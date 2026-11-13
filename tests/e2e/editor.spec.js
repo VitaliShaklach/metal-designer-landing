@@ -1,5 +1,6 @@
 // Редактор (editor/): страницы открываются без ошибок и без сторонних серверов, DXF скачивается.
 const {test, expect} = require('@playwright/test');
+const fs = require('fs');
 
 const HOST = 'localhost:8000';
 
@@ -398,10 +399,12 @@ test('mangal: «Лазер · DXF» — внутренние вкладки, с�
   await expect(hint).toBeVisible();
   expect((await hint.textContent()).length).toBeLessThanOrEqual(80);
   expect(await page.locator('#tab-cut .tabnote:not(.vhint):not(.stub)').count()).toBe(0);
-  // до «Рассчитать» схемы нет; заглушка «Из заготовок» (#60) — строкой
+  // до «Рассчитать» ни схемы, ни таблицы нет
   await expect(page.locator('#nestBox svg')).toHaveCount(0);
   await openSub(page, 'zag');
-  await expect(page.locator('#sub-zag .stub')).toBeVisible();
+  await expect(page.locator('#sub-zag .stub')).toHaveCount(0);
+  await expect(page.locator('#zagBox .ntbl')).toHaveCount(0);
+  await expect(page.locator('#zagAll')).toBeDisabled();
   await openSub(page, 'gil');
   await expect(page.locator('#sub-gil .stub')).toHaveCount(0);
   await expect(page.locator('#gilBox svg')).toHaveCount(0);
@@ -448,6 +451,7 @@ test('mangal: внутренние вкладки — на телефоне ст
   for (const v of SUBS) {
     await openSub(page, v);
     if (v === 'gil') await gilCut(page);
+    if (v === 'zag') await zagCut(page);
     const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
     expect(sw, v).toBeLessThanOrEqual(iw);
   }
@@ -566,6 +570,81 @@ test('mangal: «Гильотина» в печи — колосник 15 мм н
   await gilCut(page);
   await page.locator('#nEdge').fill('0');
   await expect(page.locator('#gilRun')).toBeEnabled();
+  expect(r.errors).toEqual([]);
+});
+
+// ---------- мангал: «Лазер → Из заготовок» — детали «рубим», которым после гильотины нужен лазер (#60) ----------
+
+// «Из заготовок» посчитана: таблица на месте, «Рассчитать» неактивна
+async function zagCut(page) {
+  await page.locator('#zagRun').click();
+  await expect(page.locator('#zagBox .nblock').first()).toBeVisible();
+  await expect(page.locator('#zagRun')).toBeDisabled();
+}
+const zagRow = (page, name) => page.locator('#zagBox .ntbl tr', {hasText: name});
+// имена файлов в ZIP без сжатия (zipFiles): имя лежит открытым текстом в заголовке каждого файла
+const zipNames = async d => [...new Set(fs.readFileSync(await d.path()).toString('latin1').match(/[a-z0-9_]+\.(dxf|csv)/g))];
+
+test('mangal: «Из заготовок» — по «Рассчитать», итоги, «Не на схеме», архив только _zag.dxf', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await openSub(page, 'zag');
+  await expect(page.locator('#sub-zag .vhint')).toHaveText('Врезки с запасом: каждый паз с кромки считается врезкой');
+  await expect(page.locator('#zagAll')).toBeDisabled();
+  await zagCut(page);
+  const tot = page.locator('#zagBox .ntot').first();
+  for (const t of ['Рез', 'Врезки', 'Заготовки']) await expect(tot).toContainText(t);
+  await expect(tot).toContainText(/Врезки \d+/);   // число не фиксируем (план, задача 3): оно меняется вместе с прорезями
+  await expect(tot).toContainText('Заготовки 2');
+  // по умолчанию: боковины (пазы с кромки) — да; дно и торец (готовы после гильотины), задвижки, скобы, колосник (не рубим) — нет
+  for (const n of ['Боковина жаровни задняя', 'Боковина жаровни передняя']) await expect(zagRow(page, n)).toHaveCount(1);
+  for (const n of ['Дно жаровни', 'Торец жаровни', 'Задвижка поддува', 'Скоба задвижки', 'Колосник мангала']) await expect(zagRow(page, n)).toHaveCount(0);
+  await expect(page.locator('#zagBox .goff')).toContainText('Не на схеме: ');
+  await expect(page.locator('#zagBox .goff')).toContainText('Задвижка поддува × 2');
+  const [d] = await Promise.all([page.waitForEvent('download'), page.locator('#zagAll').click()]);
+  expect(d.suggestedFilename()).toBe('mangal_800x420x200_5mm_laser-zagotovki.zip');
+  expect((await zipNames(d)).sort()).toEqual(['grill_side_back_5mm_x1_zag.dxf', 'grill_side_front_5mm_x1_zag.dxf']);
+  const [d1] = await Promise.all([page.waitForEvent('download'), zagRow(page, 'Боковина жаровни задняя').locator('button[data-act=zag]').click()]);
+  expect(d1.suggestedFilename()).toBe('grill_side_back_5mm_x1_zag.dxf');
+  // «С листа» и «Гильотина» не посчитаны — «Из заготовок» их не трогает
+  await expect(page.locator('#nestRun')).toBeEnabled();
+  await expect(page.locator('#gilRun')).toBeEnabled();
+  expect(r.errors).toEqual([]);
+});
+
+test('mangal: «Из заготовок» — галочки «Гильотины» и «Колосник на листе» меняют список, печь без 3 и 15 мм', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await openSub(page, 'zag');
+  await zagCut(page);
+  // сняли боковину в «Гильотине» — «Из заготовок» устарела, после «Рассчитать» боковины нет, она в «Не на схеме»
+  await openSub(page, 'gil');
+  await gilCut(page);
+  await gilRow(page, 'Боковина жаровни задняя').locator('.gchk').uncheck();
+  await openSub(page, 'zag');
+  await expect(page.locator('#zagRun')).toBeEnabled();
+  await expect(page.locator('#zagBox .ntbl')).toHaveCount(0);
+  await expect(page.locator('#zagAll')).toBeDisabled();
+  await zagCut(page);
+  await expect(zagRow(page, 'Боковина жаровни задняя')).toHaveCount(0);
+  await expect(page.locator('#zagBox .goff')).toContainText('Боковина жаровни задняя');
+  // колосник на листе — его рубят, после гильотины ему нужен лазер (отверстия)
+  await openSub(page, 'list');
+  await page.locator('#nCgr').check();
+  await openSub(page, 'zag');
+  await expect(page.locator('#zagRun')).toBeEnabled();
+  await zagCut(page);
+  await expect(zagRow(page, 'Колосник мангала')).toHaveCount(2);
+  // печь: на 3 мм (дверца, шибер — готовы после гильотины) и 15 мм (колосник не рубим) — «Заготовок под лазер нет»
+  await press(page, '#modeSeg [data-v=stove]');
+  await expect(page.locator('#zagRun')).toBeEnabled();
+  await zagCut(page);
+  await expect(page.locator('#zagBox .nblock h3')).toHaveText(['Лист 5 мм', 'Лист 3 мм', 'Лист 15 мм']);
+  await expect(page.locator('#zagBox .nblock').nth(1).locator('.gnone')).toHaveText('Заготовок под лазер нет');
+  await expect(page.locator('#zagBox .nblock').nth(2).locator('.goff')).toHaveText('Не на схеме: Колосник печи');
+  const [d] = await Promise.all([page.waitForEvent('download'), page.locator('#zagAll').click()]);
+  expect(d.suggestedFilename()).toBe('pech_600x440x500_5-3-15mm_laser-zagotovki.zip');
+  expect((await zipNames(d)).every(n => /_5mm_x\d+_zag\.dxf$/.test(n))).toBe(true);
   expect(r.errors).toEqual([]);
 });
 
