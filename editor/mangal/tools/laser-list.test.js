@@ -57,6 +57,25 @@ test('итоги «С листа»: «Не поместилось» в рез и
   assert.equal(r.t.cut,r.cut);
 });
 
+// «Прижать к краю» (пересмотр 14.11): одна настройка с «Гильотиной»; справа — та же раскладка, сдвинутая целиком (не зеркально: деталь не меняется)
+test('«С листа» справа: раскладка сдвинута к правому краю, детали те же и так же повёрнуты; ключ меняется', ()=>{
+  const c=loadMangal({mode:'both'});
+  const get=side=>run(c,`(N=>${RES}(N).map(R=>(nestSide(R,N.W,NEST_EDGE,N.side),R.sheets.map(s=>s.items.map(it=>({id:it.id,tr:it.tr,pts:it.pts,bb:it.bb}))))))(nestJob({cgr:true,side:'${side}'}))`);
+  const L=get('l'),R=get('r'),W=2500,E=10;
+  L.forEach((sheets,gi)=>sheets.forEach((it,si)=>{const ri=R[gi][si],dx=W-E-Math.max(...it.map(i=>i.bb[2]));
+    assert.ok(Math.abs(Math.min(...it.map(i=>i.bb[0]))-E)<1e-6,'слева не у края');
+    assert.ok(Math.abs(Math.max(...ri.map(i=>i.bb[2]))-(W-E))<1e-6,'справа не у края');
+    it.forEach((a,k)=>{const b=ri[k];assert.equal(b.id,a.id);assert.equal(b.tr.c,a.tr.c);assert.equal(b.tr.s,a.tr.s);
+      assert.ok(Math.abs(b.tr.x-a.tr.x-dx)<1e-6&&Math.abs(b.tr.y-a.tr.y)<1e-6,'сдвиг tr');
+      assert.ok(b.pts.every((p,j)=>Math.abs(p[0]-a.pts[j][0]-dx)<1e-6&&Math.abs(p[1]-a.pts[j][1])<1e-6),'сдвиг контура');
+      assert.ok(Math.abs(b.bb[0]-a.bb[0]-dx)<1e-6&&Math.abs(b.bb[2]-a.bb[2]-dx)<1e-6,'сдвиг рамки');});}));
+  assert.notEqual(run(c,`nestJob({side:'r'}).key`),run(c,'nestJob().key'));
+  // DXF листа справа: детали там же, где на рисунке
+  const dxf=run(c,`(N=>{const res=${RES}(N);res.forEach(R=>nestSide(R,N.W,NEST_EDGE,N.side));return nestDxf(N,N.groups[0],res[0].sheets[0]);})(nestJob({side:'r'}))`);
+  const xs=[];const t=dxf.split('\r\n');for(let i=0;i<t.length-1;i++)if(t[i]==='10'&&t[i-2]==='8'&&t[i-1]==='CUT')xs.push(+t[i+1]);
+  assert.ok(xs.length>0&&Math.max(...xs)>W/2,'DXF не сдвинут');
+});
+
 // старая память браузера: «Заготовки с гильотины» (md-ngil) и «гильотина | лазер» у детали (md-gilsel) задание не меняют
 test('старая память браузера (md-ngil, md-gilsel) задание не меняет', ()=>{
   const clean=run(loadMangal({mode:'grill'}),'nestJob().key');

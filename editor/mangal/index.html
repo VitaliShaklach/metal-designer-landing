@@ -12,9 +12,9 @@
 <meta property="og:url" content="https://vitalishaklach.github.io/metal-designer/mangal/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-13e">
-<link rel="stylesheet" href="../editor.css?v=2026-11-13e">
-<link rel="stylesheet" href="css/style.css?v=2026-11-13e">
+<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-14b">
+<link rel="stylesheet" href="../editor.css?v=2026-11-14b">
+<link rel="stylesheet" href="css/style.css?v=2026-11-14b">
 </head>
 <body>
 <div class="edbar">
@@ -171,7 +171,7 @@
     </div>
 
     <div class="tabpane" id="tab-cut" role="tabpanel" hidden>
-      <div class="dimbar nestbar"><label>Лист <select id="nSheet"><option value="1000x2000">1000 × 2000</option><option value="1250x2500" selected>1250 × 2500</option><option value="1500x3000">1500 × 3000</option></select></label></div>
+      <div class="dimbar nestbar"><label>Лист <select id="nSheet"><option value="1000x2000">1000 × 2000</option><option value="1250x2500" selected>1250 × 2500</option><option value="1500x3000">1500 × 3000</option></select></label><label title="К какому краю листа прижать раскладку: с другой стороны остаётся целый кусок">Прижать к краю <select id="nSide"><option value="l" selected>слева</option><option value="r">справа</option></select></label><label id="nCgrBox"><input type="checkbox" id="nCgr"> Колосник на листе</label></div>
       <div class="subtabs" role="tablist" aria-label="Кому файлы">
         <button role="tab" id="st-laser" data-sub="laser" aria-selected="true" aria-controls="sub-laser"><b>Лазер</b><small>лазерщику: с листа или из заготовок</small></button>
         <button role="tab" id="st-gil" data-sub="gil" aria-selected="false" aria-controls="sub-gil" tabindex="-1"><b>Гильотина</b><small>схема гильотины и заготовки</small></button>
@@ -183,7 +183,7 @@
         </div>
         <div class="subpane" id="sub-list" role="tabpanel" aria-labelledby="st-list">
           <p class="tabnote vhint">Лазерщику на оценку: DXF листа и каждой детали. SHEET — рамка листа, не резать</p>
-          <div class="dimbar nestbar"><label>Между деталями, мм <input id="nGap" type="number" value="5" min="1" step="0.5" inputmode="decimal"></label><label id="nCgrBox"><input type="checkbox" id="nCgr"> Колосник на листе</label><button id="nestRun" class="calcbtn">Рассчитать</button><button id="dxfAll" disabled>Скачать архив (ZIP)</button><span class="dxfmsg" id="dxfMsg"></span></div>
+          <div class="dimbar nestbar"><label>Между деталями, мм <input id="nGap" type="number" value="5" min="1" step="0.5" inputmode="decimal"></label><button id="nestRun" class="calcbtn">Рассчитать</button><button id="dxfAll" disabled>Скачать архив (ZIP)</button><span class="dxfmsg" id="dxfMsg"></span></div>
           <div class="nestwait" id="nestWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Считаю раскрой, это может занять несколько минут</span><span class="nestCnt"></span></div>
           <div class="nestbox" id="nestBox"></div>
         </div>
@@ -249,14 +249,14 @@
 <script src="../../vendor/three/three.min.js"></script>
 <script src="../../vendor/three/OrbitControls.js"></script>
 <script src="../../vendor/three/CSS2DRenderer.js"></script>
-<script src="js/params.js?v=2026-11-13e"></script>
-<script src="js/parts.js?v=2026-11-13e"></script>
-<script src="js/model.js?v=2026-11-13e"></script>
-<script src="js/dims.js?v=2026-11-13e"></script>
-<script src="js/cut.js?v=2026-11-13e"></script>
-<script src="js/dxf.js?v=2026-11-13e"></script>
-<script src="../common/calc.js?v=2026-11-13e"></script>
-<script src="js/nest.js?v=2026-11-13e"></script>
-<script src="js/ui.js?v=2026-11-13e"></script>
+<script src="js/params.js?v=2026-11-14b"></script>
+<script src="js/parts.js?v=2026-11-14b"></script>
+<script src="js/model.js?v=2026-11-14b"></script>
+<script src="js/dims.js?v=2026-11-14b"></script>
+<script src="js/cut.js?v=2026-11-14b"></script>
+<script src="js/dxf.js?v=2026-11-14b"></script>
+<script src="../common/calc.js?v=2026-11-14b"></script>
+<script src="js/nest.js?v=2026-11-14b"></script>
+<script src="js/ui.js?v=2026-11-14b"></script>
 </body>
 </html>

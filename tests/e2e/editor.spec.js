@@ -388,9 +388,13 @@ test('mangal: «Лазер · DXF» — внутренние вкладки, с�
   await expect(page.locator('#sub-list')).toBeVisible();
   await expect(page.locator('#sub-zag')).toBeHidden();
   await expect(page.locator('#sub-gil')).toBeHidden();
-  // лист — над вариантами, один; зазор и колосник — в «С листа»; простыни текста и старых галочек нет
-  await expect(page.locator('#nSheet')).toHaveCount(1);
-  expect(await page.locator('#nSheet').evaluate(e => !e.closest('.subpane'))).toBe(true);
+  // лист, «Прижать к краю» и колосник — над вариантами, общие (пересмотр 14.11); зазор — в «С листа»; простыни текста и старых галочек нет
+  for (const id of ['#nSheet', '#nSide', '#nCgr']) {
+    await expect(page.locator(id)).toHaveCount(1);
+    expect(await page.locator(id).evaluate(e => !e.closest('.subpane')), id).toBe(true);
+  }
+  await expect(page.locator('#nSide')).toHaveValue('l');
+  expect(await page.locator('#nSide option').allTextContents()).toEqual(['слева', 'справа']);
   expect(await page.locator('#nGap').evaluate(e => e.closest('.subpane').id)).toBe('sub-list');
   await expect(page.locator('#nCgrBox')).toContainText('Колосник на листе');
   await expect(page.locator('#nGil, #nGilReset')).toHaveCount(0);
@@ -458,7 +462,7 @@ test('mangal: внутренние вкладки — на телефоне ст
   expect(r.errors).toEqual([]);
 });
 
-// ---------- мангал: «Гильотина» — галочка «рубим», схема без кусков листа (#59) ----------
+// ---------- мангал: «Гильотина» — что рубить, решает правило, полосы поперёк листа у выбранного края (#59, пересмотр 14.11) ----------
 
 // Схема гильотины посчитана: таблица на месте, «Рассчитать» неактивна
 async function gilCut(page) {
@@ -467,9 +471,16 @@ async function gilCut(page) {
   await expect(page.locator('#gilRun')).toBeDisabled();
 }
 const gilRow = (page, name) => page.locator('#gilBox .gtbl tr', {hasText: name});
+// левый и правый край заготовок на первой схеме, в мм листа (rect в SVG — в мм)
+const gilSpan = page => page.locator('#gilBox svg.gilsv').first().evaluate(s => {
+  const r = [...s.querySelectorAll('.gp rect')].map(e => [+e.getAttribute('x'), +e.getAttribute('width')]);
+  return [Math.min(...r.map(q => q[0])), Math.max(...r.map(q => q[0] + q[1]))];
+});
 
-test('mangal: «Гильотина» — по «Рассчитать», итоги, галочки по умолчанию, архив', async ({page}) => {
+test('mangal: «Гильотина» — по «Рассчитать», без галочек, «Не рубится» с причиной, полосы слева, архив', async ({page}) => {
   test.slow();
+  // старая память галочек «рубим» и «гильотина | лазер» не читается и страницу не ломает
+  await page.addInitScript(() => { localStorage.setItem('md-gilsel2', '{"grill_bottom":false}'); localStorage.setItem('md-gilsel', '{"grill_bottom":"laser"}'); });
   const r = await openEditor(page, '/editor/mangal/#cut');
   await openSub(page, 'gil');
   await expect(page.locator('#sub-gil .vhint')).toBeVisible();
@@ -477,89 +488,74 @@ test('mangal: «Гильотина» — по «Рассчитать», итог
   await expect(page.locator('#gilAll')).toBeDisabled();
   await gilCut(page);
   await expect(page.locator('#gilBox svg.gilsv')).toHaveCount(1);
+  await expect(page.locator('#gilBox input[type=checkbox]')).toHaveCount(0);
   const tot = page.locator('#gilBox .ntot').first();
   for (const t of ['Лист', 'Заготовки', 'Резы']) await expect(tot).toContainText(t);
   await expect(tot).toContainText('1 лист 1250 × 2500');
-  // по умолчанию сняты задвижки, скобы и колосник — их нет на схеме, они в «Не на схеме»
+  // задвижки и скобы (уже 50 мм) и колосник (снят) — не на схеме, в «Не рубится» с причиной и серыми строками
   for (const n of ['Задвижка поддува', 'Скоба задвижки', 'Колосник мангала 1']) {
-    await expect(gilRow(page, n).locator('.gchk')).not.toBeChecked();
+    await expect(gilRow(page, n)).toHaveClass(/off/);
     await expect(page.locator('#gilBox svg.gilsv title', {hasText: n})).toHaveCount(0);
   }
-  await expect(page.locator('#gilBox .goff')).toContainText('Не на схеме: ');
-  await expect(page.locator('#gilBox .goff')).toContainText('Задвижка поддува × 2');
-  await expect(gilRow(page, 'Дно жаровни').locator('.gchk')).toBeChecked();
-  await expect(page.locator('#gilBox')).not.toContainText(/кусок/i);
+  await expect(gilRow(page, 'Задвижка поддува')).toContainText('не рубится — уже 50 мм');
+  const off = page.locator('#gilBox .goff');
+  await expect(off).toContainText('Не рубится: ');
+  await expect(off).toContainText('Задвижка поддува × 2 — уже 50 мм');
+  await expect(off).toContainText('снят «Колосник на листе»');
+  expect(await off.evaluate(e => !!(e.compareDocumentPosition(document.querySelector('#gilBox svg.gilsv')) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);   // над схемой
+  await expect(page.locator('#gilBox svg.gilsv title', {hasText: 'Дно жаровни'})).toHaveCount(1);   // память md-gilsel2 не читается
+  await expect(page.locator('#gilBox')).not.toContainText('Не на схеме');
+  // полосы — от левого края листа (подрезка 10)
+  expect((await gilSpan(page))[0]).toBe(10);
   const [d] = await Promise.all([page.waitForEvent('download'), page.locator('#gilAll').click()]);
   expect(d.suggestedFilename()).toBe('mangal_800x420x200_5mm_gilotina.zip');
-  // «С листа» не посчитана — галочки «Гильотины» её не трогают
-  await expect(page.locator('#nestRun')).toBeEnabled();
+  await expect(page.locator('#nestRun')).toBeEnabled();   // «С листа» не посчитана — «Гильотина» её не трогает
   expect(r.errors).toEqual([]);
 });
 
-test('mangal: «Гильотина» — снятая деталь уходит со схемы, колосник — та же галочка, что «Колосник на листе»', async ({page}) => {
+test('mangal: «Прижать к краю: справа» — гильотина и «С листа» у правого края, выбор запоминается; колосник — общий', async ({page}) => {
   test.slow();
   const r = await openEditor(page, '/editor/mangal/#cut');
   await openSub(page, 'gil');
   await gilCut(page);
-  const n0 = await page.locator('#gilBox svg.gilsv .gp').count();
-  await expect(page.locator('#gilBox svg.gilsv title', {hasText: 'Дно жаровни'})).toHaveCount(1);
-  await gilRow(page, 'Дно жаровни').locator('.gchk').uncheck();
-  // схема пересчитывается сразу
-  await expect(page.locator('#gilBox svg.gilsv title', {hasText: 'Дно жаровни'})).toHaveCount(0);
-  await expect(page.locator('#gilBox svg.gilsv .gp')).toHaveCount(n0 - 1);
-  await expect(page.locator('#gilBox .goff')).toContainText('Дно жаровни');
-  await expect(page.locator('#gilRun')).toBeDisabled();
-  // колосник: галочка в «Гильотине» ставит «Колосник на листе»
-  await expect(page.locator('#nCgr')).not.toBeChecked();
-  await gilRow(page, 'Колосник мангала 1').locator('.gchk').check();
-  await expect(page.locator('#gilBox svg.gilsv title', {hasText: 'Колосник мангала'})).toHaveCount(2);
-  await expect(page.locator('#nCgr')).toBeChecked();
-  // и наоборот: сняли «Колосник на листе» — из «Гильотины» колосник тоже ушёл
+  const [l0, l1] = await gilSpan(page);
+  await page.locator('#nSide').selectOption('r');
+  await expect(page.locator('#gilRun')).toBeEnabled();   // край поменяли — схема устарела
+  await gilCut(page);
+  const [r0, r1] = await gilSpan(page);
+  expect(r1).toBe(2500 - 10);
+  expect(r1 - r0).toBe(l1 - l0);   // та же схема, сдвинута
+  // «С листа» тоже справа: правый край деталей у края листа, левый — во второй половине
   await openSub(page, 'list');
-  await page.locator('#nCgr').uncheck();
+  await mangalCut(page);
+  const xs = await page.locator('#nestBox svg.nestsv').first().evaluate(s => {
+    const b = [...s.querySelectorAll('.np path')].map(p => p.getBBox());
+    return [Math.min(...b.map(q => q.x)), Math.max(...b.map(q => q.x + q.width))];
+  });
+  expect(xs[0]).toBeGreaterThan(2500 / 2);
+  expect(Math.abs(xs[1] - (2500 - 10))).toBeLessThan(1);
+  // колосник — одна галочка на все варианты: включили — он на схеме гильотины
+  await page.locator('#nCgr').check();
   await openSub(page, 'gil');
-  await expect(page.locator('#gilRun')).toBeEnabled();
   await gilCut(page);
-  await expect(page.locator('#gilBox svg.gilsv title', {hasText: 'Колосник мангала'})).toHaveCount(0);
-  // выбор запоминается
+  await expect(page.locator('#gilBox svg.gilsv title', {hasText: 'Колосник мангала'})).toHaveCount(2);
+  // выбор края запоминается
   await page.reload();
-  await openSub(page, 'gil');
-  await gilCut(page);
-  await expect(gilRow(page, 'Дно жаровни').locator('.gchk')).not.toBeChecked();
+  await expect(page.locator('#nSide')).toHaveValue('r');
   expect(r.errors).toEqual([]);
 });
 
-test('mangal: «Гильотина» — всё сняли: «Ничего не рубим», архив неактивен, без ошибок', async ({page}) => {
-  test.slow();
-  // старая память браузера («гильотина | лазер», «Заготовки с гильотины») страницу не ломает
-  await page.addInitScript(() => { localStorage.setItem('md-gilsel', '{"grill_bottom":"gil","grill_air_slider":"gil"}'); localStorage.setItem('md-ngil', 'true'); });
-  const r = await openEditor(page, '/editor/mangal/#cut');
-  await openSub(page, 'gil');
-  await gilCut(page);
-  await expect(gilRow(page, 'Задвижка поддува').locator('.gchk')).not.toBeChecked();
-  // по имени: после каждой галочки схема перерисовывается, «первая отмеченная» — уже другая
-  const names = await page.locator('#gilBox .gchk:checked').evaluateAll(b => b.map(x => x.getAttribute('aria-label')));
-  expect(names.length).toBeGreaterThan(3);
-  for (const n of names) await page.locator(`#gilBox .gchk[aria-label="${n}"]`).uncheck();
-  await expect(page.locator('#gilBox .gnone')).toHaveText('Ничего не рубим');
-  await expect(page.locator('#gilBox svg.gilsv')).toHaveCount(0);
-  await expect(page.locator('#gilAll')).toBeDisabled();
-  // галочку вернули — схема снова есть, архив можно скачать
-  await gilRow(page, 'Дно жаровни').locator('.gchk').check();
-  await expect(page.locator('#gilBox svg.gilsv')).toHaveCount(1);
-  await expect(page.locator('#gilAll')).toBeEnabled();
-  expect(r.errors).toEqual([]);
-});
-
-test('mangal: «Гильотина» в печи — колосник 15 мм не рубим, правка модели и кромки убирает схему', async ({page}) => {
+test('mangal: «Гильотина» в печи — колосник 15 мм не рубится, правка модели и кромки убирает схему', async ({page}) => {
   test.slow();
   const r = await openEditor(page, '/editor/mangal/#cut');
   await press(page, '#modeSeg [data-v=stove]');
   await openSub(page, 'gil');
   await gilCut(page);
   await expect(page.locator('#gilBox .nblock h3')).toHaveText(['Лист 5 мм', 'Лист 3 мм', 'Лист 15 мм']);
-  await expect(page.locator('#gilBox .nblock').nth(2).locator('.gnone')).toHaveText('Ничего не рубим');
-  await expect(gilRow(page, 'Колосник печи').locator('.gchk')).not.toBeChecked();
+  const b15 = page.locator('#gilBox .nblock').nth(2);
+  await expect(b15.locator('.gnone')).toHaveText('Ничего не рубим');
+  await expect(b15.locator('.goff')).toHaveText('Не рубится: Колосник печи — толще 8 мм');
+  await expect(gilRow(page, 'Колосник печи')).toContainText('не рубится — толще 8 мм');
   const [d] = await Promise.all([page.waitForEvent('download'), page.locator('#gilAll').click()]);
   expect(d.suggestedFilename()).toBe('pech_600x440x500_5-3-15mm_gilotina.zip');
   // правка модели: схема убрана, «Рассчитать» снова активна; подрезка кромки — тоже
@@ -573,7 +569,7 @@ test('mangal: «Гильотина» в печи — колосник 15 мм н
   expect(r.errors).toEqual([]);
 });
 
-// ---------- мангал: «Лазер → Из заготовок» — детали «рубим», которым после гильотины нужен лазер (#60) ----------
+// ---------- мангал: «Лазер → Из заготовок» — все детали, которым нужен лазер; от «Гильотины» не зависит (#60, пересмотр 14.11) ----------
 
 // «Из заготовок» посчитана: таблица на месте, «Рассчитать» неактивна
 async function zagCut(page) {
@@ -585,7 +581,7 @@ const zagRow = (page, name) => page.locator('#zagBox .ntbl tr', {hasText: name})
 // имена файлов в ZIP без сжатия (zipFiles): имя лежит открытым текстом в заголовке каждого файла
 const zipNames = async d => [...new Set(fs.readFileSync(await d.path()).toString('latin1').match(/[a-z0-9_]+\.(dxf|csv)/g))];
 
-test('mangal: «Из заготовок» — по «Рассчитать», итоги, «Не на схеме», архив только _zag.dxf', async ({page}) => {
+test('mangal: «Из заготовок» — по «Рассчитать», итоги, все детали под лазер, архив только _zag.dxf', async ({page}) => {
   test.slow();
   const r = await openEditor(page, '/editor/mangal/#cut');
   await openSub(page, 'zag');
@@ -595,15 +591,14 @@ test('mangal: «Из заготовок» — по «Рассчитать», и�
   const tot = page.locator('#zagBox .ntot').first();
   for (const t of ['Рез', 'Врезки', 'Заготовки']) await expect(tot).toContainText(t);
   await expect(tot).toContainText(/Врезки \d+/);   // число не фиксируем (план, задача 3): оно меняется вместе с прорезями
-  await expect(tot).toContainText('Заготовки 2');
-  // по умолчанию: боковины (пазы с кромки) — да; дно и торец (готовы после гильотины), задвижки, скобы, колосник (не рубим) — нет
-  for (const n of ['Боковина жаровни задняя', 'Боковина жаровни передняя']) await expect(zagRow(page, n)).toHaveCount(1);
-  for (const n of ['Дно жаровни', 'Торец жаровни', 'Задвижка поддува', 'Скоба задвижки', 'Колосник мангала']) await expect(zagRow(page, n)).toHaveCount(0);
-  await expect(page.locator('#zagBox .goff')).toContainText('Не на схеме: ');
-  await expect(page.locator('#zagBox .goff')).toContainText('Задвижка поддува × 2');
+  await expect(tot).toContainText('Заготовки 8');
+  // боковины, задвижки, скобы — да (нужен лазер); дно и торец (прямоугольники) и колосник (снят) — нет
+  for (const n of ['Боковина жаровни задняя', 'Боковина жаровни передняя', 'Задвижка поддува', 'Скоба задвижки']) await expect(zagRow(page, n)).toHaveCount(1);
+  for (const n of ['Дно жаровни', 'Торец жаровни', 'Колосник мангала']) await expect(zagRow(page, n)).toHaveCount(0);
+  await expect(page.locator('#zagBox')).not.toContainText('Не на схеме');
   const [d] = await Promise.all([page.waitForEvent('download'), page.locator('#zagAll').click()]);
   expect(d.suggestedFilename()).toBe('mangal_800x420x200_5mm_laser-zagotovki.zip');
-  expect((await zipNames(d)).sort()).toEqual(['grill_side_back_5mm_x1_zag.dxf', 'grill_side_front_5mm_x1_zag.dxf']);
+  expect((await zipNames(d)).sort()).toEqual(['grill_air_hook_5mm_x4_zag.dxf', 'grill_air_slider_5mm_x2_zag.dxf', 'grill_side_back_5mm_x1_zag.dxf', 'grill_side_front_5mm_x1_zag.dxf']);
   const [d1] = await Promise.all([page.waitForEvent('download'), zagRow(page, 'Боковина жаровни задняя').locator('button[data-act=zag]').click()]);
   expect(d1.suggestedFilename()).toBe('grill_side_back_5mm_x1_zag.dxf');
   // «С листа» и «Гильотина» не посчитаны — «Из заготовок» их не трогает
@@ -612,39 +607,39 @@ test('mangal: «Из заготовок» — по «Рассчитать», и�
   expect(r.errors).toEqual([]);
 });
 
-test('mangal: «Из заготовок» — галочки «Гильотины» и «Колосник на листе» меняют список, печь без 3 и 15 мм', async ({page}) => {
+test('mangal: «Из заготовок» — «Гильотина» её не трогает, колосник — по «Колосник на листе»', async ({page}) => {
   test.slow();
   const r = await openEditor(page, '/editor/mangal/#cut');
   await openSub(page, 'zag');
   await zagCut(page);
-  // сняли боковину в «Гильотине» — «Из заготовок» устарела, после «Рассчитать» боковины нет, она в «Не на схеме»
+  // подрезка кромки и край — результат «Из заготовок» остаётся
   await openSub(page, 'gil');
   await gilCut(page);
-  await gilRow(page, 'Боковина жаровни задняя').locator('.gchk').uncheck();
+  await page.locator('#nEdge').fill('0');
+  await page.locator('#nSide').selectOption('r');
   await openSub(page, 'zag');
-  await expect(page.locator('#zagRun')).toBeEnabled();
-  await expect(page.locator('#zagBox .ntbl')).toHaveCount(0);
-  await expect(page.locator('#zagAll')).toBeDisabled();
-  await zagCut(page);
-  await expect(zagRow(page, 'Боковина жаровни задняя')).toHaveCount(0);
-  await expect(page.locator('#zagBox .goff')).toContainText('Боковина жаровни задняя');
-  // колосник на листе — его рубят, после гильотины ему нужен лазер (отверстия)
-  await openSub(page, 'list');
+  await expect(page.locator('#zagRun')).toBeDisabled();
+  await expect(zagRow(page, 'Боковина жаровни задняя')).toHaveCount(1);
+  // колосник на листе — у него отверстия, ему нужен лазер
   await page.locator('#nCgr').check();
-  await openSub(page, 'zag');
   await expect(page.locator('#zagRun')).toBeEnabled();
   await zagCut(page);
   await expect(zagRow(page, 'Колосник мангала')).toHaveCount(2);
-  // печь: на 3 мм (дверца, шибер — готовы после гильотины) и 15 мм (колосник не рубим) — «Заготовок под лазер нет»
+  expect(r.errors).toEqual([]);
+});
+
+test('mangal: «Из заготовок» в печи — 3 мм без заготовок, колосник 15 мм под лазер', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
   await press(page, '#modeSeg [data-v=stove]');
-  await expect(page.locator('#zagRun')).toBeEnabled();
+  await openSub(page, 'zag');
   await zagCut(page);
   await expect(page.locator('#zagBox .nblock h3')).toHaveText(['Лист 5 мм', 'Лист 3 мм', 'Лист 15 мм']);
   await expect(page.locator('#zagBox .nblock').nth(1).locator('.gnone')).toHaveText('Заготовок под лазер нет');
-  await expect(page.locator('#zagBox .nblock').nth(2).locator('.goff')).toHaveText('Не на схеме: Колосник печи');
+  await expect(zagRow(page, 'Колосник печи')).toHaveCount(1);
   const [d] = await Promise.all([page.waitForEvent('download'), page.locator('#zagAll').click()]);
   expect(d.suggestedFilename()).toBe('pech_600x440x500_5-3-15mm_laser-zagotovki.zip');
-  expect((await zipNames(d)).every(n => /_5mm_x\d+_zag\.dxf$/.test(n))).toBe(true);
+  expect((await zipNames(d)).map(n => n.replace(/^.*_(\d+mm)_x\d+_zag\.dxf$/, '$1'))).toEqual(['5mm', '5mm', '15mm']);
   expect(r.errors).toEqual([]);
 });
 

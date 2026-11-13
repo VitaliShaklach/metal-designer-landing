@@ -281,17 +281,15 @@ table.ntbl td.dl{padding-left:6px;padding-right:6px;width:1%;white-space:nowrap}
 .dxfbtn.dl{padding:4px 5px}
 /* «Из заготовок» (#60): рядом с резом и врезками по заготовке — те же с листа, мелко */
 td small.was{font-size:11px;color:var(--muted);white-space:nowrap}
-/* «Гильотина» (#59): таблица с галочкой «рубим»; снятая деталь — бледнее, галочка — нет */
+/* «Гильотина» (#59, пересмотр 14.11): таблица деталей; что гильотина не рубит — бледнее, с причиной в колонке «Вид» */
 table.gtbl{min-width:560px}
-table.gtbl td:first-child,table.gtbl th:first-child,table.gtbl td:nth-child(2){width:1%;white-space:nowrap}
+table.gtbl td:first-child,table.gtbl th:first-child{width:1%;white-space:nowrap}
 table.gtbl td{vertical-align:middle}
-table.gtbl td:nth-child(4){width:1%}
-table.gtbl td:nth-child(n+5){width:1%;white-space:nowrap}   /* кол-во, заготовка, вид — по содержимому, остальное — имени детали */
-table.gtbl td:nth-child(3){min-width:180px}
+table.gtbl td:nth-child(3){width:1%}
+table.gtbl td:nth-child(n+4){width:1%;white-space:nowrap}   /* кол-во, заготовка, вид — по содержимому, остальное — имени детали */
+table.gtbl td:nth-child(2){min-width:180px}
 table.gtbl tr.on td{background:var(--accent-soft)}
-table.gtbl tr.off td:not(.gck){opacity:.5}
-table.gtbl td.gck{text-align:center;vertical-align:middle}
-table.gtbl .gchk{width:18px;height:18px;margin:0;accent-color:var(--accent);cursor:pointer}
+table.gtbl tr.off td{opacity:.5}
 .gnone{margin:0;font:600 14px var(--f-mono);color:var(--muted)}
 .goff{margin:0;font:13px/1.4 var(--f-mono);color:var(--muted)}
 /* схема гильотины: серый — готовая деталь, светло-оранжевый — заготовка, дальше на лазер */
