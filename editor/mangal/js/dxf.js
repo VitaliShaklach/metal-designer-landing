@@ -112,12 +112,12 @@ function zipFiles(files){const enc=new TextEncoder(),parts=[],cen=[];let off=0;
 
 // сохранение: в опубликованной странице — через claude.use("downloads") (только .zip), локально — обычное скачивание
 const dlP=(window.claude&&window.claude.use)?window.claude.use('downloads').catch(()=>null):Promise.resolve(null);
-async function saveOut(name,data,mid='dxfMsg'){const dl=await dlP,msg=document.getElementById(mid);   // mid — где написать «Скачано»: у каждого варианта своя строка
-  if(dl){try{await dl.save({filename:name,data});msg.textContent='Сохранено: '+name;}catch(e){msg.textContent=e&&e.code==='declined'?'Сохранение отменено':'Не удалось сохранить: '+(e&&e.message||e);}return;}
-  const a=document.createElement('a');a.href=URL.createObjectURL(data instanceof Blob?data:new Blob([data]));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);msg.textContent='Скачано: '+name;}
-async function saveDxf(name,text,mid){const dl=await dlP;if(dl)saveOut(name.replace(/\.dxf$/,'.zip'),zipFiles([[name,text]]),mid);else saveOut(name,text,mid);}
-const savePart=p=>saveDxf(dxfName(p),dxfText(partMM(p)));
-const MODE_FILE=()=>({both:'mangal_s_pechyu',grill:'mangal',stove:'pech'})[S.mode];   // начало имён ZIP
+// at — кнопка, у которой написать «Скачано»: надпись — <span class="dxfmsg"> сразу после неё (один на кнопку); без at — без надписи
+function dxfNote(at,text){if(!at)return;let m=at.nextElementSibling;if(!m||!m.classList.contains('dxfmsg')){m=document.createElement('span');m.className='dxfmsg';at.after(m);}m.textContent=text;}
+async function saveOut(name,data,at){const dl=await dlP;
+  if(dl){try{await dl.save({filename:name,data});dxfNote(at,'Сохранено: '+name);}catch(e){dxfNote(at,e&&e.code==='declined'?'Сохранение отменено':'Не удалось сохранить: '+(e&&e.message||e));}return;}
+  const a=document.createElement('a');a.href=URL.createObjectURL(data instanceof Blob?data:new Blob([data]));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);dxfNote(at,'Скачано: '+name);}
+async function saveDxf(name,text,at){const dl=await dlP;if(dl)saveOut(name.replace(/\.dxf$/,'.zip'),zipFiles([[name,text]]),at);else saveOut(name,text,at);}
 const PDF_ELEM=pt=>{for(const e of PARTS)if(e.d.some(d=>d[0]===pt))return e.id;return null;};
 
 // эскиз детали — из той же геометрии, что уходит в DXF. kind (режим гильотины): 'gil' — просто прямоугольник,

@@ -75,11 +75,11 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
       vm.runInContext(`{const N=nestJob();
         if(N.groups.reduce((a,G)=>a+G.items.length,0)!==N.groups.reduce((a,G)=>a+G.types.reduce((b,t)=>b+(t.offSheet?0:t.q),0),0))throw new Error('на листе не все детали (кроме снятого колосника)');
         const res=N.groups.map(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);return v.value;});nestHtml(N,res);
-        const F=listFiles(N,res).map(x=>x[0]),T=listTotals(N,res);
-        if(new Set(F).size!==F.length)throw new Error('архив: имена повторяются '+F.join());
-        if(F.filter(n=>/^list_/.test(n)).length!==res.reduce((a,R)=>a+R.sheets.length,0))throw new Error('архив: не все листы');
+        const F=res.flatMap((R,gi)=>R.sheets.map((sh,si)=>listOne(N,res,{act:'sheet',g:String(gi),s:String(si)})[0])),T=listTotals(N,res);
+        if(new Set(F).size!==F.length)throw new Error('листы: имена повторяются '+F.join());
+        if(F.filter(n=>/^list_/.test(n)).length!==res.reduce((a,R)=>a+R.sheets.length,0))throw new Error('листы: не все листы');
         if(T.some(t=>!(t.sheets>0&&t.fill>0&&t.fill<1&&t.cut>0)))throw new Error('итоги: '+JSON.stringify(T));
-        if(!/^(mangal|pech|mangal_s_pechyu)_[0-9x_]+_[0-9-]+mm_laser-list[.]zip$/.test(zipName('list',N)))throw new Error('имя архива '+zipName('list',N));}`,ctx);}
+        if(typeof zipName!=='undefined')throw new Error('архивов быть не должно');}`,ctx);}
   catch(e){errs.push(e.message+' '+(e.stack.split('\n')[1]||''));}
   console.log(mode,JSON.stringify(extra).slice(0,30),errs.length?'FAIL '+errs.join(' | '):'ok');fails+=errs.length;}
 

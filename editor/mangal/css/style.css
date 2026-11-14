@@ -352,3 +352,4 @@ svg.gilsv .gp.on text{font-weight:700}
 /* итоги «С листа» для оценки: рез, врезки, лист, заполнение */
 .ntot{margin:0;display:flex;flex-wrap:wrap;gap:4px 18px;font:13px var(--f-mono);color:var(--muted)}
 .ntot b{color:var(--ink);font-weight:600}
+td.dl .dxfmsg{display:block;font-size:11px;white-space:normal;overflow-wrap:anywhere;width:130px;margin-left:auto;text-align:right}

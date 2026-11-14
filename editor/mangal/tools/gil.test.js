@@ -130,21 +130,19 @@ test('итоги «Гильотины»: листы, заготовки, рез�
   assert.ok(r.ok,'есть место без сквозного реза');
 });
 
-test('архив «Гильотины»: DXF схемы и CSV заготовок; печь — без 15 мм', ()=>{
+test('«Гильотина»: DXF листа gilotina_5mm_1250x2500.dxf, кнопка «Скачать DXF листа», архивов и CSV нет; печь — 2 кнопки', ()=>{
   const c=loadMangal({mode:'grill'});page(c);
-  assert.equal(run(c,`zipName('gil')`),'mangal_800x420x200_5mm_gilotina.zip');
-  const f=run(c,`(N=>variantFiles(N,${RES}(N),'gil'))(nestJob())`);
-  assert.deepEqual(f.map(x=>x[0]),['gilotina_5mm_1250x2500.dxf','gilotina_5mm.csv']);
-  const csv=f[1][1].replace(/^﻿/,'').trim().split('\r\n');
-  assert.equal(csv[0],'деталь;заготовка, мм;шт;вид');
-  const on=run(c,`(N=>N.groups[0].types.filter(t=>gilOn(t,N)).map(t=>t.no+' '+t.p.name))(nestJob())`);
-  assert.deepEqual(csv.slice(1).map(l=>l.split(';')[0]),on);
-  assert.ok(!/Задвижка|Скоба|Колосник/.test(f[1][1]));
-  assert.match(f[0][1],/BLANK/);
+  const f=run(c,`(N=>gilOne(N,${RES}(N),{act:'gil',g:'0',s:'0'}))(nestJob())`);
+  assert.equal(f[0],'gilotina_5mm_1250x2500.dxf');
+  assert.match(f[1],/BLANK/);assert.match(f[1],/SHEET/);assert.match(f[1],/TEXT/);
+  for(const n of ['zipName','variantFiles','gilFiles','gilCsv','gilHas'])assert.equal(run(c,`typeof ${n}`),'undefined',n);
   const s=loadMangal({mode:'stove'});page(s);
-  const fs=run(s,`(N=>variantFiles(N,${RES}(N),'gil').map(x=>x[0]))(nestJob())`);
-  assert.deepEqual(fs,['gilotina_5mm_1250x2500.dxf','gilotina_5mm.csv','gilotina_3mm_1250x2500.dxf','gilotina_3mm.csv']);
-  assert.equal(run(s,`zipName('gil')`),'pech_600x440x500_5-3-15mm_gilotina.zip');
+  const h=run(s,`(N=>gilHtml(N,${RES}(N)))(nestJob())`);
+  const btns=[...h.matchAll(/data-act="gil" data-g="(\d+)" data-s="(\d+)">([^<]*)</g)];
+  assert.equal(btns.length,2);   // 5 и 3 мм; 15 мм — ничего не рубим
+  btns.forEach(m=>assert.equal(m[3],'Скачать DXF листа'));
+  assert.deepEqual(run(s,`(N=>{const res=${RES}(N);return N.groups.slice(0,2).map((G,gi)=>gilOne(N,res,{act:'gil',g:String(gi),s:'0'})[0]);})(nestJob())`),['gilotina_5mm_1250x2500.dxf','gilotina_3mm_1250x2500.dxf']);
+  assert.ok(!/Скачать архив|ZIP|Скачать DXF схемы/.test(h));
 });
 
 test('ключ «Гильотины» меняется от подрезки, листа, колосника; старая память галочек на него не влияет', ()=>{

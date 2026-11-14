@@ -5,29 +5,37 @@ const {loadMangal,run}=require('./load.js');
 // раскладка всех толщин по заданию N (как по кнопке «Рассчитать»)
 const RES='(N=>N.groups.map(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);return v.value;}))';
 
-test('имя архива: размеры, толщина, вариант', ()=>{
-  assert.equal(run(loadMangal({mode:'grill'}),`zipName('list')`),'mangal_800x420x200_5mm_laser-list.zip');
-  assert.equal(run(loadMangal({mode:'stove'}),`zipName('list')`),'pech_600x440x500_5-3-15mm_laser-list.zip');
-  assert.equal(run(loadMangal({mode:'both'}),`zipName('list')`),'mangal_s_pechyu_800x420x200_600x440x500_5-3-15mm_laser-list.zip');
+// «Скачать DXF листа» вместо архивов (пересмотр 14.11 (2), блок А): один лист — одна кнопка, один файл
+test('архивов нет: zipName, variantFiles, listFiles, gilCsv, gilFiles, zagFiles, savePart не существуют', ()=>{
+  const c=loadMangal({mode:'grill'});
+  for(const n of ['zipName','variantFiles','listFiles','gilFiles','zagFiles','gilCsv','gilHas','zagHas','savePart','MODE_FILE','ZIP_VAR','VAR_FILES'])assert.equal(run(c,`typeof ${n}`),'undefined',n);
+  assert.equal(run(c,'typeof zipFiles'),'function');   // saveDxf на опубликованной странице кладёт DXF в .zip
 });
 
-test('архив «С листа»: DXF каждого листа и каждой детали, колосник без галочки — только деталью', ()=>{
+test('DXF листа «С листа»: имя list_5mm_1250x2500.dxf, в тексте лист и рез; колосник без галочки на листе нет', ()=>{
   const c=loadMangal({mode:'grill'});
-  const f=run(c,`(N=>listFiles(N,${RES}(N)).map(x=>x[0]))(nestJob({cgr:false}))`);
-  assert.deepEqual(f.filter(n=>n.startsWith('list_')),['list_5mm_1250x2500.dxf']);
+  const f=run(c,`(N=>listOne(N,${RES}(N),{act:'sheet',g:'0',s:'0'}))(nestJob({cgr:false}))`);
+  assert.equal(f[0],'list_5mm_1250x2500.dxf');
+  assert.match(f[1],/\r\nSHEET\r\n/);assert.match(f[1],/\r\nCUT\r\n/);
+  assert.equal(run(c,`(N=>listOne(N,${RES}(N),{act:'sheet',g:'0',s:'5'}))(nestJob())`),null);
+  // деталь — прежний DXF детали (в таблице кнопки остаются), колосник без галочки — только деталью
+  const p=run(c,`(N=>listOne(N,${RES}(N),{act:'part',g:'0',t:'0'}))(nestJob({cgr:false}))`);
+  assert.match(p[0],/\.dxf$/);
   const parts=run(c,'laserParts().map(dxfName)');
-  assert.deepEqual(f.filter(n=>!n.startsWith('list_')).sort(),[...parts].sort());
-  assert.ok(f.includes('grill_grate_1_5mm_x1.dxf')&&f.includes('grill_grate_2_5mm_x1.dxf'),'нет DXF колосника: '+f.join(', '));
-  assert.ok(f.every(n=>/\.dxf$/.test(n)),'в архиве лазерщика только DXF');
-  // колосник не на листе: в DXF листа его нет — деталей на листе на 2 меньше, чем с галочкой
+  assert.ok(run(c,`(N=>N.groups[0].types.map(t=>partFile(t)[0]))(nestJob({cgr:false}))`).every(n=>parts.includes(n)));
   const on=run(c,`(N=>${RES}(N)[0].sheets[0].items.length)(nestJob({cgr:true}))`),off=run(c,`(N=>${RES}(N)[0].sheets[0].items.length)(nestJob({cgr:false}))`);
   assert.equal(on-off,2);
 });
 
-test('печь и «оба»: в архиве листы всех толщин', ()=>{
+test('печь и «оба»: кнопки листа 5, 3 и 15 мм', ()=>{
   for(const mode of ['stove','both']){
-    const f=run(loadMangal({mode}),`(N=>listFiles(N,${RES}(N)).map(x=>x[0]))(nestJob())`);
-    for(const mm of [5,3,15])assert.ok(f.includes(`list_${mm}mm_1250x2500.dxf`),mode+': нет листа '+mm+' мм — '+f.filter(n=>n.startsWith('list_')).join(', '));
+    const c=loadMangal({mode});
+    const h=run(c,`(N=>nestHtml(N,${RES}(N)))(nestJob())`);
+    const names=[...h.matchAll(/data-act="sheet" data-g="(\d+)" data-s="(\d+)">([^<]*)</g)].map(m=>m[3]);
+    assert.deepEqual(names,['Скачать DXF листа','Скачать DXF листа','Скачать DXF листа'],mode);
+    const files=run(c,`(N=>{const res=${RES}(N);return N.groups.map((G,gi)=>listOne(N,res,{act:'sheet',g:String(gi),s:'0'})[0]);})(nestJob())`);
+    assert.deepEqual(files,['list_5mm_1250x2500.dxf','list_3mm_1250x2500.dxf','list_15mm_1250x2500.dxf'],mode);
+    assert.ok(!/Скачать архив|ZIP/.test(h));
   }
 });
 
@@ -106,6 +114,8 @@ test('«С листа» на 1000 × 2000: несколько листов, уг
       for(let i=0;i<s.items.length;i++)for(let j=i+1;j<s.items.length;j++)g=Math.min(g,polyGap(s.items[i].pts,s.items[j].pts));
       return {bb:s.items.map(it=>it.bb),gap:g};}))))(nestJob({cgr:true,corner:'${corner}',W:${W},H:${H},sk:'${W}x${H}',gap:${gap}}))`);
     assert.ok(r.some(sheets=>sheets.length>1),'ждали несколько листов в толщине');
+    if(corner==='lb'){const h=run(c,`(N=>nestHtml(N,${RES}(N)))(nestJob({cgr:true,W:${W},H:${H},sk:'${W}x${H}',gap:${gap}}))`);
+      assert.ok(h.includes('>Скачать DXF листа 1<')&&h.includes('>Скачать DXF листа 2<'),'нет кнопок «Скачать DXF листа 1» и «… 2»');}
     r.forEach(sheets=>sheets.forEach((s,si)=>{const L=`${corner} лист ${si+1}`;
       if(corner[0]==='r')assert.ok(Math.abs(Math.max(...s.bb.map(b=>b[2]))-(W-E))<1e-6,L);else assert.ok(Math.abs(Math.min(...s.bb.map(b=>b[0]))-E)<1e-6,L);
       if(corner[1]==='t')assert.ok(Math.abs(Math.max(...s.bb.map(b=>b[3]))-(H-E))<1e-6,L);else assert.ok(Math.abs(Math.min(...s.bb.map(b=>b[1]))-E)<1e-6,L);

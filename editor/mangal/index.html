@@ -12,9 +12,9 @@
 <meta property="og:url" content="https://vitalishaklach.github.io/metal-designer/mangal/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-14e">
-<link rel="stylesheet" href="../editor.css?v=2026-11-14e">
-<link rel="stylesheet" href="css/style.css?v=2026-11-14e">
+<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-14h">
+<link rel="stylesheet" href="../editor.css?v=2026-11-14h">
+<link rel="stylesheet" href="css/style.css?v=2026-11-14h">
 </head>
 <body>
 <div class="edbar">
@@ -183,20 +183,20 @@
         </div>
         <div class="subpane" id="sub-list" role="tabpanel" aria-labelledby="st-list">
           <p class="tabnote vhint">Лазерщику на оценку: DXF листа и каждой детали. SHEET — рамка листа, не резать</p>
-          <div class="dimbar nestbar"><label>Между деталями, мм <input id="nGap" type="number" value="5" min="1" step="0.5" inputmode="decimal"></label><button id="nestRun" class="calcbtn">Рассчитать</button><button id="dxfAll" disabled>Скачать архив (ZIP)</button><span class="dxfmsg" id="dxfMsg"></span></div>
+          <div class="dimbar nestbar"><label>Между деталями, мм <input id="nGap" type="number" value="5" min="1" step="0.5" inputmode="decimal"></label><button id="nestRun" class="calcbtn">Рассчитать</button></div>
           <div class="nestwait" id="nestWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Считаю раскрой, это может занять несколько минут</span><span class="nestCnt"></span></div>
           <div class="nestbox" id="nestBox"></div>
         </div>
         <div class="subpane" id="sub-zag" role="tabpanel" aria-labelledby="st-zag" hidden>
           <p class="tabnote vhint">Врезки с запасом: каждый паз с кромки считается врезкой</p>
-          <div class="dimbar nestbar"><button id="zagRun" class="calcbtn">Рассчитать</button><button id="zagAll" disabled>Скачать архив (ZIP)</button><span class="dxfmsg" id="zagMsg"></span></div>
+          <div class="dimbar nestbar"><button id="zagRun" class="calcbtn">Рассчитать</button></div>
           <div class="nestwait" id="zagWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Считаю заготовки</span></div>
           <div class="nestbox" id="zagBox"></div>
         </div>
       </div>
       <div class="subpane" id="sub-gil" role="tabpanel" aria-labelledby="st-gil" hidden>
         <p class="tabnote vhint">На оценку металла и рубки: схема гильотины и размеры заготовок</p>
-        <div class="dimbar nestbar"><label title="Отступ от края листа на схеме: заводскую кромку срезают">Подрезка кромки, мм <input id="nEdge" type="number" value="10" min="0" max="30" step="1" inputmode="numeric"></label><button id="gilRun" class="calcbtn">Рассчитать</button><button id="gilAll" disabled>Скачать архив (ZIP)</button><span class="dxfmsg" id="gilMsg"></span></div>
+        <div class="dimbar nestbar"><label title="Отступ от края листа на схеме: заводскую кромку срезают">Подрезка кромки, мм <input id="nEdge" type="number" value="10" min="0" max="30" step="1" inputmode="numeric"></label><button id="gilRun" class="calcbtn">Рассчитать</button></div>
         <div class="nestwait" id="gilWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Считаю схему гильотины</span></div>
         <div class="nestbox" id="gilBox"></div>
       </div>
@@ -249,14 +249,14 @@
 <script src="../../vendor/three/three.min.js"></script>
 <script src="../../vendor/three/OrbitControls.js"></script>
 <script src="../../vendor/three/CSS2DRenderer.js"></script>
-<script src="js/params.js?v=2026-11-14e"></script>
-<script src="js/parts.js?v=2026-11-14e"></script>
-<script src="js/model.js?v=2026-11-14e"></script>
-<script src="js/dims.js?v=2026-11-14e"></script>
-<script src="js/cut.js?v=2026-11-14e"></script>
-<script src="js/dxf.js?v=2026-11-14e"></script>
-<script src="../common/calc.js?v=2026-11-14e"></script>
-<script src="js/nest.js?v=2026-11-14e"></script>
-<script src="js/ui.js?v=2026-11-14e"></script>
+<script src="js/params.js?v=2026-11-14h"></script>
+<script src="js/parts.js?v=2026-11-14h"></script>
+<script src="js/model.js?v=2026-11-14h"></script>
+<script src="js/dims.js?v=2026-11-14h"></script>
+<script src="js/cut.js?v=2026-11-14h"></script>
+<script src="js/dxf.js?v=2026-11-14h"></script>
+<script src="../common/calc.js?v=2026-11-14h"></script>
+<script src="js/nest.js?v=2026-11-14h"></script>
+<script src="js/ui.js?v=2026-11-14h"></script>
 </body>
 </html>

@@ -40,17 +40,21 @@ test('итоги: рез и врезки по заготовкам (с запа�
   assert.ok(r.side.bc<r.side.mc);
 });
 
-test('архив «Из заготовок»: имя …_laser-zagotovki.zip, внутри только _zag.dxf из списка', ()=>{
+test('«Из заготовок»: DXF заготовки — grill_side_back_5mm_x1_zag.dxf; архивов нет, листа нет', ()=>{
   const c=loadMangal({mode:'grill'});page(c);
-  assert.equal(run(c,`zipName('zag')`),'mangal_800x420x200_5mm_laser-zagotovki.zip');
-  const f=run(c,`(N=>variantFiles(N,${RES}(N),'zag'))(nestJob())`),want=run(c,`(N=>N.groups.flatMap(G=>zagTypes(N,G).map(t=>dxfNameZ(t.p))))(nestJob())`);
-  assert.deepEqual(f.map(x=>x[0]),want);
-  assert.equal(f.length,4);
-  f.forEach(([n,t])=>{assert.match(n,/_zag\.dxf$/);assert.match(t,/\r\nBLANK\r\n/,n+': нет заготовки');assert.match(t,/\r\nCUT\r\n/,n+': нет реза');});
-  // печь: 5 мм (боковина, дно) и 15 мм (колосник); 3 мм (дверца, шибер — прямоугольники) — без файлов
+  for(const n of ['zipName','variantFiles','zagFiles','zagHas'])assert.equal(run(c,`typeof ${n}`),'undefined',n);
+  const h=run(c,`(N=>zagHtml(N,${RES}(N)))(nestJob())`);
+  assert.equal((h.match(/data-act="zag"/g)||[]).length,4);
+  assert.equal((h.match(/data-act="sheet"/g)||[]).length,0);
+  assert.ok(!/Скачать архив|ZIP/.test(h));
+  const want=run(c,`(N=>N.groups.flatMap(G=>zagTypes(N,G).map(t=>dxfNameZ(t.p))))(nestJob())`);
+  const got=run(c,`(N=>{const res=${RES}(N);return N.groups.flatMap((G,gi)=>res[gi].map((t,ti)=>zagOne(N,res,{act:'zag',g:String(gi),t:String(ti)})));})(nestJob())`);
+  assert.deepEqual(got.map(x=>x[0]),want);
+  assert.ok(want.includes('grill_side_back_5mm_x1_zag.dxf'));
+  got.forEach(([n,t])=>{assert.match(n,/_zag\.dxf$/);assert.match(t,/\r\nBLANK\r\n/,n+': нет заготовки');assert.match(t,/\r\nCUT\r\n/,n+': нет реза');});
+  // печь: 5 мм (боковина, дно) и 15 мм (колосник); 3 мм (дверца, шибер — прямоугольники) — без заготовок
   const s=loadMangal({mode:'stove'});page(s);
-  assert.equal(run(s,`zipName('zag')`),'pech_600x440x500_5-3-15mm_laser-zagotovki.zip');
-  const fs=run(s,`(N=>variantFiles(N,${RES}(N),'zag').map(x=>x[0]))(nestJob())`);
+  const fs=run(s,`(N=>N.groups.flatMap(G=>zagTypes(N,G).map(t=>dxfNameZ(t.p))))(nestJob())`);
   assert.deepEqual(fs.map(n=>n.replace(/^.*_(\d+mm)_x\d+_zag\.dxf$/,'$1')),['5mm','5mm','15mm']);
 });
 
@@ -61,7 +65,6 @@ test('вкладка: итоги и таблица, без «Не на схем�
   assert.doesNotMatch(h,/Не на схеме/);
   assert.equal((h.match(/Заготовок под лазер нет/g)||[]).length,1);   // 3 мм
   assert.match(h,/_zag\.dxf/);
-  assert.equal(run(c,'zagHas(nestJob())'),true);
 });
 
 test('ключ «Из заготовок» меняется от колосника; от листа, зазора, подрезки — нет', ()=>{

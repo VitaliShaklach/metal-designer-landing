@@ -129,9 +129,6 @@ const nestFile=(N,G,R,si)=>`list_${G.mm}mm_${N.sk}${R.sheets.length>1?'_'+(si+1)
 // гильотина (вкладка «Гильотина»): что она рубит в этой толщине — gilOn: gil — готовая, zag — заготовка под лазер
 const GIL_KIND={gil:'готовая деталь',zag:'заготовка под лазер'};
 const gilRows=(N,G)=>G.types.filter(ty=>gilOn(ty,N)).map(ty=>({no:ty.no,name:ty.p.name,w:ty.m.w,h:ty.m.h,q:ty.q,kind:ty.kind}));
-// CSV для гильотины: UTF-8 с BOM (Excel), разделитель «;»
-function gilCsv(N,G){const c=v=>/[;"\r\n]/.test(String(v))?'"'+String(v).replace(/"/g,'""')+'"':String(v);
-  return '\uFEFF'+[['деталь','заготовка, мм','шт','вид'],...gilRows(N,G).map(o=>[o.no+' '+o.name,`${fmt(o.w,0)} × ${fmt(o.h,0)}`,o.q,GIL_KIND[o.kind]])].map(l=>l.map(c).join(';')).join('\r\n')+'\r\n';}
 
 /* ---------- схема гильотины: прямоугольники заготовок на листе, только сквозные резы ----------
    Гильотина режет от края до края, ширины реза нет — зазор между заготовками 0, от края листа — подрезка кромки (поле, edge).
@@ -225,16 +222,16 @@ function offHtml(N,G,gi,v){const rows=offRows(N,G,v);if(!rows.length)return '';
     rows.map(o=>{const ty=o.ty,p=ty.p;return `<tr${nestSelOn(ty)?' class="on"':''}><td class="n r">${ty.no}</td><td>${p.name}${p.note?`<small>${p.note}</small>`:''}<small class="fn">${dxfName(p)}</small></td><td>${dxfSketch(ty.m,v==='gil'?ty.kind:'list',v==='gil'?ty.b:undefined)}</td><td class="n r">${ty.q}</td><td>${o.why}</td>`+
       `<td class="r dl"><button class="dxfbtn dl" data-act="part" data-g="${gi}" data-t="${o.ti}" title="Скачать DXF детали" aria-label="Скачать DXF детали">⬇︎ DXF</button></td></tr>`;}).join('')+'</tbody>';
   return `<section class="noff"><h4>${v==='gil'?'Не рубится':'Не на листе'}</h4><div class="tbl"><table class="ntbl otbl">${t}</table></div></section>`;}
+// кнопка «Скачать DXF листа» под листом (act: sheet — «С листа», gil — «Гильотина»); n — листов в толщине, номер — если больше одного
+const sheetBtn=(act,gi,si,n)=>`<div class="nbtns"><button class="dxfbtn" data-act="${act}" data-g="${gi}" data-s="${si}">Скачать DXF листа${n>1?' '+(si+1):''}</button></div>`;
 // вкладка «С листа»: на каждую толщину (5 → 3 → 15 мм) — заголовок, итоги для оценки, кнопки скачивания, лист, под ним детали этого листа;
 // № в таблице — тот же, что на листе; выбранное на модели подсвечено
 function nestHtml(N,res){const tot=listTotals(N,res),wide=nestWide('nestBox');
   return N.groups.length?N.groups.map((G,gi)=>{const R=res[gi]||{sheets:[],too:[]},main=G.mm===5,ns=R.sheets.length,T=tot[gi];
-    let h=`<section class="nblock${main?' main':''}"><h3>Лист ${G.mm} мм</h3>`,bt='';
+    let h=`<section class="nblock${main?' main':''}"><h3>Лист ${G.mm} мм</h3>`;
     h+=`<p class="ntot"><span>Рез <b>${fmt(T.cut/1000,2)} м</b></span><span>Врезки <b>${T.pierce}</b></span><span>Лист <b>${ns} ${sheetsWord(ns)} ${N.H} × ${N.W}</b></span><span>Заполнение <b>${Math.round(T.fill*100)} %</b></span></p>`;
     h+=offNote(offRows(N,G,'list'),'list');
-    R.sheets.forEach((sh,si)=>{bt+=`<button class="dxfbtn" data-act="sheet" data-g="${gi}" data-s="${si}">Скачать DXF листа${ns>1?' '+(si+1):''}</button>`;});
-    if(bt)h+=`<div class="nbtns">${bt}</div>`;
-    R.sheets.forEach((sh,si)=>{h+=`<figure class="nsheet"><figcaption>${ns>1?`Лист ${si+1} из ${ns} · `:''}${N.H} × ${N.W} · деталей ${sh.items.length} · занято ${Math.round(sh.used*100)} % · зазор ${fmt(N.gap,1)} мм, от края ${NEST_EDGE} мм</figcaption>${nestSvg(N,G,sh,nestSelOn,wide)}</figure>`;});
+    R.sheets.forEach((sh,si)=>{h+=`<figure class="nsheet"><figcaption>${ns>1?`Лист ${si+1} из ${ns} · `:''}${N.H} × ${N.W} · деталей ${sh.items.length} · занято ${Math.round(sh.used*100)} % · зазор ${fmt(N.gap,1)} мм, от края ${NEST_EDGE} мм</figcaption>${nestSvg(N,G,sh,nestSelOn,wide)}${sheetBtn('sheet',gi,si,ns)}</figure>`;});
     if(R.too.length){const c={};R.too.forEach(o=>c[o.no]=(c[o.no]||0)+1);
       h+=`<p class="nwarn">Не поместилось: ${Object.keys(c).map(no=>{const ty=G.types.find(t=>t.no===+no);return `${no} ${ty.p.name}${c[no]>1?` × ${c[no]}`:''}`;}).join(', ')}</p>`;}
     let tq=0,t=`<thead><tr><th class="r">№</th><th>Деталь</th><th>Эскиз</th><th class="r">Кол-во</th><th>Габарит, мм</th><th class="r">Рез, м</th><th class="r">Врезок</th><th class="r dl">Скачать</th></tr></thead><tbody>`;
@@ -244,13 +241,7 @@ function nestHtml(N,res){const tot=listTotals(N,res),wide=nestWide('nestBox');
     t+=`<tr class="tot"><td colspan="5">Итого по листу ${G.mm} мм: ${tq} шт, рез и врезки — с учётом количества</td><td class="n r">${fmt(T.cut/1000,2)}</td><td class="n r">${T.pierce}</td><td class="dl"></td></tr></tbody>`;
     h+=`<div class="tbl"><table class="ntbl">${t}</table></div>`+offHtml(N,G,gi,'list');
     return h+'</section>';}).join(''):'<p class="tabnote">Листовых деталей нет</p>';}
-// архивы вариантов «Лазер · DXF»: размеры (жаровня, печь — что есть в режиме), толщины через «-», вариант — mangal_800x420x200_5mm_laser-list.zip
-const ZIP_VAR={list:'laser-list',zag:'laser-zagotovki',gil:'gilotina'};
-function zipName(v,N){const r=x=>Math.round(x*10),sz=[S.mode!=='stove'&&`${r(L1)}x${r(W)}x${r(H1)}`,S.mode!=='grill'&&`${r(L2)}x${r(WK)}x${r(H2)}`].filter(Boolean);
-  return `${MODE_FILE()}_${sz.join('_')}_${(N||nestJob()).groups.map(G=>G.mm).join('-')}mm_${ZIP_VAR[v]}.zip`;}
-// архив «С листа» — только файлы лазерщика: DXF каждого листа и каждой детали (снятый колосник — только деталью, как в таблице)
 const partFile=ty=>[dxfName(ty.p),dxfText(ty.m)];   // DXF одной детали: [имя, текст]
-const listFiles=(N,res)=>N.groups.flatMap((G,gi)=>{const R=res[gi];return [...(R?R.sheets.map((sh,si)=>[nestFile(N,G,R,si),nestDxf(N,G,sh)]):[]),...G.types.map(partFile)];});
 // кнопка DXF внутри «С листа» (data-act sheet — лист, part — деталь): [имя, текст] или null
 function listOne(N,res,d){const G=N.groups[+d.g],R=res[+d.g];if(!G)return null;
   if(d.act==='sheet'&&R&&R.sheets[+d.s])return [nestFile(N,G,R,+d.s),nestDxf(N,G,R.sheets[+d.s])];
@@ -264,10 +255,6 @@ const gilKey=N=>JSON.stringify([N.W,N.H,N.edge,N.corner,N.groups.map(G=>[G.mm,G.
 // итоги для оценки металла и рубки по толщинам: листов, заготовок, резов — по схеме
 const gilTotals=(N,res)=>N.groups.map((G,gi)=>{const P=res[gi]||{sheets:[]};
   return {mm:G.mm,sheets:P.sheets.length,blanks:P.sheets.reduce((a,s)=>a+s.items.length,0),cuts:P.sheets.reduce((a,s)=>a+s.cuts,0)};});
-// архив гильотинщика: DXF схемы каждого листа и CSV заготовок — по толщинам, где есть что рубить; всё снято — пусто
-const gilFiles=(N,res)=>N.groups.flatMap((G,gi)=>{const P=res[gi];if(!gilRows(N,G).length)return [];
-  return [...(P?P.sheets.map((sh,si)=>[gilFile(N,G,P,si),gilDxf(N,G,sh)]):[]),[`gilotina_${G.mm}mm.csv`,gilCsv(N,G)]];});
-const gilHas=N=>N.groups.some(G=>gilRows(N,G).length);   // есть что рубить — архив можно скачать
 // кнопка DXF схемы листа: [имя, текст] или null
 function gilOne(N,res,d){const G=N.groups[+d.g],P=res[+d.g],sh=d.act==='gil'&&P&&P.sheets[+d.s];
   if(d.act==='part')return G&&G.types[+d.t]?partFile(G.types[+d.t]):null;
@@ -280,8 +267,7 @@ function gilHtml(N,res){const tot=gilTotals(N,res),wide=nestWide('gilBox');
     if(!rub){h+='<p class="gnone">Ничего не рубим</p>';}
     else{h+=`<p class="ntot"><span>Лист <b>${np} ${sheetsWord(np)} ${N.H} × ${N.W}</b></span><span>Заготовки <b>${T.blanks}</b></span><span>Резы <b>${T.cuts}</b></span></p>`;
       h+=offNote(off,'gil');
-      if(np)h+=`<div class="nbtns">${P.sheets.map((sh,si)=>`<button class="dxfbtn" data-act="gil" data-g="${gi}" data-s="${si}">Скачать DXF схемы${np>1?' '+(si+1):''}</button>`).join('')}</div>`;
-      P.sheets.forEach((sh,si)=>{h+=`<figure class="nsheet"><figcaption>${np>1?`Лист ${si+1} из ${np} · `:''}${N.H} × ${N.W} · резов ${sh.cuts}, заготовок ${sh.items.length} · занято ${Math.round(sh.used*100)} %, отход ${Math.round(sh.waste*100)} % · подрезка кромки ${N.edge} мм</figcaption>${gilSvg(N,G,sh,nestSelOn,wide)}</figure>`;});
+      P.sheets.forEach((sh,si)=>{h+=`<figure class="nsheet"><figcaption>${np>1?`Лист ${si+1} из ${np} · `:''}${N.H} × ${N.W} · резов ${sh.cuts}, заготовок ${sh.items.length} · занято ${Math.round(sh.used*100)} %, отход ${Math.round(sh.waste*100)} % · подрезка кромки ${N.edge} мм</figcaption>${gilSvg(N,G,sh,nestSelOn,wide)}${sheetBtn('gil',gi,si,np)}</figure>`;});
       if(np)h+='<p class="glegend"><span><i class="lg gil">▪</i> серый — готовая деталь, лазер не нужен</span><span><i class="lg las">▪</i> оранжевый — заготовка, дальше на лазер</span></p>';
       if(P.too.length){const c={};P.too.forEach(r=>c[r.no]=(c[r.no]||0)+1);
         h+=`<p class="nwarn">Не помещается на лист с подрезкой кромки: ${Object.keys(c).map(no=>{const ty=G.types.find(t=>t.no===+no);return `${no} ${ty.p.name}${c[no]>1?` × ${c[no]}`:''}`;}).join(', ')}</p>`;}}
@@ -298,14 +284,12 @@ function gilHtml(N,res){const tot=gilTotals(N,res),wide=nestWide('gilBox');
    Деталь — по заготовке (blankMM): лазер режет только то, что не лежит на сторонах заготовки; врезки с запасом — каждый паз с кромки
    считается врезкой (решение Виталия). */
 const zagTypes=(N,G)=>G.types.filter(ty=>ty.kind==='zag'&&!ty.offSheet);
-const zagHas=N=>N.groups.some(G=>zagTypes(N,G).length);   // есть что отдать — архив можно скачать
 // ключ: по каждой такой детали — номер, кол-во и её DXF по заготовке. Лист, зазор, подрезка кромки его не меняют
 const zagKey=N=>JSON.stringify(N.groups.map(G=>[G.mm,zagTypes(N,G).map(ty=>[ty.no,ty.p.file,ty.q,dxfText(ty.b)])]));
 // итоги для оценки по толщинам: рез (мм) и врезки по заготовкам, число заготовок — с учётом кол-ва
 const zagTotals=(N,res)=>N.groups.map((G,gi)=>{const T=res[gi]||[];
   return {mm:G.mm,cut:T.reduce((a,ty)=>a+ty.b.cut*ty.q,0),pierce:T.reduce((a,ty)=>a+ty.b.pierce*ty.q,0),blanks:T.reduce((a,ty)=>a+ty.q,0)};});
 const zagFile=ty=>[dxfNameZ(ty.p),dxfText(ty.b)];   // DXF по заготовке: CUT — что режет лазер, BLANK — заготовка
-const zagFiles=(N,res)=>N.groups.flatMap((G,gi)=>(res[gi]||[]).map(zagFile));   // архив — только _zag.dxf
 function zagOne(N,res,d){const ty=d.act==='zag'&&res[+d.g]&&res[+d.g][+d.t];return ty?zagFile(ty):null;}
 // вкладка «Из заготовок»: на каждую толщину — итоги (рез, врезки, заготовки), таблица с DXF по заготовке;
 // рядом с цифрами по заготовке — те же «с листа», для сравнения. Нечего резать в толщине — «Заготовок под лазер нет»
@@ -321,10 +305,6 @@ function zagHtml(N,res){const tot=zagTotals(N,res),was=v=>`<small class="was">с
         `<td class="r dl"><button class="dxfbtn dl" data-act="zag" data-g="${gi}" data-t="${ti}" title="Скачать DXF по заготовке" aria-label="Скачать DXF по заготовке">⬇︎ DXF</button></td></tr>`;});
     t+=`<tr class="tot"><td colspan="5">Итого из заготовок ${G.mm} мм: ${Z.blanks} шт, рез и врезки — с учётом количества</td><td class="n r">${fmt(Z.cut/1000,2)}</td><td class="n r">${Z.pierce}</td><td class="dl"></td></tr></tbody>`;
     return h+`<div class="tbl"><table class="ntbl">${t}</table></div></section>`;}).join(''):'<p class="tabnote">Листовых деталей нет</p>';}
-
-// файлы варианта «Лазер · DXF»: list — «С листа», zag — «Из заготовок», gil — «Гильотина»
-const VAR_FILES={list:listFiles,zag:zagFiles,gil:gilFiles};
-const variantFiles=(N,res,v)=>VAR_FILES[v]?VAR_FILES[v](N,res):[];
 
 /* ---------- когда считать: только по кнопке «Рассчитать» (editor/common/calc.js) ----------
    Результат держится, пока не поменялось задание: любая правка зовёт nestUI, через 0,3 с ключ каждого варианта сравнивается
@@ -345,23 +325,21 @@ function nestRun(live,accept,fail){const N=nestJob(),all=N.groups.reduce((a,G)=>
 // быстрый расчёт («Гильотина», «Из заготовок») — одним шагом, после отрисовки «Считаю…»
 const quickCalc=f=>(live,accept,fail)=>setTimeout(()=>{if(!live())return;let N,res;try{N=nestJob();res=f(N);}catch(e){fail();throw e;}accept(N,res);},0);
 /* вариант «Лазер · DXF» — одна схема на три (#60): своя кнопка «Рассчитать» и свой ключ задания (key), расчёт (calc), отрисовка (html),
-   последний результат (res) и что нарисовано (cur), архив своих файлов (variantFiles) — только когда есть что отдать (has),
-   кнопки DXF внутри результата (one: data-атрибуты кнопки → [имя, текст] или null), своя строка «Скачано» (ids.msg). Результат устарел — не качаем */
-function nestVariant(v,{ids,key,calc,html,has=()=>true,one}){const $=id=>document.getElementById(id),V={v,key,res:null,cur:null};let btn=null;
+   последний результат (res) и что нарисовано (cur), кнопки DXF внутри результата (one: data-атрибуты кнопки → [имя, текст] или null);
+   архивов нет, «Скачано» пишется сразу после нажатой кнопки (saveDxf). Результат устарел — не качаем */
+function nestVariant(v,{ids,key,calc,html,one}){const $=id=>document.getElementById(id),V={v,key,res:null,cur:null};let btn=null;
   // кнопка «Рассчитать» (makeCalc) — при первом обращении: nest.js грузится и без страницы (тесты раскладки в smoke.js)
-  V.calc=()=>btn||(btn=makeCalc({btn:$(ids.run),box:$(ids.box),save:$(ids.save),wait:$(ids.wait),key:()=>key(nestJob()),
-    run:(done,live)=>calc(live,(N,res)=>{if(done(html(N,res))){V.res=res;V.cur={N,res};V.state();}},()=>btn.stale())}));   // результат принят — его и качаем
-  V.state=()=>{const b=$(ids.save);if(b&&V.cur&&V.calc().ready())b.disabled=!has(V.cur.N);};
-  V.draw=(N,res)=>{const b=$(ids.box);if(!b)return;V.cur={N,res};b.innerHTML=html(N,res);V.state();};
+  V.calc=()=>btn||(btn=makeCalc({btn:$(ids.run),box:$(ids.box),wait:$(ids.wait),key:()=>key(nestJob()),
+    run:(done,live)=>calc(live,(N,res)=>{if(done(html(N,res))){V.res=res;V.cur={N,res};}},()=>btn.stale())}));   // результат принят — его и качаем
+  V.draw=(N,res)=>{const b=$(ids.box);if(!b)return;V.cur={N,res};b.innerHTML=html(N,res);};
   // перед скачиванием ключ сверяется сразу: правка могла быть меньше 0,3 с назад, а старый результат качать нельзя
   V.fresh=()=>{const c=V.calc();c.check();return c.ready()&&!!V.cur;};
-  V.saveAll=()=>{if(!V.fresh())return;const {N,res}=V.cur,F=variantFiles(N,res,v);if(F.length)saveOut(zipName(v,N),zipFiles(F),ids.msg);};
-  V.click=e=>{const b=e.target.closest&&e.target.closest('button[data-act]');if(!b||!V.cur||!V.fresh())return;const f=one(V.cur.N,V.cur.res,b.dataset);if(f)saveDxf(f[0],f[1],ids.msg);};
-  V.init=()=>{const b=$(ids.box),a=$(ids.save);if(b)b.addEventListener('click',V.click);if(a)a.addEventListener('click',V.saveAll);};
+  V.click=e=>{const b=e.target.closest&&e.target.closest('button[data-act]');if(!b||!V.cur||!V.fresh())return;const f=one(V.cur.N,V.cur.res,b.dataset);if(f)saveDxf(f[0],f[1],b);};
+  V.init=()=>{const b=$(ids.box);if(b)b.addEventListener('click',V.click);};
   return V;}
-const LIST=nestVariant('list',{ids:{box:'nestBox',run:'nestRun',save:'dxfAll',wait:'nestWait',msg:'dxfMsg'},key:N=>N.key,calc:nestRun,html:nestHtml,one:listOne});
-const ZAG=nestVariant('zag',{ids:{box:'zagBox',run:'zagRun',save:'zagAll',wait:'zagWait',msg:'zagMsg'},key:zagKey,calc:quickCalc(N=>N.groups.map(G=>zagTypes(N,G))),html:zagHtml,has:zagHas,one:zagOne});
-const GIL=nestVariant('gil',{ids:{box:'gilBox',run:'gilRun',save:'gilAll',wait:'gilWait',msg:'gilMsg'},key:gilKey,calc:quickCalc(N=>N.groups.map(G=>gilScheme(N,G))),html:gilHtml,has:gilHas,one:gilOne});
+const LIST=nestVariant('list',{ids:{box:'nestBox',run:'nestRun',wait:'nestWait'},key:N=>N.key,calc:nestRun,html:nestHtml,one:listOne});
+const ZAG=nestVariant('zag',{ids:{box:'zagBox',run:'zagRun',wait:'zagWait'},key:zagKey,calc:quickCalc(N=>N.groups.map(G=>zagTypes(N,G))),html:zagHtml,one:zagOne});
+const GIL=nestVariant('gil',{ids:{box:'gilBox',run:'gilRun',wait:'gilWait'},key:gilKey,calc:quickCalc(N=>N.groups.map(G=>gilScheme(N,G))),html:gilHtml,one:gilOne});
 const VARS=[LIST,ZAG,GIL];
 // общие поля «Лист», «Угол листа» (md-corner) и галочка колосника, «Между деталями» лазера и «Подрезка кромки» гильотины (md-nedge):
 // значения из памяти браузера (store — в ui.js, к первому показу вкладки он уже есть); кнопки вариантов
