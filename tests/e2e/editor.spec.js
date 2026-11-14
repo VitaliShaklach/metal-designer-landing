@@ -216,20 +216,141 @@ test('lynx: чужой файл не ломает страницу', async ({pag
   expect(crashed).toEqual([]);
 });
 
-test('lynx: DXF и PDF скачиваются', async ({page}) => {
-  test.setTimeout(420000);   // раскрой рыси считается минутами
+// Куб из «Начать с заготовки»: считается за доли секунды, поэтому кнопки «Рассчитать» проверяем на нём; рысь целиком — в двух тестах ниже
+async function lynxCube(page) {
+  await page.evaluate(() => document.getElementById('bBlank').click());
+  await expect(page.locator('#loading')).toBeHidden({timeout: 30000});
+  await expect.poll(() => page.evaluate(() => CUR.R.parts.length)).toBe(6);
+}
+// нажать из самой страницы: на телефоне 3D-сцена может лежать поверх кнопки
+const lynxPress = (page, sel) => page.evaluate(s => document.querySelector(s).click(), sel);
+const lynxTab = (page, k) => page.evaluate(t => document.querySelector(`[role=tab][data-tab=${t}]`).click(), k);
+// три вкладки рыси: кнопка «Рассчитать», куда ложится результат, чем его скачать
+const LYNX_CALC = {
+  nest: {run: '#nestRun', box: '#nestBox', save: '#bDxfNest'},
+  sheets: {run: '#shRun', box: '#sheets', save: '#shPdf'},
+  cards: {run: '#cdRun', box: '#cards', save: '#shCards'},
+};
+
+test('lynx: «Лазер · DXF», «Чертежи», «Карты»: открытие вкладки ничего не считает, скачивание неактивно, «Рассчитать» активна', async ({page}) => {
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
-  await page.locator('[role=tab][data-tab=nest]').click();
-  const [d1] = await Promise.all([page.waitForEvent('download', {timeout: 400000}), page.locator('#bDxfNest').click()]);
-  expect(d1.suggestedFilename()).toMatch(/\.dxf$/);
-  await page.locator('[role=tab][data-tab=sheets]').click();
-  const [d2] = await Promise.all([page.waitForEvent('download'), page.locator('#bDxfParts').click()]);
-  expect(d2.suggestedFilename()).toMatch(/\.dxf$/);
-  // PDF — окно печати браузера: кнопка вызывает window.print, скачивания файла нет
+  for (const [k, c] of Object.entries(LYNX_CALC)) {
+    await lynxTab(page, k);
+    await page.waitForTimeout(700);   // раньше расчёт стартовал через 0,5 с после открытия
+    await expect(page.locator(c.box)).toBeEmpty();
+    await expect(page.locator(c.run)).toBeEnabled();
+    await expect(page.locator(c.run)).toHaveText('Рассчитать');
+    await expect(page.locator(c.save)).toBeDisabled();
+  }
+  await expect(page.locator('.nestwait:visible')).toHaveCount(0);
+});
+
+test('lynx: «Рассчитать» на «Чертежах» без раскроя — листы с «Раскрой листа» появляются, PDF только с ними', async ({page}) => {
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  await lynxCube(page);
+  // раскроя нет: его не просили, «Лазер · DXF» пуста
+  await lynxTab(page, 'nest');
+  await expect(page.locator('#nestBox')).toBeEmpty();
+  await lynxTab(page, 'sheets');
+  await expect(page.locator('#sheets')).toBeEmpty();
+  await expect(page.locator('#shPdf')).toBeDisabled();
+  await lynxPress(page, '#shRun');
+  await expect(page.locator('#sheets figure').first()).toBeAttached({timeout: 60000});
+  await expect(page.locator('#sheets figcaption', {hasText: 'Раскрой листа'}).first()).toBeAttached();
+  await expect(page.locator('#shRun')).toBeDisabled();
+  await expect(page.locator('#shPdf')).toBeEnabled();
+  // PDF — окно печати браузера: кнопка вызывает window.print
   await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
-  await page.locator('#shPdf').click();
+  await lynxPress(page, '#shPdf');
   await expect.poll(() => page.evaluate(() => window.__printed)).toBeGreaterThan(0);
+  // раскрой посчитан для чертежей, но «Лазер · DXF» показывает его только по своей кнопке
+  await lynxTab(page, 'nest');
+  await expect(page.locator('#nestBox')).toBeEmpty();
+  await expect(page.locator('#nestRun')).toBeEnabled();
+});
+
+test('lynx: изменение фигуры, точек и толщины убирает листы; смена вкладки и вида 3D — нет', async ({page}) => {
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  await lynxCube(page);
+  const calcAll = async () => {
+    for (const [k, c] of Object.entries(LYNX_CALC)) {
+      await lynxTab(page, k);
+      await lynxPress(page, c.run);
+      await expect(page.locator(c.box + ' figure').first()).toBeAttached({timeout: 60000});
+      await expect(page.locator(c.save)).toBeEnabled();
+      await expect(page.locator(c.run)).toBeDisabled();
+    }
+  };
+  const check = async fresh => {
+    for (const [k, c] of Object.entries(LYNX_CALC)) {
+      await lynxTab(page, k);
+      await page.waitForTimeout(700);   // правка убирает листы через 0,5 с после неё
+      if (fresh) { await expect(page.locator(c.box + ' figure').first()).toBeAttached(); await expect(page.locator(c.save)).toBeEnabled(); await expect(page.locator(c.run)).toBeDisabled(); }
+      else { await expect(page.locator(c.box)).toBeEmpty(); await expect(page.locator(c.save)).toBeDisabled(); await expect(page.locator(c.run)).toBeEnabled(); }
+    }
+  };
+  await calcAll();
+  // вид 3D, выбор детали и вкладки — листы на месте
+  await page.evaluate(() => document.querySelector('.vbar [data-v]').click());
+  await page.evaluate(() => { ST.sel = 1; renderAll(); });
+  await check(true);
+  // толщина
+  await page.evaluate(() => { const s = document.getElementById('sT'); s.value = '3'; s.dispatchEvent(new Event('change')); });
+  await check(false);
+  // точка: вершина куба сдвинута вместе с зеркальной
+  await calcAll();
+  await page.evaluate(() => { const b = ST.base, V = b.V.map(p => p.slice()), m = mirrorMap(V); V[0][1] += 7; if (m[0] >= 0 && m[0] !== 0) V[m[0]][1] += 7; applyE({V, P: b.P, S: b.S || []}, true); });
+  await check(false);
+  // фигура: другая заготовка
+  await calcAll();
+  await page.evaluate(() => { document.getElementById('blank').value = 'sphere'; document.getElementById('bBlank').click(); });
+  await expect(page.locator('#loading')).toBeHidden({timeout: 30000});
+  await check(false);
+});
+
+test('lynx: «Лазер · DXF» — DXF раскроя и DXF деталей скачиваются после «Рассчитать»', async ({page}) => {
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  await lynxCube(page);
+  await lynxTab(page, 'nest');
+  await lynxPress(page, '#nestRun');
+  await expect(page.locator('#nestBox figure').first()).toBeAttached({timeout: 60000});
+  const [d1] = await Promise.all([page.waitForEvent('download'), lynxPress(page, '#bDxfNest')]);
+  expect(d1.suggestedFilename()).toMatch(/\.dxf$/);
+  await lynxTab(page, 'sheets');
+  const [d2] = await Promise.all([page.waitForEvent('download'), lynxPress(page, '#bDxfParts')]);
+  expect(d2.suggestedFilename()).toMatch(/\.dxf$/);
+});
+
+// рысь целиком: раскрой считается минутами — «Чертежи» (раскрой запускают они сами) и «Лазер · DXF» отдельными тестами
+test('lynx: рысь целиком — «Чертежи» по «Рассчитать» сами считают раскрой, PDF', async ({page}) => {
+  test.setTimeout(420000);
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  await lynxTab(page, 'sheets');
+  await page.waitForTimeout(700);
+  await expect(page.locator('#sheets')).toBeEmpty();
+  await lynxPress(page, '#shRun');
+  await expect(page.locator('#sheets figcaption', {hasText: 'Раскрой листа'}).first()).toBeAttached({timeout: 400000});
+  await expect(page.locator('#shPdf')).toBeEnabled();
+  await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
+  await lynxPress(page, '#shPdf');
+  await expect.poll(() => page.evaluate(() => window.__printed)).toBeGreaterThan(0);
+});
+
+test('lynx: рысь целиком — DXF раскроя скачивается после «Рассчитать»', async ({page}) => {
+  test.setTimeout(420000);
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  await lynxTab(page, 'nest');
+  await expect(page.locator('#bDxfNest')).toBeDisabled();
+  await lynxPress(page, '#nestRun');
+  await expect(page.locator('#bDxfNest')).toBeEnabled({timeout: 400000});
+  const [d1] = await Promise.all([page.waitForEvent('download', {timeout: 60000}), lynxPress(page, '#bDxfNest')]);
+  expect(d1.suggestedFilename()).toMatch(/\.dxf$/);
 });
 
 test('lynx: на телефоне без горизонтальной прокрутки', async ({page}, info) => {
@@ -783,11 +904,13 @@ test('mangal: детали поменяли во время счёта — ус�
 test('lynx: во время раскроя виден индикатор', async ({page}) => {
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
+  await lynxTab(page, 'nest');
   await expect(page.locator('#nestWait')).toBeHidden();
-  // вкладка считает прямо в обработчике и не даёт обычному клику вернуться — нажимаем из самой страницы
-  await page.evaluate(() => setTimeout(() => document.querySelector('[role=tab][data-tab=nest]').click(), 0));
+  // кнопка считает прямо в обработчике и не даёт обычному клику вернуться — нажимаем из самой страницы
+  await page.evaluate(() => setTimeout(() => document.getElementById('nestRun').click(), 0));
   await expect(page.locator('#nestWait')).toBeVisible({timeout: 5000});
   await expect(page.locator('#nestWait')).toContainText('Считаю раскрой');
+  await expect(page.locator('#nestRun')).toHaveText('Считаю…');
   await expect(page.locator('#nestWait .nestCnt')).toContainText(/из \d+/, {timeout: 60000});
   // кольцо крутится, пока идёт расчёт (CSS-анимация): поворот в замерах разный
   const y = () => page.locator('#nestWait .nestStar b').evaluate(e => getComputedStyle(e).transform);
@@ -800,14 +923,17 @@ test('lynx: индикатор виден в «Чертежах» и «Карт�
   test.setTimeout(420000);
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
-  await page.evaluate(() => setTimeout(() => document.querySelector('[role=tab][data-tab=cards]').click(), 0));
+  await lynxTab(page, 'cards');
+  await expect(page.locator('#cdWait')).toBeHidden();
+  await page.evaluate(() => setTimeout(() => document.getElementById('cdRun').click(), 0));
   await expect(page.locator('#cdWait')).toBeVisible({timeout: 5000});
   await expect(page.locator('#cdWait')).toContainText('карты');
   await expect(page.locator('#cdCnt')).toContainText(/из \d+/, {timeout: 60000});   // счётчик идёт
   await expect(page.locator('#cdWait')).toBeHidden({timeout: 120000});
   await expect(page.locator('#cards figure').first()).toBeVisible();
-  await page.evaluate(() => setTimeout(() => document.querySelector('[role=tab][data-tab=sheets]').click(), 0));
-  const w = page.locator('#tab-sheets .nestwait');
+  await lynxTab(page, 'sheets');
+  await page.evaluate(() => setTimeout(() => document.getElementById('shRun').click(), 0));
+  const w = page.locator('#shWait');
   await expect(w).toBeVisible({timeout: 5000});
   await expect(w).toContainText('Считаю раскрой');
   await expect(w.locator('.nestCnt')).toContainText(/из \d+/, {timeout: 60000});

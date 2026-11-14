@@ -486,3 +486,10 @@ svg.mini .engr{stroke-width:.6}
 @keyframes nestSpin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.nestStar b{animation-duration:3.2s}}
 .nestCnt,#cdCnt{color:var(--ink,inherit);font-variant-numeric:tabular-nums}
+/* «Рассчитать» (editor/common/calc.js), как в мангале: главная кнопка вкладки; неактивна, пока идёт расчёт или результат свежий. Скачать — только с результатом */
+.nestbar{flex-wrap:wrap;align-items:center;gap:8px 18px}
+.nestbar .calcbtn{font-weight:600;border-color:var(--accent);background:var(--accent);color:var(--panel)}
+.nestbar .calcbtn:hover{border-color:var(--accent);filter:brightness(1.08)}
+.nestbar button:disabled,.nestbar button:disabled:hover{opacity:.45;cursor:default;filter:none;border-color:var(--line)}
+.nestbar .calcbtn:disabled,.nestbar .calcbtn:disabled:hover{border-color:var(--accent)}
+.sheets>.dimbar,.sheets>p.dxfmsg{margin:0}
