@@ -106,6 +106,22 @@ function massRows(){let grp=null,el=null,skip=false,tot=0;const rows=[];
     if(skip||(p.pt&&![].concat(p.pt).some(partOk))||!p.q)return;   // нет в текущем режиме
     tot+=p.m*p.q;rows.push(Object.assign({},p,{grp,el}));});
   return {rows,tot};}
+// есть ли у строки раскроя лазерная деталь (DXF): тег pt строки совпал с деталью laserParts() и размер строки — габарит этой детали
+// (теги общие: у «door» и «legs» рядом с листом идут пруток, труба, заглушка — у них DXF нет). Листовая деталь с шире габаритом (перегородка с ручкой) — по одному тегу и названию
+function rowHasDxf(p,lps){const pts=[].concat(p.pt||[]),cand=lps.filter(l=>pts.includes(l.pt));if(!cand.length)return false;
+  const nums=(String(p.s).match(/\d+(?:[.,]\d+)?/g)||[]).map(v=>+v.replace(',','.')),sheet=!/^L\s/.test(String(p.s));
+  if(sheet&&nums.length>=2&&cand.some(l=>{const m=partMM(l),a=Math.round(m.w),b=Math.round(m.h);return (a===nums[0]&&b===nums[1])||(a===nums[1]&&b===nums[0]);}))return true;
+  return sheet&&cand.length===1&&pts.length===1&&/лист|перегородка/i.test(p.n);}
+// «Подготовить отдельно» (#107): строки раскроя без DXF — уголки, трубы, арматура, профлист, решётки из прутка; в текущем режиме, как «Раскрой и масса»,
+// но крыша — всегда, без галочки «Крыша от дождя» (чтобы лазерщик видел, что её тоже готовят). Покупного в раскрое нет. Строка: {n, q, s, note}
+function prepRows(){const lps=laserParts(),rows=[];let el=null,skip=false;
+  cutRows().forEach(p=>{
+    if(p.g){el=p.el;skip=el!=='roof'&&!elOk(el);return;}
+    if(skip||!p.q)return;
+    if(el!=='roof'&&p.pt&&![].concat(p.pt).some(partOk))return;   // нет в текущем режиме
+    if(rowHasDxf(p,lps))return;
+    rows.push({n:p.n,q:p.q,s:p.s,note:p.note||''});});
+  return rows;}
 const kg1=v=>v.toFixed(1).replace('.',',');   // итог массы: таблица и шапка — одна цифра
 // металл под таблицей: [название, количество (площадь или метраж), для чего] — «Раскрой и масса» и спецификация в «Чертежах»
 function metalRows(){

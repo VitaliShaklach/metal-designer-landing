@@ -242,6 +242,13 @@ function offHtml(N,G,gi,v){const rows=offRows(N,G,v);if(!rows.length)return '';
     rows.map(o=>{const ty=o.ty,p=ty.p;return `<tr${nestSelOn(ty)?' class="on"':''}><td class="n r">${ty.no}</td><td>${p.name}${p.note?`<small>${p.note}</small>`:''}<small class="fn">${dxfName(p)}</small></td><td>${dxfSketch(ty.m,v==='gil'?ty.kind:'list',v==='gil'?ty.b:undefined)}</td><td class="n r">${ty.q}</td><td>${o.why}</td>`+
       `<td class="r dl"><button class="dxfbtn dl" data-act="part" data-g="${gi}" data-t="${o.ti}" title="Скачать DXF детали" aria-label="Скачать DXF детали">⬇︎ DXF</button></td></tr>`;}).join('')+'</tbody>';
   return `<section class="noff"><h4>${v==='gil'?'Не рубится':'Не на листе'}</h4><div class="tbl"><table class="ntbl otbl">${t}</table></div></section>`;}
+// «Подготовить отдельно» (#107): металл без DXF — под таблицами «С листа» и «Гильотина» (лазерщик видит всё, что готовится не на лазере). Без кнопок DXF
+const prepKey=()=>JSON.stringify(prepRows().map(r=>[r.n,r.q,r.s]));
+function prepHtml(){const rows=prepRows();if(!rows.length)return '';
+  const t='<thead><tr><th>Название</th><th class="r">Кол-во</th><th>Размер, мм</th><th>Как делать</th></tr></thead><tbody>'+
+    rows.map(r=>`<tr><td>${r.n}</td><td class="n r">${r.q}</td><td class="n">${r.s}</td><td>${r.note||'—'}</td></tr>`).join('')+'</tbody>';
+  return `<section class="prep"><h4>Подготовить отдельно</h4><p class="pnote">Уголки, трубы, арматура, профлист: на схеме их нет, режутся и готовятся отдельно</p>`+
+    `<div class="tbl"><table class="ntbl ptbl">${t}</table></div><p class="pnote">Покупное (колёса, крепёж) — во вкладке «Что купить»</p></section>`;}
 // кнопка «Скачать DXF листа» над схемой листа (act: sheet — «С листа», gil — «Гильотина»); n — листов в толщине, номер — если больше одного
 const sheetBtn=(act,gi,si,n)=>`<div class="nbtns"><button class="dxfbtn" data-act="${act}" data-g="${gi}" data-s="${si}">Скачать DXF листа${n>1?' '+(si+1):''}</button></div>`;
 // вкладка «С листа»: на каждую толщину (5 → 3 → 15 мм) — заголовок, итоги для оценки, кнопки скачивания, лист, под ним детали этого листа;
@@ -260,7 +267,7 @@ function nestHtml(N,res){const tot=listTotals(N,res),wide=nestWide('nestBox');
       t+=`<tr${nestSelOn(ty)?' class="on"':''}><td class="n r">${ty.no}</td><td>${p.name}${p.note?`<small>${p.note}</small>`:''}${engSide(N,p)}<small class="fn">${dxfName(p)}</small></td><td>${dxfSketch(m,'list')}</td><td class="n r">${ty.q}</td><td class="n">${fmt(m.w,1)} × ${fmt(m.h,1)}</td><td class="n r">${fmt(m.cut/1000,2)}</td><td class="n r">${m.pierce}</td><td class="r dl">${btn(ti)}</td></tr>`;});
     t+=`<tr class="tot"><td colspan="5">Итого по листу ${G.mm} мм: ${tq} шт, рез и врезки — с учётом количества</td><td class="n r">${fmt(T.cut/1000,2)}</td><td class="n r">${T.pierce}</td><td class="dl"></td></tr></tbody>`;
     h+=`<div class="tbl"><table class="ntbl">${t}</table></div>`+offHtml(N,G,gi,'list');
-    return h+'</section>';}).join(''):'<p class="tabnote">Листовых деталей нет</p>';}
+    return h+'</section>';}).join('')+prepHtml():'<p class="tabnote">Листовых деталей нет</p>'+prepHtml();}
 const partFile=ty=>[dxfName(ty.p),dxfText(ty.eng?{...ty.m,engr:ty.eng}:ty.m)];   // DXF одной детали: [имя, текст]
 // кнопка DXF внутри «С листа» (data-act sheet — лист, part — деталь): [имя, текст] или null
 function listOne(N,res,d){const G=N.groups[+d.g],R=res[+d.g];if(!G)return null;
@@ -296,7 +303,7 @@ function gilHtml(N,res){const tot=gilTotals(N,res),wide=nestWide('gilBox');
       t+=`<tr${nestSelOn(ty)?' class="on"':''}><td class="n r">${ty.no}</td><td>${p.name}</td><td>${dxfSketch(m,ty.kind,ty.b)}</td>`+
         `<td class="n r">${ty.q}</td><td class="n">${fmt(m.w,0)} × ${fmt(m.h,0)}</td><td>${GIL_KIND[ty.kind]}</td></tr>`;});
     t+=`<tr class="tot"><td colspan="6">На гильотину ${G.mm} мм: ${tq} шт</td></tr></tbody>`;
-    return h+(rub?`<div class="tbl"><table class="ntbl gtbl">${t}</table></div>`:'')+offHtml(N,G,gi,'gil')+'</section>';}).join(''):'<p class="tabnote">Листовых деталей нет</p>';}
+    return h+(rub?`<div class="tbl"><table class="ntbl gtbl">${t}</table></div>`:'')+offHtml(N,G,gi,'gil')+'</section>';}).join('')+prepHtml():'<p class="tabnote">Листовых деталей нет</p>'+prepHtml();}
 
 /* ---------- «Из заготовок» (#60, пересмотр 14.11): лазерщику, когда металл уже в заготовках ----------
    Постоянный список: все детали, которым нужен лазер (вид zag: отверстия, пазы, фигурный контур), откуда бы ни пришла заготовка
@@ -357,9 +364,9 @@ function nestVariant(v,{ids,key,calc,html,one}){const $=id=>document.getElementB
   V.click=e=>{const b=e.target.closest&&e.target.closest('button[data-act]');if(!b||!V.cur||!V.fresh())return;const f=one(V.cur.N,V.cur.res,b.dataset);if(f)saveDxf(f[0],f[1],b);};
   V.init=()=>{const b=$(ids.box);if(b)b.addEventListener('click',V.click);};
   return V;}
-const LIST=nestVariant('list',{ids:{box:'nestBox',run:'nestRun',wait:'nestWait'},key:N=>N.key,calc:nestRun,html:nestHtml,one:listOne});
+const LIST=nestVariant('list',{ids:{box:'nestBox',run:'nestRun',wait:'nestWait'},key:N=>N.key+prepKey(),calc:nestRun,html:nestHtml,one:listOne});
 const ZAG=nestVariant('zag',{ids:{box:'zagBox',run:'zagRun',wait:'zagWait'},key:zagKey,calc:quickCalc(N=>N.groups.map(G=>zagTypes(N,G))),html:zagHtml,one:zagOne});
-const GIL=nestVariant('gil',{ids:{box:'gilBox',run:'gilRun',wait:'gilWait'},key:gilKey,calc:quickCalc(N=>N.groups.map(G=>gilScheme(N,G))),html:gilHtml,one:gilOne});
+const GIL=nestVariant('gil',{ids:{box:'gilBox',run:'gilRun',wait:'gilWait'},key:N=>gilKey(N)+prepKey(),calc:quickCalc(N=>N.groups.map(G=>gilScheme(N,G))),html:gilHtml,one:gilOne});
 const VARS=[LIST,ZAG,GIL];
 // общие поля «Лист», «Угол листа» (md-corner) и галочка колосника, «Между деталями» лазера и «Подрезка кромки» гильотины (md-nedge):
 // значения из памяти браузера (store — в ui.js, к первому показу вкладки он уже есть); кнопки вариантов

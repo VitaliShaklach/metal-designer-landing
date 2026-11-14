@@ -293,11 +293,15 @@ table.gtbl td:nth-child(2){min-width:180px}
 table.gtbl tr.on td{background:var(--accent-soft)}
 .gnone{margin:0;font:600 14px var(--f-mono);color:var(--muted)}
 /* «Не на листе» / «Не рубится» (#92): сноска над схемой и блок под основной таблицей */
-.nfoot{margin:0;font:13px/1.4 var(--f-mono);color:var(--muted)}
-.noff{display:flex;flex-direction:column;gap:6px;margin-top:8px}
-.noff h4{margin:0;font:600 13px var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.nfoot,.pnote{margin:0;font:13px/1.4 var(--f-mono);color:var(--muted)}
+.noff,.prep{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.noff h4,.prep h4{margin:0;font:600 13px var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 table.otbl{min-width:520px}
 table.otbl td:nth-child(2){min-width:160px}
+table.ptbl{min-width:560px}
+table.ptbl td{vertical-align:top}
+table.ptbl td:nth-child(1){min-width:180px}
+table.ptbl td:nth-child(4){min-width:200px}
 table.otbl td:nth-child(n+4):not(:nth-child(5)){width:1%;white-space:nowrap}
 /* схема гильотины: серый — готовая деталь, светло-оранжевый — заготовка, дальше на лазер */
 .nestbar [hidden]{display:none}

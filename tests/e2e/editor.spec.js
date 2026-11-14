@@ -1355,3 +1355,64 @@ test('mangal: «Карты деталей» на телефоне без гор�
   const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   expect(sw).toBeLessThanOrEqual(iw);
 });
+
+// ---------- мангал: «Подготовить отдельно» — металл без DXF под таблицами «С листа» и «Гильотина» (#107) ----------
+
+const prepBlock = (page, box) => page.locator(`#${box} .prep`);
+const prepNames = (page, box) => page.locator(`#${box} .prep tbody tr td:first-child`).allInnerTexts();
+// Крыша — те же четыре строки с галочкой «Крыша от дождя» и без неё
+const ROOF_ROWS = [/^Трубка Ø26×3/, /^Арматура Ø16, передние стойки/, /^Арматура Ø16, задние стойки/, /^Лист от дождя — профлист/];
+
+test('mangal: Подготовить отдельно — блок под таблицами «С листа» и «Гильотина», без DXF, крыша всегда', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await mangalCut(page);
+  const b = prepBlock(page, 'nestBox');
+  await expect(b).toHaveCount(1);
+  await expect(b.locator('h4')).toHaveText('Подготовить отдельно');
+  await expect(b).toContainText('Уголки, трубы, арматура, профлист: на схеме их нет, режутся и готовятся отдельно');
+  await expect(b).toContainText('Покупное (колёса, крепёж) — во вкладке «Что купить»');
+  await expect(b.locator('thead th')).toHaveText(['Название', 'Кол-во', 'Размер, мм', 'Как делать']);
+  await expect(b.locator('button, [data-act]')).toHaveCount(0);
+  // блок ниже последней таблицы листа
+  const [pt, tbot] = await page.evaluate(() => [document.querySelector('#nestBox .prep').getBoundingClientRect().top,
+    [...document.querySelectorAll('#nestBox .ntbl:not(.ptbl)')].pop().getBoundingClientRect().bottom]);
+  expect(pt).toBeGreaterThan(tbot - 1);
+  let names = await prepNames(page, 'nestBox');
+  for (const re of ROOF_ROWS) expect(names.filter(n => re.test(n)), String(re)).toHaveLength(1);   // «Крыша от дождя» снята
+  expect(names.join('\n')).not.toMatch(/^(Колосник|Боковина|Дно жаровни|Колесо|Болт)/m);
+  await press(page, '#cRain');   // крыша не лазерная: лист не пересчитывается, блок тот же
+  await settle(page);
+  await expect(page.locator('#nestRun')).toBeDisabled();
+  expect(await prepNames(page, 'nestBox')).toEqual(names);   // галочка состав не меняет
+  // «Гильотина»: тот же блок
+  await openSub(page, 'gil');
+  await gilCut(page);
+  await expect(prepBlock(page, 'gilBox')).toHaveCount(1);
+  expect(await prepNames(page, 'gilBox')).toEqual(names);
+  await expect(prepBlock(page, 'gilBox').locator('button, [data-act]')).toHaveCount(0);
+  // печь: профтруба, заслонка, шибер; жаровни нет
+  await press(page, '#modeSeg [data-v=stove]');
+  await gilCut(page);
+  names = await prepNames(page, 'gilBox');
+  expect(names.join('\n')).toMatch(/Труба — профтруба/);
+  expect(names.join('\n')).toMatch(/Направляющая шибера/);
+  expect(names.join('\n')).not.toMatch(/Решётка в жаровне/);
+  for (const re of ROOF_ROWS) expect(names.filter(n => re.test(n)), String(re)).toHaveLength(1);
+  expect(r.errors).toEqual([]);
+});
+
+test('mangal: Подготовить отдельно — на телефоне листается внутри своей таблицы, страница не растягивается', async ({page}) => {
+  test.slow();
+  await openEditor(page, '/editor/mangal/#cut');
+  await mangalCut(page);
+  for (const v of ['list', 'gil']) {
+    await openSub(page, v);
+    if (v === 'gil') await gilCut(page);
+    const tb = page.locator(`#${v === 'gil' ? 'gilBox' : 'nestBox'} .prep .tbl`);
+    await expect(tb).toBeVisible();
+    const [cw, bw, sw, iw] = await tb.evaluate(e => [e.getBoundingClientRect().width, document.body.clientWidth, document.documentElement.scrollWidth, window.innerWidth]);
+    expect(cw, v).toBeLessThanOrEqual(bw);
+    expect(sw, v).toBeLessThanOrEqual(iw);
+  }
+});
