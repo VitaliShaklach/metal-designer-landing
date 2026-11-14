@@ -8,22 +8,22 @@ const NEST=over=>`(()=>{const N=nestJob(${JSON.stringify(over)});
 const SHEET={gap:5,sk:'1250x2500',W:2500,H:1250};
 const MODES=[['grill',false],['grill',true],['stove',true],['both',true]];
 
-test('мангал без колосника, 1250 × 2500, зазор 5: один лист, полоса не длиннее 880 мм', ()=>{
+test('мангал без колосника, 1250 × 2500, зазор 5: один лист, полоса не длиннее 1030 мм', ()=>{
   const c=loadMangal({mode:'grill'});
   const [g5]=run(c,NEST({...SHEET,cgr:false}));
   assert.equal(g5.mm,5);
   assert.equal(g5.R.too.length,0);
   assert.equal(g5.R.sheets.length,1);
-  assert.ok(g5.R.sheets[0].len<=880,'полоса '+g5.R.sheets[0].len);
+  assert.ok(g5.R.sheets[0].len<=1030,'полоса '+g5.R.sheets[0].len);
 });
 
-test('мангал с колосником: один лист, полоса не длиннее 1180 мм', ()=>{
+test('мангал с колосником: один лист, полоса не длиннее 1300 мм', ()=>{
   const c=loadMangal({mode:'grill'});
   const [g5]=run(c,NEST({...SHEET,cgr:true}));
   assert.equal(g5.mm,5);
   assert.equal(g5.R.too.length,0);
   assert.equal(g5.R.sheets.length,1);
-  assert.ok(g5.R.sheets[0].len<=1180,'полоса '+g5.R.sheets[0].len);
+  assert.ok(g5.R.sheets[0].len<=1300,'полоса '+g5.R.sheets[0].len);
 });
 
 test('без наложений, зазор не меньше заданного, все детали внутри листа с краем 10 мм', ()=>{

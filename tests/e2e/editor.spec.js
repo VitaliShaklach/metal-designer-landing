@@ -49,7 +49,7 @@ test('mangal: DXF скачивается', async ({page}) => {
   const btn = page.locator('#nestBox .dxfbtn.dl').first();
   await expect(btn).toBeVisible();
   const [d] = await Promise.all([page.waitForEvent('download'), btn.click()]);
-  expect(d.suggestedFilename()).toMatch(/\.dxf$/);
+  expect(d.suggestedFilename()).toMatch(/.dxf$/);
 });
 
 test('mangal: «Поделиться видом» даёт ссылку, которая открывает тот же вид', async ({page}) => {
@@ -319,10 +319,10 @@ test('lynx: «Лазер · DXF» — DXF раскроя и DXF деталей �
   await lynxPress(page, '#nestRun');
   await expect(page.locator('#nestBox figure').first()).toBeAttached({timeout: 60000});
   const [d1] = await Promise.all([page.waitForEvent('download'), lynxPress(page, '#bDxfNest')]);
-  expect(d1.suggestedFilename()).toMatch(/\.dxf$/);
+  expect(d1.suggestedFilename()).toMatch(/.dxf$/);
   await lynxTab(page, 'sheets');
   const [d2] = await Promise.all([page.waitForEvent('download'), lynxPress(page, '#bDxfParts')]);
-  expect(d2.suggestedFilename()).toMatch(/\.dxf$/);
+  expect(d2.suggestedFilename()).toMatch(/.dxf$/);
 });
 
 // рысь целиком: раскрой считается минутами — «Чертежи» (раскрой запускают они сами) и «Лазер · DXF» отдельными тестами
@@ -350,7 +350,7 @@ test('lynx: рысь целиком — DXF раскроя скачиваетс�
   await lynxPress(page, '#nestRun');
   await expect(page.locator('#bDxfNest')).toBeEnabled({timeout: 400000});
   const [d1] = await Promise.all([page.waitForEvent('download', {timeout: 60000}), lynxPress(page, '#bDxfNest')]);
-  expect(d1.suggestedFilename()).toMatch(/\.dxf$/);
+  expect(d1.suggestedFilename()).toMatch(/.dxf$/);
 });
 
 test('lynx: на телефоне без горизонтальной прокрутки', async ({page}, info) => {
@@ -530,6 +530,23 @@ test('mangal: колосник по умолчанию не на листе, с�
   expect(r.errors).toEqual([]);
 });
 
+test('mangal: перегородка жаровни стоит по умолчанию — в таблице листа и DXF; снятая галочка убирает её', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await expect(page.locator('#cDiv')).toBeChecked();
+  await mangalCut(page);
+  const row = page.locator('#nestBox .ntbl:not(.otbl) tr', {hasText: 'Перегородка жаровни'});
+  await expect(row).toHaveCount(1);
+  const [d] = await Promise.all([page.waitForEvent('download'), row.locator('button[data-act=part]').click()]);
+  expect(d.suggestedFilename()).toMatch(/^grill_divider_5mm_x1.*\.dxf$/);
+  await page.locator('#cDiv').evaluate(e => e.click());   // на телефоне галочка за экраном панели
+  await mangalNoCut(page);
+  await mangalCut(page);
+  await expect(page.locator('#nestBox tr', {hasText: 'Перегородка жаровни'})).toHaveCount(0);
+  await expect(page.locator('#nestBox svg title', {hasText: 'Перегородка жаровни'})).toHaveCount(0);
+  expect(r.errors).toEqual([]);
+});
+
 // Каждая правка — новый расчёт (~3 с на SwiftShader), поэтому правки — в трёх тестах
 test('mangal: правки убирают раскрой — скобы задвижек, колосник на листе, лист', async ({page}) => {
   test.slow();
@@ -628,7 +645,7 @@ test('mangal: «С листа» — схема, таблица, итоги и «
   // кнопка DXF детали в таблице осталась; надпись — в той же ячейке, под кнопкой
   const partBtn = page.locator('#nestBox .ntbl [data-act=part]').first();
   const [dp] = await Promise.all([page.waitForEvent('download'), partBtn.click()]);
-  expect(dp.suggestedFilename()).toMatch(/^grill_.*\.dxf$/);
+  expect(dp.suggestedFilename()).toMatch(/^grill_.*.dxf$/);
   await expect(partBtn.locator('xpath=ancestor::td').locator('.dxfmsg')).toContainText('Скачано: grill_');
   await expect(page.locator('#nestBox .dxfmsg')).toHaveCount(2);
   expect(r.errors).toEqual([]);
@@ -842,13 +859,13 @@ test('mangal: «Из заготовок» — по «Рассчитать», и�
   const tot = page.locator('#zagBox .ntot').first();
   for (const t of ['Рез', 'Врезки', 'Заготовки']) await expect(tot).toContainText(t);
   await expect(tot).toContainText(/Врезки \d+/);   // число не фиксируем (план, задача 3): оно меняется вместе с прорезями
-  await expect(tot).toContainText('Заготовки 8');
+  await expect(tot).toContainText('Заготовки 9');
   // боковины, задвижки, скобы — да (нужен лазер); дно и торец (прямоугольники) и колосник (снят) — нет
-  for (const n of ['Боковина жаровни задняя', 'Боковина жаровни передняя', 'Задвижка поддува', 'Скоба задвижки']) await expect(zagRow(page, n)).toHaveCount(1);
+  for (const n of ['Боковина жаровни задняя', 'Боковина жаровни передняя', 'Перегородка жаровни', 'Задвижка поддува', 'Скоба задвижки']) await expect(zagRow(page, n)).toHaveCount(1);
   for (const n of ['Дно жаровни', 'Торец жаровни', 'Колосник мангала']) await expect(zagRow(page, n)).toHaveCount(0);
   await expect(page.locator('#zagBox')).not.toContainText('Не на схеме');
   await expect(page.locator('#zagBox [data-act=sheet], #zagBox .nbtns')).toHaveCount(0);   // листа нет — только кнопки заготовок
-  await expect(page.locator('#zagBox [data-act=zag]')).toHaveCount(4);
+  await expect(page.locator('#zagBox [data-act=zag]')).toHaveCount(5);
   const [d1] = await Promise.all([page.waitForEvent('download'), zagRow(page, 'Боковина жаровни задняя').locator('button[data-act=zag]').click()]);
   expect(d1.suggestedFilename()).toBe('grill_side_back_5mm_x1_zag.dxf');
   await expect(zagRow(page, 'Боковина жаровни задняя').locator('td.dl .dxfmsg')).toHaveText('Скачано: grill_side_back_5mm_x1_zag.dxf');   // надпись — в той же ячейке

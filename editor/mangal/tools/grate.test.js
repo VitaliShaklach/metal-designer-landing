@@ -79,3 +79,12 @@ test('галочка меняет ключ раскроя: старый лист
   const c=loadMangal({mode:'grill'});
   assert.notEqual(run(c,'nestJob({cgr:false}).key'),run(c,'nestJob({cgr:true}).key'));
 });
+
+test('перегородка по умолчанию: есть в составе и в «Раскрой и масса», со снятой галочкой — нигде', ()=>{
+  const c=loadMangal({mode:'grill'});
+  assert.equal(run(c,'S.div'),true);
+  const has=()=>run(c,`({dxf:laserParts().some(p=>p.file==='grill_divider'),cut:massRows().rows.some(r=>/^Перегородка жаровни/.test(r.n||''))})`);
+  assert.deepEqual(has(),{dxf:true,cut:true});
+  run(c,'S.div=false');
+  assert.deepEqual(has(),{dxf:false,cut:false});
+});

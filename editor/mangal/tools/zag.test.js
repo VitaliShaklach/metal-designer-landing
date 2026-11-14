@@ -10,7 +10,7 @@ const NAMES=`(N=>N.groups.flatMap(G=>zagTypes(N,G).map(t=>t.p.name)))`;
 test('список: все детали, которым нужен лазер (вид zag); готовые после гильотины — нет', ()=>{
   const c=loadMangal({mode:'grill'});page(c);
   const r=run(c,`(N=>({z:${NAMES}(N),kinds:N.groups.flatMap(G=>zagTypes(N,G).map(t=>t.kind))}))(nestJob())`);
-  assert.deepEqual(r.z,['Боковина жаровни задняя','Боковина жаровни передняя','Задвижка поддува','Скоба задвижки']);
+  assert.deepEqual(r.z,['Боковина жаровни задняя','Боковина жаровни передняя','Перегородка жаровни','Задвижка поддува','Скоба задвижки']);
   assert.ok(r.kinds.every(k=>k==='zag'));
   const s=loadMangal({mode:'stove'});page(s);
   assert.deepEqual(run(s,`${NAMES}(nestJob())`),['Боковина печи задняя','Дно печи','Колосник печи']);
@@ -32,7 +32,7 @@ test('итоги: рез и врезки по заготовкам (с запа�
     side:(t=>({b:t.b.pierce,m:t.m.pierce,bc:t.b.cut,mc:t.m.cut}))(T.find(t=>t.p.file==='grill_side_back'))};})(nestJob())`);
   assert.equal(r.t.mm,5);
   assert.equal(r.t.blanks,r.q);
-  assert.equal(r.q,8);   // 2 боковины, 2 задвижки, 4 скобы
+  assert.equal(r.q,9);   // 2 боковины, перегородка, 2 задвижки, 4 скобы
   assert.ok(Math.abs(r.t.cut-r.cut)<1e-6);
   assert.equal(r.t.pierce,r.pierce);
   // решение грилинга: каждый паз с кромки — врезка, поэтому у боковины врезок больше, чем с листа, а реза меньше (стороны режет гильотина)
@@ -44,7 +44,7 @@ test('«Из заготовок»: DXF заготовки — grill_side_back_5m
   const c=loadMangal({mode:'grill'});page(c);
   for(const n of ['zipName','variantFiles','zagFiles','zagHas'])assert.equal(run(c,`typeof ${n}`),'undefined',n);
   const h=run(c,`(N=>zagHtml(N,${RES}(N)))(nestJob())`);
-  assert.equal((h.match(/data-act="zag"/g)||[]).length,4);
+  assert.equal((h.match(/data-act="zag"/g)||[]).length,5);
   assert.equal((h.match(/data-act="sheet"/g)||[]).length,0);
   assert.ok(!/Скачать архив|ZIP/.test(h));
   const want=run(c,`(N=>N.groups.flatMap(G=>zagTypes(N,G).map(t=>dxfNameZ(t.p))))(nestJob())`);

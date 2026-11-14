@@ -40,12 +40,13 @@ function innerPoint(P,o={}){const dP=polyDist(P),H=(o.holes||[]).map(l=>[l,polyD
 // отрезки гравировки номера no внутри детали P (мм, y вверх); null — деталь слишком узкая (меньше 3 мм высоты цифр).
 // Сначала обходим отверстия (o.holes, o.circ); если между ними не поместилось — гравируем поверх них (лазеру там резать нечего)
 function engraveSegs(no,P,o={}){
-  const at=ip=>{if(!ip)return null;const t=String(no),n=t.length,uw=n*1.5-.5,uh=2,clear=o.clear??2,
+  const at=(ip,tight)=>{if(!ip)return null;const t=String(no),n=t.length,uw=n*1.5-.5,uh=2,clear=tight?1.5:(o.clear??2),
       u=Math.min((o.maxH||20)/2,(ip.r-clear)/Math.hypot(uw/2,uh/2));if(2*u<(o.minH||3))return null;
     const ox=ip.p[0]-uw*u/2,oy=ip.p[1]-uh*u/2,seg=[];
     [...t].forEach((ch,i)=>(DIGITS[ch]||[]).forEach(L=>{for(let k=0;k+1<L.length;k++)seg.push([ox+(i*1.5+L[k][0])*u,oy+L[k][1]*u,ox+(i*1.5+L[k+1][0])*u,oy+L[k+1][1]*u]);}));
     return seg;};
   const withHoles=(o.holes&&o.holes.length)||(o.circ&&o.circ.length);
-  return (withHoles&&at(innerPoint(P,o)))||at(innerPoint(P));}
+  const ip=innerPoint(P);   // узкая деталь (скоба 12 мм): двузначный номер не влезает с отступом 2 мм — второй заход с 1,5 мм, высота цифр всё равно не меньше minH
+  return (withHoles&&at(innerPoint(P,o)))||at(ip)||at(ip,true);}
 // длина отрезков, мм
 const segsLen=S=>S?S.reduce((a,z)=>a+Math.hypot(z[2]-z[0],z[3]-z[1]),0):0;

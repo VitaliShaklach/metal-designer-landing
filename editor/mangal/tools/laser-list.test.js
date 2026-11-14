@@ -39,19 +39,19 @@ test('печь и «оба»: кнопки листа 5, 3 и 15 мм', ()=>{
   }
 });
 
-// цифры из спеки (2026-11-09-mangal-cut-tabs-design.md, «Лазер → С листа»): лист 5 мм мангала по умолчанию — 46,14 м реза и 771 врезка,
-// из них два колосника — 24,58 м и 686; без колосника остаётся 21,56 м и 85
+// цифры из спеки (2026-11-09-mangal-cut-tabs-design.md, «Лазер → С листа»): лист 5 мм мангала по умолчанию — 46,14 м реза и 771 врезка (до перегородки по умолчанию, #101; с ней — 47,47 м и 772),
+// из них два колосника — 24,58 м и 686; без колосника остаётся 21,56 м и 85 (с перегородкой — 22,90 м и 86)
 test('итоги «С листа»: рез, врезки, листы, заполнение — без снятого колосника и с ним', ()=>{
   const c=loadMangal({mode:'grill'});
   const [g]=run(c,`(N=>listTotals(N,${RES}(N)))(nestJob({cgr:false}))`);
   assert.equal(g.mm,5);
   assert.equal(g.sheets,1);
-  assert.ok(Math.abs(g.cut/1000-21.56)<0.02,'рез '+g.cut);
-  assert.equal(g.pierce,85);
+  assert.ok(Math.abs(g.cut/1000-22.90)<0.02,'рез '+g.cut);
+  assert.equal(g.pierce,86);
   assert.ok(g.fill>0.25&&g.fill<0.4,'заполнение '+g.fill);
   const [g2]=run(c,`(N=>listTotals(N,${RES}(N)))(nestJob({cgr:true}))`);
-  assert.ok(Math.abs(g2.cut/1000-46.14)<0.02,'рез с колосником '+g2.cut);
-  assert.equal(g2.pierce,771);
+  assert.ok(Math.abs(g2.cut/1000-47.47)<0.02,'рез с колосником '+g2.cut);
+  assert.equal(g2.pierce,772);
   assert.ok(g2.fill>g.fill);
 });
 
