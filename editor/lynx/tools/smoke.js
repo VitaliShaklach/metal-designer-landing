@@ -323,9 +323,9 @@ ok(run("nestGap('laser')===5&&nestGap('plasma')===7&&ngapAfterCut(5,false,'plasm
   const crosses=g&&g.some(s=>P.some((a,i)=>run(`segX(${JSON.stringify([s[0],s[1]])},${JSON.stringify([s[2],s[3]])},${JSON.stringify(a)},${JSON.stringify(P[(i+1)%P.length])})`))),inside=g&&g.every(s=>run(`inPoly([${s[0]},${s[1]}],${JSON.stringify(P)})&&inPoly([${s[2]},${s[3]}],${JSON.stringify(P)})`));
   ok(!!g&&!crosses&&inside,'подпись сгиба не пересекает узкую прорезь от кромки (рамка целиком внутри контура)');}
 // телефон / iPad (BACKLOG 5–8): поля ≥ 16 px, галочки и «?» под палец, выпадашки «Перейти» высокие, вкладки ровно
-{const CSS=fs.readFileSync(__dirname+'/../css/style.css','utf8'),T=/@media \(max-width:900px\),\(pointer:coarse\)\{([\s\S]*?)\n\}/.exec(CSS),t=T?T[1]:'',M6=/@media \(max-width:600px\)\{\s*\.tabbar\{display:grid;grid-template-columns:repeat\(6,1fr\)/.test(CSS);
+{const CSS=fs.readFileSync(__dirname+'/../css/style.css','utf8'),T=/@media \(max-width:900px\),\(pointer:coarse\)\{([\s\S]*?)\n\}/.exec(CSS),t=T?T[1]:'',M6=/@media \(max-width:719px\)\{\s*\.tabbar\{flex-direction:column/.test(CSS);
   ok(/select,textarea\{font-size:16px!important\}/.test(t)&&/\.chk input[^{]*\{width:24px;height:24px/.test(t)&&/\.tip\{[^}]*width:32px;height:32px/.test(t)&&/#shGo,#cdGo\{min-height:44px/.test(t)&&M6&&!/\.tabbar\{flex-wrap:wrap/.test(CSS),
-    "телефон/iPad: поля 16 px, галочки 24, «?» 32×32, «Перейти к листу/карте» 44 px, вкладки — сетка 3+2");}
+    "телефон/iPad: поля 16 px, галочки 24, «?» 32×32, «Перейти к листу/карте» 44 px, вкладки — столбцом, как в мангале");}
 {const sel=/<select id="figSel">([\s\S]*?)<\/select>/.exec(HT)[1],O=[...sel.matchAll(/<option value="([^"]*)"[^>]*>([^<]*)</g)].map(m=>({v:m[1],t:m[2]}));
   ok(O.length===1&&O[0].v==='lynx14'&&O[0].t==='Рысь'&&run("Object.keys(FIGURES).join()")==='lynx14',"список «Фигура»: одна «Рысь», других фигур в коде нет");}
 {const tc={};vm.createContext(tc);const src=fs.readFileSync(P+'tips.js','utf8');vm.runInContext(src.slice(0,src.indexOf('\n(()=>'))+'\nthis.TIPS=TIPS;',tc);const TP=tc.TIPS;

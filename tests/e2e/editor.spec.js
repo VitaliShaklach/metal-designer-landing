@@ -240,6 +240,77 @@ test('lynx: на телефоне без горизонтальной прокр
   expect(sw).toBeLessThanOrEqual(iw);
 });
 
+// ---------- рысь: вкладки как в мангале, старт на «Деталях» ----------
+
+for (const tab of ['sheets', 'nest', 'cards']) {
+  test(`lynx: открывается на «Деталях» при запомненной вкладке «${tab}», без зависаний в первые 3 с`, async ({page}) => {
+    await page.addInitScript(t => {
+      try { localStorage.setItem('art-tab', t); } catch (e) {}
+      window.__long = [];
+      // построение фигуры (индикатор «Строю фигуру…») от вкладки не зависит и на загруженной машине растягивается: считаем зависания только после него
+      window.__built = null;
+      new MutationObserver(() => { const l = document.getElementById('loading'); if (l && l.hidden && window.__built === null) window.__built = performance.now(); })
+        .observe(document, {subtree: true, childList: true, attributes: true, attributeFilter: ['hidden']});
+      new PerformanceObserver(l => l.getEntries().forEach(e => window.__long.push([e.startTime, e.duration])))
+        .observe({type: 'longtask', buffered: true});
+    }, tab);
+    await openEditor(page, '/editor/lynx/');
+    await lynxReady(page);
+    await expect(page.locator('[role=tab][data-tab=parts]')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#tab-parts')).toBeVisible();
+    for (const k of ['sum', 'nest', 'sheets', 'cards']) await expect(page.locator('#tab-' + k)).toBeHidden();
+    // тяжёлые вкладки сами ничего не считают: раскрой, листы и карты пусты и индикаторы скрыты
+    await page.waitForTimeout(3000);
+    await expect(page.locator('#nestBox')).toBeEmpty();
+    await expect(page.locator('#sheets')).toBeEmpty();
+    await expect(page.locator('#cards')).toBeEmpty();
+    await expect(page.locator('#nestWait')).toBeHidden();
+    const bad = await page.evaluate(() => window.__long.filter(([t, d]) => t >= window.__built && t < window.__built + 3000 && d > 1000));
+    expect(bad).toEqual([]);
+  });
+}
+
+test('lynx: «Лазер · DXF» с внутренними «Лазер» и «Гильотина»; в гильотине строка «не подходит», без кнопки', async ({page}) => {
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  const names = await page.locator('.tabbar > [role=tab] > b').allTextContents();
+  expect(names).toEqual(['Детали', 'Итого', 'Лазер · DXF', 'Чертежи', 'Карты деталей']);
+  for (const b of await page.locator('.tabbar > [role=tab]').all()) await expect(b.locator('small')).toHaveCount(1);
+  await page.locator('[role=tab][data-tab=nest]').click();
+  const subs = page.locator('#tab-nest .subtabs > [role=tab]');
+  expect(await subs.locator('b').allTextContents()).toEqual(['Лазер', 'Гильотина']);
+  await expect(page.locator('#sub-laser')).toBeVisible();
+  await expect(page.locator('#sub-laser #bDxfNest')).toBeVisible();
+  await expect(page.locator('#sub-gil')).toBeHidden();
+  await subs.nth(1).click();
+  await expect(page.locator('#sub-gil')).toBeVisible();
+  await expect(page.locator('#sub-laser')).toBeHidden();
+  await expect(page.locator('#sub-gil')).toContainText('Гильотина не подходит: мелкие детали');
+  await expect(page.locator('#sub-gil button')).toHaveCount(0);
+  await subs.nth(0).click();
+  await expect(page.locator('#sub-laser #bDxfNest')).toBeVisible();
+});
+
+test('lynx: на телефоне вкладки столбцом, без прокрутки вбок', async ({page}, info) => {
+  test.skip(info.project.name !== 'phone');
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  const column = sel => page.evaluate(s => {
+    const r = [...document.querySelectorAll(s)].map(e => e.getBoundingClientRect());
+    return r.length > 1 && r.every((b, i) => b.width > 0 && (i === 0 || (b.top >= r[i - 1].bottom - 1 && Math.abs(b.left - r[0].left) < 1 && Math.abs(b.width - r[0].width) < 1)));
+  }, sel);
+  const noSide = async () => { const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]); expect(sw).toBeLessThanOrEqual(iw); };
+  expect(await column('.tabbar > [role=tab]')).toBe(true);
+  await expect(page.locator('.tabbar > [role=tab]').first().locator('small')).toBeVisible();
+  await noSide();
+  await page.locator('[role=tab][data-tab=nest]').click();
+  expect(await column('#tab-nest .subtabs > [role=tab]')).toBe(true);
+  await noSide();
+  await page.locator('#tab-nest .subtabs > [role=tab]').nth(1).click();
+  await expect(page.locator('#sub-gil')).toBeVisible();
+  await noSide();
+});
+
 test('mangal: во время раскроя виден индикатор, потом скрывается', async ({page}) => {
   await openEditor(page, '/editor/mangal/');
   await expect(page.locator('#nestWait')).toBeHidden();
