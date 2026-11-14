@@ -141,3 +141,47 @@ test('пластины ручки: деталь grill_grate_handle ×4, 5 мм; 
   const f=run(c,`(N=>partFile(N.groups[0].types.find(t=>t.p.pt==='cgrH')))(nestJob())`);
   assert.equal(f[0],'grill_grate_handle_5mm_x4.dxf');
 });
+
+// гравировка видна на детали (#104): штрихи на схеме = слой ENGRAVE листа с точностью 0,01 мм, текстового номера у такой детали нет
+const svgSegs=(svg)=>{const out=[];for(const m of svg.matchAll(/<path class="engr" d="([^"]*)"/g))for(const s of m[1].matchAll(/M([-\d.]+),([-\d.]+)L([-\d.]+),([-\d.]+)/g))out.push([+s[1],+s[2],+s[3],+s[4]]);return out;};
+const dxfEngr=(t)=>{const a=t.split(/\r?\n/),out=[];for(let i=0;i<a.length-1;i++)if(a[i]==='0'&&a[i+1]==='LINE'){const e={};let j=i+2;while(j<a.length-1&&a[j]!=='0'){e[a[j]]=a[j+1];j+=2;}if(e['8']==='ENGRAVE')out.push([+e['10'],+e['20'],+e['11'],+e['21']]);}return out;};
+const sheetOf=(c,over)=>run(c,`(N=>{const res=${RES}(N),G=N.groups[0],sh=res[0].sheets[0];
+  return {H:N.H,svg:nestSvg(N,G,sh,()=>false,true),dxf:nestDxf(N,G,sh),n:sh.items.length,no:sh.items.map(it=>G.items[it.id].ty.no),eng:sh.items.map(it=>G.items[it.id].ty.eng&&G.items[it.id].ty.eng.length||0)};})(nestJob(${over}))`);
+
+test('схема «С листа»: штрихи номера = слой ENGRAVE в DXF листа (0,01 мм), у такой детали нет текстового номера',()=>{
+  const c=loadMangal({mode:'grill'}),r=sheetOf(c,'{cgr:true}');
+  const sv=svgSegs(r.svg).map(s=>[s[0],r.H-s[1],s[2],r.H-s[3]]),dx=dxfEngr(r.dxf);
+  assert.ok(dx.length>100,'штрихов мало');assert.equal(sv.length,dx.length);
+  const key=s=>s.map(v=>Math.round(v*100)).join(',');
+  const have=new Set(dx.map(key));
+  sv.forEach(s=>assert.ok(have.has(key(s)),'штрих схемы не в DXF: '+s));
+  // тексты-номера: только у деталей без штрихов (и «подпись листа»)
+  const withEng=r.eng.filter(n=>n>0).length;
+  assert.equal((r.svg.match(/<path class="engr"/g)||[]).length,withEng);
+  const labels=(r.svg.match(/<g class="np[^>]*>.*?<\/g>/g)||[]).filter(g=>/<text/.test(g));
+  assert.equal(labels.length,0,'у деталей с гравировкой номер текстом не рисуется');
+});
+
+test('схема «С листа»: гравировка снята — штрихов нет, номера текстом, DXF без ENGRAVE',()=>{
+  const c=loadMangal({mode:'grill'}),r=sheetOf(c,'{cgr:true,engr:false}');
+  assert.ok(!/class="engr"/.test(r.svg));assert.ok(!/ENGRAVE/.test(r.dxf));
+  assert.ok((r.svg.match(/<g class="np[^>]*>.*?<\/g>/g)||[]).some(g=>/<text/.test(g)));
+});
+
+test('схема «С листа»: номер не влез (нет штрихов) — текстовый номер, без штрихов',()=>{
+  const c=loadMangal({mode:'grill'});
+  const r=run(c,`(N=>{N.groups[0].types.forEach(ty=>{ty.eng=null;});const res=${RES}(N),G=N.groups[0],sh=res[0].sheets[0];return nestSvg(N,G,sh,()=>false,true);})(nestJob({cgr:true}))`);
+  assert.ok(!/class="engr"/.test(r));assert.ok(/<g class="np[^>]*>[^]*?<text/.test(r));
+  // смешанный лист: у одной детали штрихов нет — у неё текст, у остальных штрихи
+  const m=run(c,`(N=>{const G=N.groups[0];G.types[0].eng=null;const res=${RES}(N),sh=res[0].sheets[0];return {svg:nestSvg(N,G,sh,()=>false,true),no:G.types[0].no,k:G.items.filter(i=>i.ty===G.types[0]).length};})(nestJob({cgr:true}))`);
+  const gs=m.svg.match(/<g class="np[^>]*>.*?<\/g>/g);
+  const first=gs.filter(g=>g.includes(`<title>${m.no} — `));
+  assert.ok(first.length>0);first.forEach(g=>{assert.ok(!/class="engr"/.test(g));});
+  assert.ok(gs.some(g=>/class="engr"/.test(g)&&!/<text/.test(g)));
+});
+
+test('схема гильотины гравировку не показывает',()=>{
+  const c=loadMangal({mode:'grill'});
+  const s=run(c,`(N=>{const G=N.groups[0],sc=gilScheme(N,G);return gilSvg(N,G,sc.sheets[0],()=>false,true);})(nestJob({cgr:true}))`);
+  assert.ok(!/engr/.test(s));
+});

@@ -182,11 +182,13 @@ function holesTxt(m) {
 }
 
 // Развёртка в клетке: x, y — левый верхний угол контура на листе, n — масштаб
-function partSvg(m, x, y, n) {
+// eng — штрихи гравировки номера [x1,y1,x2,y2] в координатах детали (карта: «Как режут»; листы чертежей без номера)
+function partSvg(m, x, y, n, eng) {
   const P = ([px, py]) => `${r2(x + px / n)},${r2(y + (m.h - py) / n)}`;
   let s = m.loops.map(l => `<path class="l" d="M${l.map(P).join('L')}Z"/>`).join('');
   s += m.circles.map(([cx, cy, r]) => `<circle class="l" cx="${r2(x + cx / n)}" cy="${r2(y + (m.h - cy) / n)}" r="${r2(r / n)}"/>`).join('');
   s += m.bends.map(([a, b]) => `<path class="dash" d="M${P(a)}L${P(b)}"/>`).join('');
+  if (eng && eng.length) s += `<path class="engr" d="${eng.map(z => `M${P([z[0], z[1]])}L${P([z[2], z[3]])}`).join('')}"/>`;
   const w = m.w / n, h = m.h / n;
   return s + dimH(x, y, x + w, y, y - 5, mmTxt(m.w)) + dimV(x, y, x, y + h, x - 5, mmTxt(m.h));
 }

@@ -221,3 +221,14 @@ test('карта колосника: строки — перфолисты и п
   const sum=u.rows.reduce((a,n)=>{const r=rows.find(r=>r.n===n);return a+r.m*r.q/u.q;},0);
   assert.ok(Math.abs(u.kg-sum)<1e-6,`карта ${u.kg}, строки ${sum}`);
 });
+
+// гравировка номера видна на карте, в блоке «Как режут» (#104)
+test('карта боковины: штрихи гравировки в «Как режут»; галочка снята — штрихов нет',()=>{
+  const c=open();
+  const side=cards(c).find(x=>x.id==='side0');
+  assert.match(side.svg,/class="engr"/);
+  assert.match(side.svg,/\.engr\{/,'стиль штрихов в таблице стилей карты');
+  const c2=open();
+  run(c2,'__els.nEngrave={checked:false}');
+  assert.ok(!/class="engr"/.test(cards(c2).find(x=>x.id==='side0').svg));
+});

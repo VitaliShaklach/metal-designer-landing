@@ -354,6 +354,14 @@ const fmtQ = v => String(Math.round(v * 100) / 100).replace('.', ',');
 // Сколько штук строки на 1 шт. карты; ножки двух высот (в «оба») — «2 из 4», а не «0,5»
 const perTxt = (u, r) => { const v = rowPer(u, r) / u.q; return Number.isInteger(v) ? String(v) : `${fmtQ(rowPer(u, r))} из ${fmtQ(u.q)}`; };
 
+// Штрихи гравировки номера для карты: тот же номер и те же отрезки, что у детали в DXF (nestJob по настройкам страницы, считается в startCards).
+// Нет детали в задании (перегородка при снятой галочке) или гравировка снята — null: на карте номера нет, как и раньше
+let CARD_NJ = null;
+function cardEngr(u) {
+  const ty = CARD_NJ && u.p && CARD_NJ.groups.flatMap(G => G.types).find(t => t.p.pt === u.p.pt && t.p.file === u.p.file && t.p.mm === u.p.mm);
+  return ty && ty.eng || null;
+}
+
 // Блок «Как режут»: развёртка лазерной детали с размерами и таблица деталей на 1 шт. (строки — из «Раскрой и масса»)
 function cardBlank(u, y) {
   let s = `<text class="h2" x="23" y="${r2(y + 4)}">Как режут</text>`;
@@ -361,7 +369,7 @@ function cardBlank(u, y) {
   if (u.p) {
     const m = u.m, n = pickScale([m.w, m.h], [150, 46]), w = m.w / n, h = m.h / n, x = 30 + (165 - w) / 2;
     s += `<text class="sm" x="202" y="${r2(y - 3)}" text-anchor="end">${shEsc(`лист ${u.p.mm} мм · ${scaleTxt(n)} · пунктир — гиб, не резать`)}</text>`
-      + partSvg(m, x, y + 6, n);
+      + partSvg(m, x, y + 6, n, cardEngr(u));
     y += 6 + h + 4;
     const hl = holesTxt(m);
     if (hl) { s += `<text class="td" x="${r2(x)}" y="${r2(y)}">${shEsc(hl)}</text>`; y += 2; }
@@ -540,6 +548,7 @@ function instSize(u) {
 // бросили на середине — close()
 function startCards() {
   const date = shDate(), cm = openCardModel();
+  CARD_NJ = nestJob();
   let D, i = 0;
   try { D = cm.run(cardParts); } catch (e) { cm.close(); throw e; }
   const N = D.units.length;
@@ -555,7 +564,7 @@ function startCards() {
       });
     } finally { if (n >= N) cm.close(); }
   };
-  return {N, next, close: cm.close};
+  return {N, next, close: () => { CARD_NJ = null; cm.close(); }};
 }
 
 // Все карты разом — для проверок
@@ -568,7 +577,7 @@ function buildCards() {
 /* ---------- вкладка «Карты деталей»: «Рассчитать», карты, PDF ---------- */
 // Задание: строки «Раскрой и масса» (они же размеры деталей) и галочки модели. Размеры на модели и выбор детали карты не меняют
 function cardsKey() {
-  return JSON.stringify([massRows().rows.map(r => [r.n, r.s, r.q, Math.round(r.m * 1000), r.note]), L1, W, T, UNIT,
+  return JSON.stringify([nestOpts().engr, massRows().rows.map(r => [r.n, r.s, r.q, Math.round(r.m * 1000), r.note]), L1, W, T, UNIT,
     JSON.stringify(S, (k, v) => k === 'dims' || k === 'sel' || k === 'parts' ? undefined : v)]);
 }
 

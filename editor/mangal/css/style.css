@@ -270,6 +270,8 @@ svg.nestsv .np path{fill:var(--accent);fill-opacity:.1;fill-rule:evenodd;stroke:
 svg.nestsv .np .bd{stroke:#2a7;stroke-dasharray:4 3;stroke-width:1px}
 svg.nestsv .np text{fill:var(--ink);font-family:var(--f-mono);font-weight:500;paint-order:stroke;stroke:var(--panel);stroke-width:3px;stroke-linejoin:round}
 svg.nestsv .np.on path{fill-opacity:.42;stroke-width:2.2px}
+/* гравировка номера (как в рыси): красные штрихи поверх контура, поверх общего правила .np path; vector-effect — из svg.nestsv * */
+svg.nestsv .np path.engr,svg.nestsv .np.on path.engr{fill:none;fill-opacity:0;stroke:#c33;stroke-width:1px}
 svg.nestsv .np.on text{font-weight:700}
 .nwarn{margin:0;color:var(--accent);font-size:13px;font-weight:600}
 table.ntbl td:first-child,table.ntbl th:first-child{width:1%}

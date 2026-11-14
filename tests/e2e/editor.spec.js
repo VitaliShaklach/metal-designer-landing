@@ -657,6 +657,29 @@ test('mangal: «С листа» — схема, таблица, итоги и «
   expect(r.errors).toEqual([]);
 });
 
+// #104: гравировка номера видна на детали: «С листа» — штрихи, без текстового номера; галочка снята — номера текстом; «Гильотина» штрихов не показывает
+test('mangal: гравировка на схеме «С листа» — штрихи; галочка снята — текст; «Гильотина» без штрихов', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await mangalCut(page);
+  const sv = page.locator('#nestBox svg.nestsv').first();
+  expect(await sv.locator('path.engr').count()).toBeGreaterThan(5);
+  expect(await sv.locator('.np:has(path.engr) text').count()).toBe(0);   // у детали со штрихами номера текстом нет
+  await expect(sv.locator('path.engr').first()).toHaveCSS('stroke', 'rgb(204, 51, 51)');
+  await page.locator('#nEngrave').uncheck();
+  await expect(page.locator('#nestRun')).toBeEnabled();
+  await mangalCut(page);
+  await expect(page.locator('#nestBox path.engr')).toHaveCount(0);
+  expect(await page.locator('#nestBox svg.nestsv .np text').count()).toBeGreaterThan(5);
+  await page.locator('#nEngrave').check();
+  await openSub(page, 'gil');
+  await gilCut(page);
+  await expect(page.locator('#gilBox svg.gilsv')).toHaveCount(1);
+  await expect(page.locator('#gilBox path.engr')).toHaveCount(0);
+  expect(await page.locator('#gilBox svg.gilsv text').count()).toBeGreaterThan(3);   // номера у заготовок — текстом
+  expect(r.errors).toEqual([]);
+});
+
 // #102: ручка колосника — четыре пластины 30 × 80 × 5: строка с DXF в «С листа», в «Гильотине» — «Не рубится»
 test('mangal: пластины ручки колосника — DXF в «С листа», в «Гильотине» «Не рубится: уже 50 мм»', async ({page}) => {
   test.slow();
