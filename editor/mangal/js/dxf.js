@@ -59,9 +59,10 @@ function laserParts(){const g=gOn(),k=sOn(),LL=legsList(),r=[];
 // деталь → мм, сдвиг в (0,0), длина реза и врезки
 function partMM(p){const G=p.geo(),xs=[],ys=[];G.loops.forEach(l=>l.forEach(([x,y])=>{xs.push(x);ys.push(y);}));
   const mx=Math.min(...xs),my=Math.min(...ys),f=v=>Math.round(v*1000)/100,P=([x,y])=>[f(x-mx),f(y-my)];
-  const loops=G.loops.map(l=>l.map(P)),circles=G.circles.map(([x,y,r])=>[...P([x,y]),f(r)]),bends=G.bends.map(b=>b.map(P));
+  const w=f(Math.max(...xs)-mx),mir=ENGR_MIRROR.has(p.pt),M=([x,y])=>mir?[Math.round((w-x)*100)/100,y]:[x,y];   // наружная сторона → внутренней вверх (engrave.js)
+  const loops=G.loops.map(l=>l.map(P).map(M)),circles=G.circles.map(([x,y,r])=>[...M(P([x,y])),f(r)]),bends=G.bends.map(b=>b.map(P).map(M));
   let cut=0;loops.forEach(l=>{for(let i=0;i<l.length-1;i++)cut+=Math.hypot(l[i+1][0]-l[i][0],l[i+1][1]-l[i][1]);});circles.forEach(c=>cut+=2*Math.PI*c[2]);
-  return {loops,circles,bends,w:f(Math.max(...xs)-mx),h:f(Math.max(...ys)-my),cut,pierce:loops.length+circles.length};}
+  return {loops,circles,bends,w,h:f(Math.max(...ys)-my),cut,pierce:loops.length+circles.length};}
 /* ---------- заготовки с гильотины: металл режут в размер на гильотине, на лазер везут готовый прямоугольник ----------
    Рубит ли гильотина деталь, решает правило (gilOn / gilWhy в nest.js: уже 50 мм, толще 8 мм — нет). Вид детали, если её рубить:
    gil  — готовая деталь: наружный контур — прямоугольник по габариту, внутри ничего — лазер не нужен;
@@ -86,11 +87,12 @@ function blankMM(p,m=partMM(p)){const E=BLANK_EPS,w=m.w,h=m.h,O=m.loops[0]||[],a
 function partKind(m,sel='gil'){if(sel==='laser'||!m||!m.loops||!m.loops[0]||!m.loops[0].length||!(m.w>0&&m.h>0))return 'list';
   return !blankMM(null,m).open&&m.loops.length===1&&!m.circles.length?'gil':'zag';}
 // m.sheet — рамка листа (замкнутый контур), только у DXF всего листа (nestDxf, gilDxf); m.blank — прямоугольник заготовки (blankMM);
-// m.blanks — заготовки на схеме гильотины (gilDxf), слой BLANK; m.texts — [x, y, высота, строка] — надписи R12 TEXT по центру, слой TEXT
+// m.blanks — заготовки на схеме гильотины (gilDxf), слой BLANK; m.engr — отрезки гравировки номеров [x1,y1,x2,y2], слой ENGRAVE (engrave.js); m.texts — [x, y, высота, строка] — надписи R12 TEXT по центру, слой TEXT
 function dxfText(m){const e=[],L=(a,b,lay)=>e.push('0','LINE','8',lay,'10',a[0],'20',a[1],'30',0,'11',b[0],'21',b[1],'31',0);
   if(m.sheet)for(let i=0;i<m.sheet.length-1;i++)L(m.sheet[i],m.sheet[i+1],'SHEET');
   [m.blank,...(m.blanks||[])].forEach(b=>{if(b)for(let i=0;i<b.length-1;i++)L(b[i],b[i+1],'BLANK');});
   (m.texts||[]).forEach(([x,y,h,s])=>e.push('0','TEXT','8','TEXT','10',x,'20',y,'30',0,'40',h,'1',s,'72',1,'11',x,'21',y,'31',0,'73',2));
+  (m.engr||[]).forEach(s=>L([s[0],s[1]],[s[2],s[3]],'ENGRAVE'));   // номер детали — первым из резов (порядок на лазере: ENGRAVE, потом CUT)
   (m.loops||[]).forEach(l=>{for(let i=0;i<l.length-1;i++)if(l[i][0]!==l[i+1][0]||l[i][1]!==l[i+1][1])L(l[i],l[i+1],'CUT');});
   (m.circles||[]).forEach(([x,y,r])=>e.push('0','CIRCLE','8','CUT','10',x,'20',y,'30',0,'40',r));
   (m.bends||[]).forEach(([a,b])=>L(a,b,'BEND'));

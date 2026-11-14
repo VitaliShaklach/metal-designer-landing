@@ -12,9 +12,9 @@
 <meta property="og:url" content="https://vitalishaklach.github.io/metal-designer/mangal/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-14h">
-<link rel="stylesheet" href="../editor.css?v=2026-11-14h">
-<link rel="stylesheet" href="css/style.css?v=2026-11-14h">
+<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-14i">
+<link rel="stylesheet" href="../editor.css?v=2026-11-14i">
+<link rel="stylesheet" href="css/style.css?v=2026-11-14i">
 </head>
 <body>
 <div class="edbar">
@@ -171,7 +171,7 @@
     </div>
 
     <div class="tabpane" id="tab-cut" role="tabpanel" hidden>
-      <div class="dimbar nestbar"><label>Лист <select id="nSheet"><option value="1000x2000">1000 × 2000</option><option value="1250x2500" selected>1250 × 2500</option><option value="1500x3000">1500 × 3000</option></select></label><label title="В каком углу листа стоят «С листа» и «Гильотина»: с другой стороны остаётся целый кусок">Угол листа <select id="nCorner"><option value="lb" selected>↙ слева снизу</option><option value="lt">↖ слева сверху</option><option value="rb">↘ справа снизу</option><option value="rt">↗ справа сверху</option></select></label><label id="nCgrBox"><input type="checkbox" id="nCgr"> Колосник на листе</label></div>
+      <div class="dimbar nestbar"><label>Лист <select id="nSheet"><option value="1000x2000">1000 × 2000</option><option value="1250x2500" selected>1250 × 2500</option><option value="1500x3000">1500 × 3000</option></select></label><label title="В каком углу листа стоят «С листа» и «Гильотина»: с другой стороны остаётся целый кусок">Угол листа <select id="nCorner"><option value="lb" selected>↙ слева снизу</option><option value="lt">↖ слева сверху</option><option value="rb">↘ справа снизу</option><option value="rt">↗ справа сверху</option></select></label><label id="nCgrBox"><input type="checkbox" id="nCgr"> Колосник на листе</label><label title="Номер детали гравируется лазером на внутренней стороне (слой ENGRAVE), чтобы снаружи было красиво: деталь в DXF лежит внутренней стороной вверх. У площадок под ножки и колёса, колосников, скоб и задвижек, перегородки — сторона, которой не видно на собранном мангале"><input type="checkbox" id="nEngrave" checked> Гравировка номеров</label></div>
       <div class="subtabs" role="tablist" aria-label="Кому файлы">
         <button role="tab" id="st-laser" data-sub="laser" aria-selected="true" aria-controls="sub-laser"><b>Лазер</b><small>лазерщику: с листа или из заготовок</small></button>
         <button role="tab" id="st-gil" data-sub="gil" aria-selected="false" aria-controls="sub-gil" tabindex="-1"><b>Гильотина</b><small>схема гильотины и заготовки</small></button>
@@ -249,14 +249,15 @@
 <script src="../../vendor/three/three.min.js"></script>
 <script src="../../vendor/three/OrbitControls.js"></script>
 <script src="../../vendor/three/CSS2DRenderer.js"></script>
-<script src="js/params.js?v=2026-11-14h"></script>
-<script src="js/parts.js?v=2026-11-14h"></script>
-<script src="js/model.js?v=2026-11-14h"></script>
-<script src="js/dims.js?v=2026-11-14h"></script>
-<script src="js/cut.js?v=2026-11-14h"></script>
-<script src="js/dxf.js?v=2026-11-14h"></script>
-<script src="../common/calc.js?v=2026-11-14h"></script>
-<script src="js/nest.js?v=2026-11-14h"></script>
-<script src="js/ui.js?v=2026-11-14h"></script>
+<script src="js/params.js?v=2026-11-14i"></script>
+<script src="js/parts.js?v=2026-11-14i"></script>
+<script src="js/model.js?v=2026-11-14i"></script>
+<script src="js/dims.js?v=2026-11-14i"></script>
+<script src="js/cut.js?v=2026-11-14i"></script>
+<script src="js/dxf.js?v=2026-11-14i"></script>
+<script src="js/engrave.js?v=2026-11-14i"></script>
+<script src="../common/calc.js?v=2026-11-14i"></script>
+<script src="js/nest.js?v=2026-11-14i"></script>
+<script src="js/ui.js?v=2026-11-14i"></script>
 </body>
 </html>
