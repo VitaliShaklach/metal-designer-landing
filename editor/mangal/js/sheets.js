@@ -1,4 +1,4 @@
-// Листы А3 «Чертежей» мангала (#67): общий вид, порядок сборки, детали, спецификация, раскрой.
+// Листы А3 «Чертежей» мангала (#67, печь и «оба» — #69): общий вид, порядок сборки, детали, спецификация, раскрой.
 // Порт md/sheets.js (лендинг) под детали редактора: таблицы — из massRows и metalRows («Раскрой и масса»), детали и номера — из nestJob
 // («Лазер · DXF»), раскрой — раскладка «С листа» (nestRun). Всё — по текущим настройкам; виды рисует сама 3D-модель (views.js),
 // без WebGL вместо видов — надпись. Считается по кнопке «Рассчитать» (editor/common/calc.js), в конце файла — вкладка.
@@ -24,17 +24,18 @@ const refDim = cm => Math.round(cm * 10) + '*';
 /* ---------- 1. общий вид ---------- */
 // Слева — вид спереди, справа от него — вид слева, под ним — вид сверху; справа — параметры, изометрия, техтребования
 function sheetGeneral(d) {
-  const mt = metalRows(), fullLen = XR() + HX - XL();   // длина с ручкой, см
+  const mt = metalRows(), fullLen = XR() + HX - XL(), g = gOn(), k = sOn();   // длина с ручкой, см
   const rows = [
-    ['Жаровня, длина × ширина', `${d.len} × ${d.wid} мм`],
+    g && ['Жаровня, длина × ширина', `${d.len} × ${d.wid} мм`],
+    k && ['Печь, длина × ширина', `${d.klen} × ${d.kwid} мм`],
     ['Верх от земли', `${d.top} мм`],
     ['Длина с ручкой', `${Math.round(fullLen * 10)} мм`],
-    ['Металл', `сталь ${d.t} мм`],
+    ['Металл', d.metal],
     ['Деталей под лазер', String(d.parts)],
     ['Длина реза', `${fmt(d.cutM)} м`],
-    ['Отверстий / прорезей', `${d.holes} / ${d.slots}`],
+    g && ['Отверстий / прорезей', `${d.holes} / ${d.slots}`],
     ['Масса металла', `≈ ${d.kg} кг`],
-  ];
+  ].filter(Boolean);
   let s = svgTable(295, 22, [{t: 'Параметр', w: 60}, {t: 'Значение', w: 55}], rows, 5.6);
 
   // технические требования — внизу справа, над штампом
@@ -64,11 +65,14 @@ function sheetGeneral(d) {
   // размеры: высота — слева от вида спереди, длина жаровни — над ним; ширина и глубина жаровни — на виде слева;
   // длина с ручкой — под видом сверху
   const dV = (a, b, xl, t) => dimV(a[0], a[1], b[0], b[1], xl, t), dH = (a, b, yl, t) => dimH(a[0], a[1], b[0], b[1], yl, t);
+  // (печь — слева от перегородки, длина L2, шире жаровни на 2 см; глубина — H2)
+  const zb = k ? ZK1 : W, za = k ? ZK0 : 0, wd = k ? WK : W, depth = g ? H1 : H2;
   s += dV(F.P([XL(), 0, 0]), F.P([XL(), T, 0]), F.box[0] - 8, refDim(T));
-  s += dH(F.P([0, T, 0]), F.P([L1, T, 0]), F.box[1] - 5, refDim(L1));
-  s += dH(Lv.P([0, T, 0]), Lv.P([0, T, W]), Lv.box[1] - 5, refDim(W));
-  s += dV(Lv.P([0, T - H1, W]), Lv.P([0, T, W]), Lv.box[2] + 7, refDim(H1));
-  s += dH(Tv.P([XL(), 0, W]), Tv.P([XR() + HX, 0, W]), Tv.box[3] + 8, refDim(fullLen));
+  if (g) s += dH(F.P([0, T, 0]), F.P([L1, T, 0]), F.box[1] - 5, refDim(L1));
+  if (k) s += dH(F.P([-L2, T, 0]), F.P([0, T, 0]), F.box[1] - 5, refDim(L2));
+  s += dH(Lv.P([0, T, za]), Lv.P([0, T, zb]), Lv.box[1] - 5, refDim(wd));
+  s += dV(Lv.P([0, T - depth, zb]), Lv.P([0, T, zb]), Lv.box[2] + 7, refDim(depth));
+  s += dH(Tv.P([XL(), 0, zb]), Tv.P([XR() + HX, 0, zb]), Tv.box[3] + 8, refDim(fullLen));
   s += viewCap(F.box, 'Вид спереди') + viewCap(Lv.box, 'Вид слева') + viewCap(Tv.box, 'Вид сверху', 15);
 
   // изометрия — между таблицей и техтребованиями, по середине столбца
@@ -83,16 +87,26 @@ function sheetGeneral(d) {
 
 /* ---------- 2. порядок сборки ---------- */
 // Шаги из спеки, id деталей — метки tag(...) в model.js. Шаги 4 и 5 спеки объединены: площадка под ножку,
-// патрубок и труба ножки — одна деталь 'legs', по отдельности их не подсветить
+// патрубок и труба ножки — одна деталь 'legs', по отдельности их не подсветить.
+// Печь (#69) — после жаровни и до ножек: тело, труба с отсекателем, глухой верх с полосой и уголками, направляющие шибера,
+// дверца; колосник и шибер кладутся последними. Покупное (плита, казан) и дрова в шаги не входят
 const ASM_STEPS = [
   {title: 'Дно и боковины', parts: ['gBot', 'side0', 'side1']},
   {title: 'Торцы', parts: ['gEnd', 'gEnd0', 'logo']},
   {title: 'Уголки в жаровне и опоры колосника', parts: ['gAng', 'cgrAngB', 'cgrAngF']},
+  {title: 'Дно, боковины и перегородка печи', parts: ['sBot', 'sK0', 'sK1', 'wall']},
+  {title: 'Труба, заслонка и отсекатель пламени', parts: ['chim', 'chimX', 'damper', 'fb']},
+  {title: 'Полоса у дверцы, глухой верх и уголки колосника', parts: ['tie', 'lintel', 'angles']},
+  {title: 'Направляющие шибера — к дну снизу', parts: ['guides']},
+  {title: 'Дверца с ручкой, крючком и проушиной', parts: ['door']},
   {title: 'Площадки и патрубки ножек — к дну; ножки, площадки колёс, колёса', parts: ['legs', 'legTw', 'pads', 'feet', 'wheels']},
   {title: 'Скобы и задвижки поддува', parts: ['hook', 'air']},
-  {title: 'Ручка', parts: ['handle']},
+  {title: 'Ручка', parts: ['handle', 'sHandle']},
   {title: 'Колосник и решётки — кладутся', parts: ['cgr1', 'cgr2', 'g2', 'gGrate', 'div']},
+  {title: 'Колосник и шибер печи — вставляются', parts: ['grate', 'shib']},
 ];
+// На снимках сборки не нужны: пометка «ножка откручивается» и покупные плита с казаном (закрывают верх печи)
+const ASM_HIDE = ['legTw', 'plate', 'kazan'];
 
 // id деталей текущей модели: с 3D — те, что попадают на снимок (views.js), без 3D — из раскроя и деталей под лазер.
 // Составные (cgr, cgrAng — «обе половины», «оба уголка») — не детали модели, вместо них их части
@@ -125,7 +139,7 @@ function sheetsAsm() {
   const steps = asmSteps(), CW = 190, CH = 124, IW = 184, IH = 104;   // клетка шага и поле картинки, мм
   const bi = modelBoxMm('iso'), n = bi && pickScale([bi.w, bi.h], [IW, IH]);
   const imgs = steps.map((s, i) => bi && renderView('iso', n, {
-    pxPerMm: 6, highlight: new Set(s.parts), hide: new Set(['legTw', ...steps.slice(i + 1).flatMap(x => x.parts)]),
+    pxPerMm: 6, highlight: new Set(s.parts), hide: new Set([...ASM_HIDE, ...steps.slice(i + 1).flatMap(x => x.parts)]),
   }));
   const full = imgs[imgs.length - 1];   // последний шаг — вся модель: по нему место мангала в клетке
   const anchor = full && full.toPaper([0, 0, 0]).map((v, k) => v + ([IW, IH][k] - [full.wMm, full.hMm][k]) / 2);
@@ -277,13 +291,16 @@ function sheetsNest(N, res) {
 
 /* ---------- комплект ---------- */
 // Изделие в штампе и в имени PDF
-const sheetName = () => `Мангал ${Math.round(L1 * 10)} × ${Math.round(W * 10)} × ${Math.round(T * 10)}, 5 мм`;
+// (мангал — лист 5 мм; печь — 3, 5 и 15 мм; «оба» — мангал с печью, длина обоих, ширина печи)
+const sheetName = () => S.mode === 'grill' ? `Мангал ${Math.round(L1 * 10)} × ${Math.round(W * 10)} × ${Math.round(T * 10)}, 5 мм`
+  : `${S.mode === 'both' ? 'Мангал с печью' : 'Печь под казан'} ${Math.round((S.mode === 'both' ? L1 + L2 : L2) * 10)} × ${Math.round(WK * 10)} × ${Math.round(T * 10)}, 3–15 мм`;
 
 // Цифры «Общего вида»: из тех же источников, что «Раскрой и масса» и «Лазер · DXF»
 function sheetData(N, res) {
   const tot = listTotals(N, res);
   return {
-    len: Math.round(L1 * 10), wid: Math.round(W * 10), top: Math.round(T * 10), t: 5,
+    len: Math.round(L1 * 10), wid: Math.round(W * 10), klen: Math.round(L2 * 10), kwid: Math.round(WK * 10), top: Math.round(T * 10),
+    metal: sOn() ? 'сталь 3, 5 и 15 мм' : 'сталь 5 мм',
     parts: N.groups.reduce((a, G) => a + G.types.reduce((q, ty) => q + ty.q, 0), 0),
     cutM: tot.reduce((a, g) => a + g.cut, 0) / 1000,
     holes: holes().length * 2, slots: slots().length * 2, kg: kg1(massRows().tot),
@@ -299,7 +316,7 @@ function sheetsSteps(N, res) {
 
 // Штамп и номера листов — на готовый комплект: {title, svg}
 function sheetsWrap(bodies, d) {
-  const date = shDate(), b0 = {name: sheetName(), mass: `${d.kg} кг`, metal: `сталь ${d.t} мм`};
+  const date = shDate(), b0 = {name: sheetName(), mass: `${d.kg} кг`, metal: d.metal};
   return bodies.map((b, i) => ({title: b.title, svg: wrapSheet({...b0, ...b}, {n: i + 1, N: bodies.length, date})}));
 }
 
@@ -309,8 +326,6 @@ function sheetsBuild(N, res) {
 }
 
 /* ---------- вкладка «Чертежи»: «Рассчитать», листы, PDF ---------- */
-// Чертежи мангала готовы только для мангала: печь и «оба» — строка «Чертежи печи пока не готовы» (задача 13)
-const sheetsReady = () => S.mode === 'grill';
 // Задание: раскладка «Лазер · DXF» (ключ), строки «Раскрой и масса» и металл, галочки модели. Размеры на модели и выбор детали
 // листы не меняют (вращения в S нет вовсе)
 function sheetsKey() {
@@ -362,11 +377,8 @@ function printSheets(list, a4 = false) {
   window.print();
 }
 
-// Что-то поменялось (nestUI, через 0,3 с после правки) или показали вкладку: ключ другой — листы убраны; печь — строка вместо кнопки
+// Что-то поменялось (nestUI, через 0,3 с после правки) или показали вкладку: ключ другой — листы убраны
 function sheetsUI() {
-  const yes = sheetsReady(), main = document.getElementById('shMain'), note = document.getElementById('shStove');
-  if (main) main.hidden = !yes;
-  if (note) note.hidden = yes;
   const c = SHEETS.calc();
   if (c.held()) c.check();
 }

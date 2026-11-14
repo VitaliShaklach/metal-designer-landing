@@ -23,7 +23,7 @@ const CARD_UNITS = [
   {id: 'gAng', tags: ['gAng'], name: 'Уголок в жаровне', rows: [/^Уголок 30×30×3 в жаровне/]},
   {id: 'cgrAng', tags: ['cgrAngB'], twin: ['cgrAngF'], name: 'Опора колосника', rows: [/^Уголок 30×30×4 — опора колосника/],
     twinTxt: 'Передняя опора — зеркально: к передней боковине, полкой внутрь'},
-  {id: 'legs', tags: ['legs'], name: 'Ножка', laser: 'legs', rows: [/^Ножка /, /^Площадка под ножку/, /^Патрубок ножки/, /^Заглушка ножки/],
+  {id: 'legs', tags: ['legs'], name: 'Ножка', laser: 'legs', rows: [/^Ножка /, /^Площадка под ножку/, /^Патрубок ножки/, /^Заглушка ножки/], qOf: /^Площадка под ножку/,
     inner: 'патрубок — к площадке по кругу, гайку М16 — внутрь патрубка; заглушку со шпилькой — в верхний торец трубы, заподлицо. Труба вкручивается в патрубок'},
   {id: 'pads', tags: ['pads'], name: 'Площадка под колесо', laser: 'pads', rows: [/^Площадка под колесо/],
     extra: () => S.wheels ? ['колесо — покупное, на 4 болта М8×20 с гайкой и шайбой; отверстия сверлить по колесу'] : []},
@@ -36,9 +36,31 @@ const CARD_UNITS = [
   {id: 'gGrate', tags: ['gGrate'], name: 'Решётка в жаровне', rows: [/^Решётка в жаровне/]},
   {id: 'g2', tags: ['g2'], name: 'Решётка сверху', rows: [/^Решётка сверху/]},
   {id: 'div', tags: ['div'], name: 'Перегородка жаровни', laser: 'div', rows: [/^Перегородка жаровни/]},
+  // печь (#69); в «оба» перегородка печи — левый торец жаровни, строка «Перегородка (задняя стенка печи) = …»
+  {id: 'sBot', tags: ['sBot'], name: 'Дно печи', laser: 'sBot', rows: [/^Дно печи/]},
+  {id: 'sK0', tags: ['sK0'], name: 'Боковина печи задняя', laser: 'sK0', rows: [/^Боковина печи/], share: 2},
+  {id: 'sK1', tags: ['sK1'], name: 'Боковина печи передняя', laser: 'sK1', rows: [/^Боковина печи/], share: 2},
+  {id: 'wall', tags: ['wall'], name: 'Перегородка печи', laser: 'wall', rows: [/^Перегородка \(задняя стенка печи\)/]},
+  {id: 'chim', tags: ['chim'], name: 'Труба печи', rows: [/^Труба — профтруба/]},
+  {id: 'chimX', tags: ['chimX'], name: 'Удлинитель трубы', rows: [/^Удлинитель трубы/]},
+  {id: 'damper', tags: ['damper'], name: 'Заслонка в трубе', rows: [/^Заслонка в трубе/]},
+  {id: 'fb', tags: ['fb'], name: 'Отсекатель пламени', laser: 'fb', rows: [/^Отсекатель пламени/]},
+  {id: 'obe', tags: ['obe'], name: 'Обечайка вокруг казана', rows: [/^Обечайка вокруг казана/],
+    extra: () => ['приварить к низу плиты или подвесить на трёх уголках под плитой — по месту; плита покупная']},
+  {id: 'tie', tags: ['tie'], name: 'Полоса у дверцы', laser: 'tie', rows: [/^Полоса у дверцы/]},
+  {id: 'lintel', tags: ['lintel', 'logo'], name: 'Глухой верх топки', laser: 'lintel', rows: [/^Глухой верх топки/]},
+  {id: 'angles', tags: ['angles'], name: 'Уголок колосника печи', rows: [/^Уголок 40×40×4 — опора колосника/]},
+  {id: 'guides', tags: ['guides'], name: 'Направляющие шибера', rows: [/^Направляющая шибера — проставка/, /^Направляющая шибера — полоса/],
+    inner: 'полосу 20 × 3 — к проставке снизу, наружным краем вровень с ней'},
+  {id: 'door', tags: ['door'], name: 'Дверца топки', laser: 'door', rows: [/^Дверца, лист/, /^Ручка дверцы/, /^Крючок дверцы/, /^Проушина под крючок/],
+    inner: 'ручку Ø12 — к дверце снаружи, у края; крючок Ø6 — на заклёпке М6, чтобы поворачивался; проушину Ø14 — к передней боковине, на высоте крючка'},
+  {id: 'grate', tags: ['grate'], name: 'Колосник печи', laser: 'grate', rows: [/^Колосник — лист/, /^Арматура Ø20/], one: true,
+    inner: () => S.grType === 'plate' ? '' : 'поперечные прутки — сверху к краевым, на всю ширину'},
+  {id: 'shib', tags: ['shib'], name: 'Шибер поддувала', laser: 'shib', rows: [/^Шибер поддувала/]},
 ];
 
-// Что с чем соединяется: weld — варить, lay — кладётся сверху, in — вставляется. [кто, к кому, как]
+// Что с чем соединяется: weld — варить, lay — кладётся сверху, in — вставляется, hinge — навешивается на петлях
+// (петли — покупные, шов дверцы с боковиной не считаем: дверца должна открываться). [кто, к кому, как, допуск зазора, см]
 const JOINS = [
   ['side0', 'gBot', 'weld'], ['side1', 'gBot', 'weld'],
   ['gEnd', 'gBot', 'weld'], ['gEnd', 'side0', 'weld'], ['gEnd', 'side1', 'weld'],
@@ -48,11 +70,22 @@ const JOINS = [
   ['hook', 'side0', 'weld'], ['hook', 'side1', 'weld'], ['handle', 'gEnd', 'weld'],
   ['air', 'hook', 'in'], ['div', 'side0', 'in'], ['div', 'side1', 'in'],
   ['cgr', 'cgrAng', 'lay'], ['gGrate', 'gAng', 'lay'], ['g2', 'side0', 'lay'], ['g2', 'side1', 'lay'],
+  // печь (#69). Дверца — петлями к задней боковине, проушина — к передней; труба вварена в заднюю боковину;
+  // удлинитель приваривается на месте с зазором 3 мм (шов считается с допуском); колосник и шибер кладутся
+  ['sK0', 'sBot', 'weld'], ['sK1', 'sBot', 'weld'], ['wall', 'sBot', 'weld'], ['wall', 'sK0', 'weld'], ['wall', 'sK1', 'weld'],
+  ['tie', 'sK0', 'weld'], ['tie', 'sK1', 'weld'], ['lintel', 'sK0', 'weld'], ['lintel', 'sK1', 'weld'], ['lintel', 'tie', 'weld'],
+  ['chim', 'sK0', 'weld'], ['chimX', 'chim', 'weld', .35], ['damper', 'chim', 'in'], ['fb', 'sK0', 'weld'],
+  ['door', 'sK0', 'hinge'], ['angles', 'sK0', 'weld'], ['angles', 'sK1', 'weld'],
+  ['guides', 'sBot', 'weld'], ['grate', 'angles', 'lay'], ['shib', 'guides', 'lay'], ['legs', 'sBot', 'weld'],
+  // «оба»: жаровня приваривается к перегородке печи встык
+  ['gBot', 'wall', 'weld'], ['side0', 'wall', 'weld'], ['side1', 'wall', 'weld'],
 ];
 
 // Решётки и перегородка на 3D по умолчанию выключены, а в «Раскрое и массе» есть: модель для карт строится с ними, но на картах других
 // деталей их нет — иначе верхняя решётка закрыла бы жаровню. Шампуры — случайные куски мяса, на картах им не место
-const CARD_FLAGS = {grillGrate: true, grates2: true, div: true, skew: false, skewD: false}, CARD_ONLY_OWN = ['gGrate', 'g2', 'div'];
+// Печь: дверца закрыта и шибер на месте (иначе их положение случайное), плиты, казана и дров нет — закрывают топку.
+const CARD_FLAGS = {grillGrate: true, grates2: true, div: true, skew: false, skewD: false, doorOpen: false, sh: 'in', plate: false, kazan: false, wood: false},
+  CARD_ONLY_OWN = ['gGrate', 'g2', 'div'];
 
 // fn с галочками f, потом всё как было
 function withFlags(f, fn) {
@@ -122,7 +155,7 @@ function withCardModel(fn) {
   try { return cm.run(fn); } finally { cm.close(); }
 }
 
-const EPS = .05;   // см: детали, между которыми меньше, — касаются
+let EPS = .05;   // см: детали, между которыми меньше, — касаются (у шва с допуском JOINS[3] — больше, см. seamsWith)
 
 // Рамка объекта и его меши с рамками (см, мир)
 function objBoxes(o) {
@@ -193,10 +226,13 @@ function cardParts(g) {
     const p = u.laser && lp.find(q => q.pt === u.laser);
     if (!rows.length) return null;   // нет строки в таблице — нет и карты
     // кол. — по таблице: на 3D соседние штуки слипаются (две решётки сверху встык)
-    const insts = [...instances(own), ...instances(tw)], q = rows[0].q / (u.share || 1);
+    const qRow = u.qOf && cut.find(r => u.qOf.test(r.n)) || rows[0];
+    const insts = [...instances(own), ...instances(tw)], q = (u.one ? 1 : qRow.q) / (u.share || 1);
     return {...u, own, tw, insts, inst: insts[0] || [], q, rows, p, m: p && partMM(p),
-      step: steps.findIndex(s => s.parts.some(t => u.tags.includes(t)))};
+      step: Math.max(steps.findIndex(s => s.parts.includes(u.tags[0])), steps.findIndex(s => s.parts.some(t => u.tags.includes(t))))};   // по первой метке: у глухого верха с логотипом метка logo стоит в шаге «Торцы»
   }).filter(Boolean);
+  // по порядку сборки: жаровня, потом печь, ножки, колосник и шибер (шага нет — в конец); при равных шагах — как в CARD_UNITS
+  units.sort((a, b) => (a.step < 0 ? 1e9 : a.step) - (b.step < 0 ? 1e9 : b.step));
   units.forEach((u, i) => { u.no = i + 1; });
   const byId = Object.fromEntries(units.map(u => [u.id, u]));
   units.forEach(u => { u.joins = joinsOf(u, byId); u.kg = unitKg(u); u.notes = unitNotes(u); });
@@ -227,13 +263,16 @@ function unitNotes(u) {
 }
 
 // Швы экземпляра inst с деталью v (со всеми её экземплярами) и угол между листами: 90, если хоть один шов под углом
-function seamsWith(inst, v) {
-  const seams = [];
+function seamsWith(inst, v, tol = .05) {
+  const seams = [], keep = EPS;
   let ang = 0;
-  inst.forEach(x => [...v.own, ...v.tw].forEach(y => x.ms.forEach(ma => y.ms.forEach(mb => {
-    const s = seamOf(ma, mb);
-    if (s && s.len >= 5) { seams.push(s); ang = Math.max(ang, seamAngle(ma, mb)); }
-  }))));
+  EPS = tol;
+  try {
+    inst.forEach(x => [...v.own, ...v.tw].forEach(y => x.ms.forEach(ma => y.ms.forEach(mb => {
+      const s = seamOf(ma, mb);
+      if (s && s.len >= 5) { seams.push(s); ang = Math.max(ang, seamAngle(ma, mb)); }
+    }))));
+  } finally { EPS = keep; }
   return {seams, ang};
 }
 
@@ -242,16 +281,16 @@ function seamsWith(inst, v) {
 // {u — сосед, kind, mine — эта деталь кладётся/вставляется (а не на неё), seams, ang, other}
 function joinsOf(u, byId) {
   const out = [];
-  JOINS.forEach(([a, b, kind]) => {
+  JOINS.forEach(([a, b, kind, tol]) => {
     if (a !== u.id && b !== u.id) return;
     const v = byId[a === u.id ? b : a];
     if (!v || out.some(j => j.u === v)) return;
     const j = {u: v, kind, mine: a === u.id, seams: [], ang: 90, other: false};
     if (kind === 'weld') {
-      let w = seamsWith(u.inst, v);
+      let w = seamsWith(u.inst, v, tol);
       if (!w.seams.length) {
-        const k = u.insts.findIndex(x => seamsWith(x, v).seams.length);
-        if (k > 0) { w = seamsWith(u.insts[k], v); j.other = true; }
+        const k = u.insts.findIndex(x => seamsWith(x, v, tol).seams.length);
+        if (k > 0) { w = seamsWith(u.insts[k], v, tol); j.other = true; }
       }
       Object.assign(j, w);
     }
@@ -282,6 +321,7 @@ function joinTxt(j) {
     const ring = j.seams.some(s => s.kind === 'ring'), tool = ring ? 'трубу — угольником к листу' : j.ang ? 'угольником, 90°' : 'прижать струбциной';
     return [`${j.other ? 'на другой стороне — ' : ''}к ${v} · ${seamTxt(j.seams)}${j.ang && !ring ? ' · угол 90°' : ''}`, tool];
   }
+  if (j.kind === 'hinge') return [`навешивается на ${v}: гаражные петли — к боковине`, 'дверца должна свободно открываться'];
   if (j.kind === 'lay') return j.mine ? [`кладётся на ${v}`, 'не варить'] : [`сверху кладётся ${v}`, 'не варить'];
   return j.mine ? [`вставляется в ${v}`, 'не варить'] : [`в неё вставляется ${v}`, 'не варить'];
 }
@@ -311,6 +351,8 @@ function fitShot(view, only, w, h, opt = {}) {
 }
 
 const fmtQ = v => String(Math.round(v * 100) / 100).replace('.', ',');
+// Сколько штук строки на 1 шт. карты; ножки двух высот (в «оба») — «2 из 4», а не «0,5»
+const perTxt = (u, r) => { const v = rowPer(u, r) / u.q; return Number.isInteger(v) ? String(v) : `${fmtQ(rowPer(u, r))} из ${fmtQ(u.q)}`; };
 
 // Блок «Как режут»: развёртка лазерной детали с размерами и таблица деталей на 1 шт. (строки — из «Раскрой и масса»)
 function cardBlank(u, y) {
@@ -325,7 +367,7 @@ function cardBlank(u, y) {
     if (hl) { s += `<text class="td" x="${r2(x)}" y="${r2(y)}">${shEsc(hl)}</text>`; y += 2; }
     y += 2;
   }
-  const rows = u.rows.map(r => [r.n, String(r.s).replace(/\d+\.\d+/g, v => fmt(+v, 1)), fmtQ(rowPer(u, r) / u.q), kgTxt(r.m)]);
+  const rows = u.rows.map(r => [r.n, String(r.s).replace(/\d+\.\d+/g, v => fmt(+v, 1)), perTxt(u, r), kgTxt(r.m)]);
   s += svgTable(22, y, [{t: 'Деталь', w: 98}, {t: 'Размер, мм', w: 45}, {t: 'На 1 шт.', w: 16, r: 1}, {t: 'Масса, кг', w: 22, r: 1}], rows, 5);
   return {s, y: y + 5 * (rows.length + 1)};
 }
@@ -361,7 +403,7 @@ function cardViews(u, objs, y, H) {
   // высокий блок — «где на мангале» сверху справа, швы под ним во всю колонку; низкий — рядом, швы слева
   const tall = H >= 100, wh0 = tall ? 40 : H - 16;
   const SW = tall ? {w: 88, h: H - wh0 - 18, cx: 158.5, cy: y + wh0 + 8 + (H - wh0 - 16) / 2} : {w: 58, h: H - 18, cx: 143.5, cy: y + 7 + (H - 16) / 2};
-  s += `<text class="h2" x="115" y="${r2(y + 4.5)}">${welds.length || !rest.length ? 'Деталь — швы и соседи' : rest.some(j => j.kind === 'lay') ? 'Деталь — на чём лежит' : 'Деталь — куда вставляется'}</text>`;
+  s += `<text class="h2" x="115" y="${r2(y + 4.5)}">${welds.length || !rest.length ? 'Деталь — швы и соседи' : rest.some(j => j.kind === 'lay') ? 'Деталь — на чём лежит' : rest.some(j => j.kind === 'hinge') ? 'Деталь — на чём висит' : 'Деталь — куда вставляется'}</text>`;
   const sw = fitShot('iso', nb, SW.w, SW.h, {cx: SW.cx, cy: SW.cy, hl: own});
   if (sw) {
     s += sw.svg;
@@ -433,7 +475,8 @@ function cardBends(u, y) {
 function cardWelds(u, steps, y, ymax) {
   let s = `<path class="t" style="stroke-width:.08" d="M20,${r2(y)}H205"/><text class="h2" x="23" y="${r2(y + 4.5)}">Сварка — к чему варить</text>`;
   y += 9;
-  const rows = [...(u.inner ? [[`внутри детали: ${u.inner}`, '']] : []), ...u.joins.map(joinTxt), ...(u.extra ? u.extra().map(t => [t, '']) : [])];
+  const inner = typeof u.inner === 'function' ? u.inner() : u.inner;
+  const rows = [...(inner ? [[`внутри детали: ${inner}`, '']] : []), ...u.joins.map(joinTxt), ...(u.extra ? u.extra().map(t => [t, '']) : [])];
   if (!rows.length) rows.push(['не варится', '']);
   rows.forEach(([a, b]) => {
     if (b) s += `<text class="td" x="202" y="${r2(y)}" text-anchor="end">${shEsc(b)}</text>`;
@@ -523,8 +566,6 @@ function buildCards() {
 }
 
 /* ---------- вкладка «Карты деталей»: «Рассчитать», карты, PDF ---------- */
-// Карты мангала готовы только для мангала: печь и «оба» — строка «Карты печи пока не готовы» (задача 13)
-const cardsReady = sheetsReady;   // то же правило, что у «Чертежей»
 // Задание: строки «Раскрой и масса» (они же размеры деталей) и галочки модели. Размеры на модели и выбор детали карты не меняют
 function cardsKey() {
   return JSON.stringify([massRows().rows.map(r => [r.n, r.s, r.q, Math.round(r.m * 1000), r.note]), L1, W, T, UNIT,
@@ -559,11 +600,8 @@ CARDS.calc = () => CARDS.c || (CARDS.c = makeCalc({
   wait: document.getElementById('cdWait'), key: cardsKey, run: cardsRun,
 }));
 
-// Что-то поменялось (nestUI, через 0,3 с после правки) или показали вкладку: ключ другой — карты убраны; печь — строка вместо кнопки
+// Что-то поменялось (nestUI, через 0,3 с после правки) или показали вкладку: ключ другой — карты убраны
 function cardsUI() {
-  const yes = cardsReady(), main = document.getElementById('cdMain'), note = document.getElementById('cdStove');
-  if (main) main.hidden = !yes;
-  if (note) note.hidden = yes;
   const c = CARDS.calc();
   if (c.held()) c.check();
 }

@@ -938,19 +938,34 @@ test('mangal: «Чертежи» — изменение деталей убир�
   expect(r.errors).toEqual([]);
 });
 
-test('mangal: «Чертежи» в печи и «оба» — «Чертежи печи пока не готовы», кнопки нет', async ({page}) => {
-  await openEditor(page, '/editor/mangal/#sheets');
-  for (const m of ['stove', 'both']) {
-    await press(page, `#modeSeg [data-v=${m}]`);
-    await expect(page.locator('#shStove')).toBeVisible();
-    await expect(page.locator('#shStove')).toHaveText('Чертежи печи пока не готовы');
-    await expect(page.locator('#shRun')).toBeHidden();
-    await expect(page.locator('#shPdf')).toBeHidden();
-  }
-  await press(page, '#modeSeg [data-v=grill]');
-  await expect(page.locator('#shStove')).toBeHidden();
-  await expect(page.locator('#shRun')).toBeVisible();
-});
+// печь и «оба» (#69): чертежи считаются по той же кнопке; строки «пока не готовы» нет. По тесту на режим — каждый укладывается в таймаут на телефоне
+for (const [mode, name, spec] of [['stove', 'Печь под казан 600 × 440 × 970, 3–15 мм', 'Дверца, лист 3 мм'], ['both', 'Мангал с печью 1400 × 440 × 970, 3–15 мм', 'Боковина жаровни (задняя и передняя)']]) {
+  test(`mangal: «Чертежи» — режим «${mode}»: комплект считается по кнопке, «пока не готовы» нет, PDF`, async ({page}) => {
+    test.slow();
+    await page.addInitScript(() => { window.__printed = 0; window.print = () => { window.__printed++; window.__printN = document.querySelectorAll('#printBox svg').length; }; });
+    const r = await openEditor(page, '/editor/mangal/#sheets');
+    await press(page, `#modeSeg [data-v=${mode}]`);
+    await expect(page.locator('#shStove')).toHaveCount(0);
+    await expect(page.locator('#shRun')).toBeVisible();
+    await mangalNoSheets(page);
+    await mangalSheets(page);
+    const caps = await page.locator('#shBox figcaption').allTextContents();
+    expect(caps[0]).toContain('Общий вид');
+    expect(caps.filter(c => c.includes('Раскрой')).length).toBeGreaterThanOrEqual(3);   // листы 5, 3 и 15 мм
+    const txt = await page.locator('#shBox').evaluate(e => e.textContent);
+    expect(txt).toContain(name);
+    expect(txt).toContain(spec);
+    expect(txt).not.toContain('пока не готов');
+    if (mode === 'both') expect(txt).toContain('Боковина печи (задняя и передняя)');
+    await page.locator('#shPdf').click();
+    expect(await page.evaluate(() => [window.__printed, window.__printN])).toEqual([1, caps.length]);
+    // деталь поменяли — листов нет, кнопка снова активна
+    await page.locator('#hTop').evaluate(e => { e.value = String(+e.value + 2); e.dispatchEvent(new Event('input')); });
+    await mangalNoSheets(page);
+    expect(r.errors).toEqual([]);
+    expect(r.external).toEqual([]);
+  });
+}
 
 test('mangal: «Чертежи» на телефоне без горизонтальной прокрутки', async ({page}, info) => {
   test.slow();
@@ -1018,19 +1033,30 @@ test('mangal: «Карты деталей» — после карт модель
   expect(r.errors).toEqual([]);
 });
 
-test('mangal: «Карты деталей» в печи и «оба» — «Карты печи пока не готовы», кнопки нет', async ({page}) => {
-  await openEditor(page, '/editor/mangal/#cards');
-  for (const m of ['stove', 'both']) {
-    await press(page, `#modeSeg [data-v=${m}]`);
-    await expect(page.locator('#cdStove')).toBeVisible();
-    await expect(page.locator('#cdStove')).toHaveText('Карты печи пока не готовы');
-    await expect(page.locator('#cdRun')).toBeHidden();
-    await expect(page.locator('#cdPdf')).toBeHidden();
-  }
-  await press(page, '#modeSeg [data-v=grill]');
-  await expect(page.locator('#cdStove')).toBeHidden();
-  await expect(page.locator('#cdRun')).toBeVisible();
-});
+// печь и «оба» (#69): карта на каждую деталь цеха, та же кнопка; карт печи «пока не готовы» нет
+for (const [mode, n, ids] of [['stove', 17, ['Дверца топки', 'Колосник печи', 'Шибер поддувала', 'Отсекатель пламени']], ['both', 30, ['Перегородка печи', 'Боковина жаровни задняя', 'Боковина печи задняя', 'Дверца топки']]]) {
+  test(`mangal: «Карты деталей» — режим «${mode}»: ${n} карт по кнопке, у каждой виды 3D, PDF`, async ({page}) => {
+    test.slow();
+    await page.addInitScript(() => { window.__printed = 0; window.print = () => { window.__printed++; window.__printN = document.querySelectorAll('#printBox svg').length; }; });
+    const r = await openEditor(page, '/editor/mangal/#cards');
+    await press(page, `#modeSeg [data-v=${mode}]`);
+    await expect(page.locator('#cdStove')).toHaveCount(0);
+    await mangalNoCards(page);
+    await press(page, '#cdRun');
+    await expect(page.locator('#cdBox svg.shs')).toHaveCount(n, {timeout: 180000});
+    await expect(page.locator('#cdRun')).toBeDisabled();
+    await expect(page.locator('#cdPdf')).toBeEnabled();
+    const imgs = await page.evaluate(() => [...document.querySelectorAll('#cdBox svg')].map(s => s.querySelectorAll('image').length));
+    expect(Math.min(...imgs)).toBeGreaterThanOrEqual(5);   // 4 вида, швы и соседи, где на мангале (у части — без швов 5)
+    const txt = await page.locator('#cdBox').evaluate(e => e.textContent);
+    ids.forEach(t => expect(txt).toContain(t));
+    expect(txt).not.toContain('пока не готов');
+    await page.locator('#cdPdf').click();
+    expect(await page.evaluate(() => [window.__printed, window.__printN])).toEqual([1, n]);
+    expect(r.errors).toEqual([]);
+    expect(r.external).toEqual([]);
+  });
+}
 
 test('mangal: «Карты деталей» на телефоне без горизонтальной прокрутки', async ({page}) => {
   test.slow();

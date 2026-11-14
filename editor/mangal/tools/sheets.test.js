@@ -87,7 +87,76 @@ test('ключ задания: деталь, режим и опции меняю
   run(c,'S.mode="stove"');assert.notEqual(k(),k0,'режим');
 });
 
-test('«Чертежи печи пока не готовы»: в печи и «оба» чертежей нет, в мангале есть', ()=>{
-  for(const [mode,want] of [['grill',true],['stove',false],['both',false]]){
-    const c=loadMangal({mode});assert.equal(run(c,'sheetsReady()'),want,mode);}
+// Печь и «оба» (#69): чертежи строятся, готовность не проверяется, строки «пока не готовы» нет
+test('печь и «оба»: комплект строится — листы по порядку, «пока не готовы» нет нигде', ()=>{
+  for(const mode of ['stove','both']){
+    const c=loadMangal({mode});page(c);
+    assert.equal(run(c,'typeof sheetsReady'),'undefined',mode);
+    const L=sheets(c),t=L.map(s=>s.title);
+    assert.equal(t[0],'Общий вид');assert.equal(t[1],'Порядок сборки');assert.equal(t[t.length-1],'Раскрой');
+    assert.ok(t.lastIndexOf('Порядок сборки')<t.indexOf('Детали')&&t.lastIndexOf('Детали')<t.indexOf('Спецификация')&&t.lastIndexOf('Спецификация')<t.indexOf('Раскрой'),mode);
+    L.forEach(s=>{assert.match(s.svg,/viewBox="0 0 420 297"/);assert.ok(!text(s.svg).includes('пока не готов'),mode);});
+  }
+  const html=require('fs').readFileSync(require('path').join(__dirname,'../index.html'),'utf8');
+  assert.ok(!html.includes('пока не готов'),'в index.html строки «пока не готовы» нет');
+});
+
+test('печь и «оба»: штамп — изделие и толщины; общий вид — размеры печи', ()=>{
+  for(const [mode,name,rows] of [['stove','Печь под казан 600 × 440 × 970, 3–15 мм',['Печь, длина × ширина','600 × 440 мм']],
+    ['both','Мангал с печью 1400 × 440 × 970, 3–15 мм',['Жаровня, длина × ширина','800 × 420 мм','Печь, длина × ширина','600 × 440 мм']]]){
+    const c=loadMangal({mode});page(c);
+    const L=sheets(c),kg=run(c,'kg1(massRows().tot)');
+    assert.equal(run(c,'sheetName()'),name);
+    L.forEach((s,i)=>{const tx=text(s.svg);assert.ok(tx.includes(name),mode+' название '+i);assert.ok(tx.includes('≈ '+kg+' кг'),mode+' масса '+i);
+      assert.ok(tx.includes('сталь 3, 5 и 15 мм'),mode+' металл в штампе '+i);});
+    const G=text(L[0].svg).split('\n');
+    rows.forEach(r=>assert.ok(G.includes(r),mode+': в «Общем виде» нет «'+r+'»'));
+    assert.equal(G.includes('Отверстий / прорезей'),mode==='both',mode+': отверстия-прорези — только у жаровни');
+  }
+  // мангал не изменился
+  const g=loadMangal({mode:'grill'});page(g);
+  assert.equal(run(g,'sheetName()'),'Мангал 800 × 420 × 970, 5 мм');
+  assert.ok(text(sheets(g)[0].svg).includes('сталь 5 мм'));
+});
+
+test('печь и «оба»: спецификация — все строки «Раскрой и масса»; в «оба» это мангал + печь', ()=>{
+  const open=mode=>{const c=loadMangal({mode});page(c);return c;};
+  for(const mode of ['stove','both']){
+    const c=open(mode),S2=sheets(c).filter(s=>s.title==='Спецификация').map(s=>text(s.svg)).join('\n'),lines=S2.split('\n');
+    const full=run(c,'massRows().rows.map(r=>[r.n,String(r.s).replace(/\\d+\\.\\d+/g,v=>fmt(+v,1)),String(r.q),kgTxt(r.m*r.q)])');
+    full.forEach(([n,sz,q,kg])=>{const i=lines.indexOf(n);assert.ok(i>=0,mode+': нет строки «'+n+'»');assert.deepEqual(lines.slice(i+1,i+4),[sz,q,kg],n);});
+    assert.ok(S2.includes('Итого металла ≈ '+run(c,'kg1(massRows().tot)')+' кг'));
+    assert.ok(S2.includes('Лист 3 мм — ')&&S2.includes('Профтруба 60×60×2 — '),mode+': металл печи под таблицей');
+  }
+  // «оба» = мангал + печь: в спецификации строки обоих
+  const nm=m=>run(open(m),'massRows().rows.map(r=>r.n)'),b=nm('both');
+  [...nm('grill'),...nm('stove')].forEach(n=>{if(!/^Торец левый|^Ножка|^Перегородка \(/.test(n))assert.ok(b.includes(n),'в «оба» нет «'+n+'»');});
+  assert.ok(b.some(n=>/^Боковина жаровни/.test(n))&&b.some(n=>/^Боковина печи/.test(n))&&b.some(n=>/^Перегородка \(.*= левый торец жаровни/.test(n)));
+});
+
+test('«Порядок сборки»: в печи шаги печи — дверца, колосник, шибер; в «оба» после жаровни, ножки позже тела', ()=>{
+  for(const mode of ['stove','both']){
+    const c=loadMangal({mode});page(c);
+    const st=run(c,'ok=false;asmSteps().map(s=>s.title+": "+s.parts.join())');
+    const at=re=>st.findIndex(x=>re.test(x));
+    assert.ok(at(/Дно, боковины и перегородка печи/)>=0&&at(/Дверца/)>=0&&at(/Колосник и шибер/)>=0,mode+': '+st.join(' | '));
+    assert.ok(at(/Дно, боковины и перегородка печи/)<at(/Труба/)&&at(/Труба/)<at(/Дверца/)&&at(/Дверца/)<at(/Колосник и шибер/),mode);
+    assert.ok(at(/Дно, боковины и перегородка печи/)<at(/Площадки и патрубки ножек/),mode+': ножки после тела');
+    // шаги без пустых и без повторов деталей
+    const all=run(c,'ok=false;asmSteps().flatMap(s=>s.parts)');assert.equal(new Set(all).size,all.length);
+    assert.ok(all.includes('shib')&&all.includes('grate')&&all.includes('door'));
+  }
+  const g=loadMangal({mode:'grill'});page(g);
+  assert.ok(!run(g,'ok=false;asmSteps().flatMap(s=>s.parts)').some(p=>['sK0','door','grate'].includes(p)),'в мангале шагов печи нет');
+});
+
+test('«Детали» и «Раскрой» печи: каждая лазерная деталь под своим номером; колосник 15 мм — на своём листе', ()=>{
+  for(const mode of ['stove','both']){
+    const c=loadMangal({mode});page(c);
+    const L=sheets(c),D=L.filter(s=>s.title==='Детали').map(s=>text(s.svg)).join('\n');
+    run(c,'nestJob()').groups.forEach(G=>G.types.forEach(ty=>assert.ok(D.includes(`${ty.no}. ${ty.p.name}`),ty.p.name)));
+    assert.ok(D.includes('Колосник печи')&&D.includes('Дверца топки')&&D.includes('Шибер поддувала')&&D.includes('Отсекатель пламени'),mode);
+    const R=L.filter(s=>s.title==='Раскрой').map(s=>text(s.svg));
+    assert.ok(R.some(t=>t.includes('Лист 15 мм, 1250 × 2500')&&t.includes('Колосник печи')),mode+': лист 15 мм');
+  }
 });

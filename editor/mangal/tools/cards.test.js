@@ -126,9 +126,83 @@ test('noWebGL: без 3D вместо видов надпись, а загото
   assert.ok(/Сборка: шаг 1 из \d — Дно и боковины/.test(s));
 });
 
-test('режимы печи и «оба»: карт нет (задача 13), в мангале — есть',()=>{
-  for(const mode of ['stove','both'])assert.equal(run(open({mode}),'cardsReady()'),false,mode);
-  assert.equal(run(open(),'cardsReady()'),true);
+// детали печи по порядку сборки (колёса на ножках — площадки под колёса)
+const STOVE=['sK0','sK1','sBot','wall','tie','chim','chimX','damper','fb','lintel','angles','guides','door','grate','shib','legs','pads'];
+const BOTH=IDS.filter(i=>i!=='gEnd0').concat(STOVE.filter(i=>!['legs','pads'].includes(i)));
+
+test('печь и «оба» (#69): карта на каждую деталь, карт печи «пока не готовы» нет; в мангале — как было',()=>{
+  assert.deepEqual(data(open({mode:'stove'})).map(u=>u.id).sort(),[...STOVE].sort());
+  assert.deepEqual(data(open({mode:'both'})).map(u=>u.id).sort(),[...BOTH].sort());
+  for(const mode of ['grill','stove','both']){
+    const c=open({mode}),D=data(c);
+    assert.equal(run(c,'typeof cardsReady'),'undefined','карты печи готовы: проверки готовности нет');
+    // карты идут по порядку сборки, номера — подряд
+    assert.ok(D.every((u,i)=>u.step>=0&&(!i||u.step>=D[i-1].step)),mode+': шаги по возрастанию: '+D.map(u=>u.step));
+    assert.deepEqual(D.map(u=>u.no),D.map((u,i)=>i+1));
+    for(const s of cards(c))assert.ok(!text(s.svg).includes('пока не готов'),mode+' '+s.id);
+  }
+  // шаги печи: тело, труба и отсекатель, глухой верх с уголками, дверца, колосник и шибер
+  const d=Object.fromEntries(data(open({mode:'stove'})).map(u=>[u.id,u]));
+  assert.ok(d.sBot.step<d.chim.step&&d.chim.step<d.lintel.step&&d.lintel.step<d.door.step&&d.door.step<d.grate.step);
+});
+
+test('логотип в глухом верхе: карта верха топки — в шаге печи, а не в «Торцах»',()=>{
+  for(const mode of ['stove','both']){
+    const d=Object.fromEntries(data(open({mode,logo:true})).map(u=>[u.id,u]));
+    assert.ok(d.lintel.step>d.sBot.step&&d.lintel.step===d.tie.step,mode);
+  }
+});
+
+test('печь и «оба»: каждая строка «Раскрой и масса» — на карте, лишних карт нет, масса карт = итогу таблицы',()=>{
+  for(const flags of [{mode:'stove'},{mode:'both'},{mode:'stove',grType:'rod'},{mode:'stove',obe:true},{mode:'stove',wheels:false},{mode:'stove',draft:false,door:false},{mode:'both',logo:true}]){
+    const c=open(flags),rows=run(c,'massRows().rows.map(r=>r.n)'),used=data(c).flatMap(u=>u.rows);
+    for(const n of rows)assert.ok(used.includes(n),JSON.stringify(flags)+': строка без карты: '+n);
+    for(const n of used)assert.ok(rows.includes(n),JSON.stringify(flags)+': карта на строку, которой нет в таблице: '+n);
+    const dup=used.filter((n,i)=>used.indexOf(n)!==i);
+    assert.deepEqual([...new Set(dup)].filter(n=>!/^Боковина (жаровни|печи)/.test(n)),[],'строка на двух картах');
+    const tot=run(c,'massRows().tot'),sum=data(c).reduce((a,u)=>a+u.kg*u.q,0);
+    assert.ok(Math.abs(sum-tot)<1e-6,`${JSON.stringify(flags)}: карты ${sum} кг, таблица ${tot} кг`);
+  }
+});
+
+test('печь: швы — у каждой детали с соседом по сварке они есть; дверца, колосник, шибер, труба',()=>{
+  const c=open({mode:'stove'}),d=Object.fromEntries(data(c).map(u=>[u.id,u]));
+  for(const u of Object.values(d))for(const j of u.joins.filter(j=>j.kind==='weld'))
+    assert.ok(j.other||j.seams.length>0&&j.seams.every(s=>s.len>=5),`${u.id} → ${j.to}: нет шва`);
+  // дверца — петлями к задней боковине; колосник кладётся на уголки; шибер — на направляющие; заслонка — внутри трубы
+  assert.ok(d.door.joins.some(j=>j.to==='sK0'&&j.kind==='hinge'&&j.mine),'дверца навешивается на заднюю боковину');
+  assert.ok(d.grate.joins.some(j=>j.to==='angles'&&j.kind==='lay'&&j.mine));
+  assert.ok(d.shib.joins.some(j=>j.to==='guides'&&j.kind==='lay'&&j.mine));
+  assert.ok(d.damper.joins.some(j=>j.to==='chim'&&j.kind==='in'&&j.mine));
+  assert.ok(seams(d.sBot,'sK0').length&&seams(d.sBot,'sK1').length&&seams(d.sBot,'wall').length,'дно — к боковинам и перегородке');
+  assert.deepEqual(seams(d.sBot,'legs'),Array(4).fill({kind:'contour',len:320}));
+  assert.ok(seams(d.chim,'sK0').length,'труба вварена в боковину');
+  assert.ok(seams(d.fb,'sK0').length,'отсекатель — к задней боковине');
+  // на картах: строки швов и «не варить»
+  const L=Object.fromEntries(cards(c).map(s=>[s.id,text(s.svg)]));
+  assert.ok(/навешивается на № \d+ Боковина печи задняя/.test(L.door)&&L.door.includes('дверца должна свободно открываться')&&!/· шов/.test(L.door),L.door);
+  assert.ok(/кладётся на № \d+ Уголок колосника/.test(L.grate)&&L.grate.includes('не варить'));
+  assert.ok(L.shib.includes('край у торца отогнуть вниз на 25 мм'),'гиб шибера — в указаниях');
+});
+
+test('печь: развёртки — файл DXF, лист, рез; у проката нет; колосник 15 мм',()=>{
+  const c=open({mode:'stove'}),L=Object.fromEntries(cards(c).map(s=>[s.id,text(s.svg)]));
+  assert.ok(L.door.includes('stove_door_3mm_x1.dxf')&&L.door.includes('лист 3 мм'));
+  assert.ok(L.grate.includes('stove_grate_15mm_x1.dxf')&&L.grate.includes('лист 15 мм'));
+  assert.ok(L.shib.includes('stove_shiber_3mm_x1.dxf'));
+  assert.ok(!L.chim.includes('.dxf')&&!L.angles.includes('.dxf')&&!L.guides.includes('.dxf'));
+  assert.ok(L.door.includes('Ручка дверцы, пруток Ø12')&&L.door.includes('Проушина под крючок'),'строки дверцы на карте');
+  assert.ok(L.guides.includes('Направляющая шибера — проставка')&&L.guides.includes('Направляющая шибера — полоса 20 × 3'));
+});
+
+test('«оба»: перегородка = торец жаровни, ножки двух высот на одной карте, жаровня варится к перегородке',()=>{
+  const c=open({mode:'both'}),d=Object.fromEntries(data(c).map(u=>[u.id,u])),L=Object.fromEntries(cards(c).map(s=>[s.id,text(s.svg)]));
+  assert.equal(d.legs.q,4);
+  assert.ok(d.legs.rows.includes('Ножка жаровни, труба Ø40×3')&&d.legs.rows.includes('Ножка печи, труба Ø40×3'));
+  assert.ok(L.legs.includes('2 из 4'),'ножки двух высот — «2 из 4», а не 0,5');
+  assert.ok(L.wall.includes('Перегородка (задняя стенка печи) = левый торец жаровни'));
+  assert.ok(seams(d.gBot,'wall').length&&seams(d.wall,'sBot').length);
+  assert.ok(seams(d.legs,'gBot').length&&seams(d.legs,'sBot').length);
 });
 
 test('ключ задания: размеры на модели его не меняют, детали меняют',()=>{
