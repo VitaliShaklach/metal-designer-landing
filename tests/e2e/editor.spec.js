@@ -392,13 +392,13 @@ test('mangal: «Лазер · DXF» — внутренние вкладки, с�
   await expect(page.locator('#sub-list')).toBeVisible();
   await expect(page.locator('#sub-zag')).toBeHidden();
   await expect(page.locator('#sub-gil')).toBeHidden();
-  // лист, «Прижать к краю» и колосник — над вариантами, общие (пересмотр 14.11); зазор — в «С листа»; простыни текста и старых галочек нет
-  for (const id of ['#nSheet', '#nSide', '#nCgr']) {
+  // лист, «Угол листа» и колосник — над вариантами, общие (пересмотр 14.11); зазор — в «С листа»; простыни текста и старых галочек нет
+  for (const id of ['#nSheet', '#nCorner', '#nCgr']) {
     await expect(page.locator(id)).toHaveCount(1);
     expect(await page.locator(id).evaluate(e => !e.closest('.subpane')), id).toBe(true);
   }
-  await expect(page.locator('#nSide')).toHaveValue('l');
-  expect(await page.locator('#nSide option').allTextContents()).toEqual(['слева', 'справа']);
+  await expect(page.locator('#nCorner')).toHaveValue('lb');
+  expect(await page.locator('#nCorner option').allTextContents()).toEqual(['↙ слева снизу', '↖ слева сверху', '↘ справа снизу', '↗ справа сверху']);
   expect(await page.locator('#nGap').evaluate(e => e.closest('.subpane').id)).toBe('sub-list');
   await expect(page.locator('#nCgrBox')).toContainText('Колосник на листе');
   await expect(page.locator('#nGil, #nGilReset')).toHaveCount(0);
@@ -487,6 +487,11 @@ const gilSpan = page => page.locator('#gilBox svg.gilsv').first().evaluate(s => 
   const r = [...s.querySelectorAll('.gp rect')].map(e => [+e.getAttribute('x'), +e.getAttribute('width')]);
   return [Math.min(...r.map(q => q[0])), Math.max(...r.map(q => q[0] + q[1]))];
 });
+// верх и низ заготовок на схеме гильотины в координатах SVG (y вниз)
+const gilSpanY = page => page.locator('#gilBox svg.gilsv').first().evaluate(s => {
+  const r = [...s.querySelectorAll('.gp rect')].map(e => [+e.getAttribute('y'), +e.getAttribute('height')]);
+  return [Math.min(...r.map(q => q[0])), Math.max(...r.map(q => q[0] + q[1]))];
+});
 
 test('mangal: «Гильотина» — по «Рассчитать», без галочек, «Не рубится» с причиной, полосы слева, архив', async ({page}) => {
   test.slow();
@@ -528,35 +533,49 @@ test('mangal: «Гильотина» — по «Рассчитать», без �
   expect(r.errors).toEqual([]);
 });
 
-test('mangal: «Прижать к краю: справа» — гильотина и «С листа» у правого края, выбор запоминается; колосник — общий', async ({page}) => {
+test('mangal: «Угол листа» — гильотина и «С листа» в выбранном углу, выбор запоминается; колосник — общий', async ({page}) => {
   test.slow();
   const r = await openEditor(page, '/editor/mangal/#cut');
   await openSub(page, 'gil');
   await gilCut(page);
   const [l0, l1] = await gilSpan(page);
-  await page.locator('#nSide').selectOption('r');
-  await expect(page.locator('#gilRun')).toBeEnabled();   // край поменяли — схема устарела
+  const [t0, t1] = await gilSpanY(page);
+  expect(t1).toBe(1250 - 10);   // ↙: низ заготовок у нижней подрезки
+  await page.locator('#nCorner').selectOption('rt');
+  await expect(page.locator('#gilRun')).toBeEnabled();   // угол поменяли — схема устарела
   await gilCut(page);
   const [r0, r1] = await gilSpan(page);
   expect(r1).toBe(2500 - 10);
-  expect(r1 - r0).toBe(l1 - l0);   // та же схема, сдвинута
-  // «С листа» тоже справа: правый край деталей у края листа, левый — во второй половине
+  expect(r1 - r0).toBe(l1 - l0);   // та же схема, отражена
+  const [u0, u1] = await gilSpanY(page);
+  expect(u0).toBe(10);   // ↗: верх у подрезки (SVG, y вниз)
+  expect(u1 - u0).toBe(t1 - t0);
+  // «С листа» тоже в ↗: правый край деталей у края листа, левый — во второй половине, верх — у края
   await openSub(page, 'list');
+  await expect(page.locator('#nestRun')).toBeEnabled();
   await mangalCut(page);
   const xs = await page.locator('#nestBox svg.nestsv').first().evaluate(s => {
     const b = [...s.querySelectorAll('.np path')].map(p => p.getBBox());
-    return [Math.min(...b.map(q => q.x)), Math.max(...b.map(q => q.x + q.width))];
+    return [Math.min(...b.map(q => q.x)), Math.max(...b.map(q => q.x + q.width)), Math.min(...b.map(q => q.y))];
   });
   expect(xs[0]).toBeGreaterThan(2500 / 2);
   expect(Math.abs(xs[1] - (2500 - 10))).toBeLessThan(1);
+  expect(Math.abs(xs[2] - 10)).toBeLessThan(1);
   // колосник — одна галочка на все варианты: включили — он на схеме гильотины
   await page.locator('#nCgr').check();
   await openSub(page, 'gil');
   await gilCut(page);
   await expect(page.locator('#gilBox svg.gilsv title', {hasText: 'Колосник мангала'})).toHaveCount(2);
-  // выбор края запоминается
+  // выбор угла запоминается
   await page.reload();
-  await expect(page.locator('#nSide')).toHaveValue('r');
+  await expect(page.locator('#nCorner')).toHaveValue('rt');
+  expect(r.errors).toEqual([]);
+});
+
+test('mangal: «Угол листа» — старая память md-gilside угол не меняет, мусор в md-corner — ↙', async ({page}) => {
+  await page.addInitScript(() => { localStorage.setItem('md-gilside', '"r"'); localStorage.setItem('md-corner', '"xx"'); });
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await expect(page.locator('#nCorner')).toHaveValue('lb');
   expect(r.errors).toEqual([]);
 });
 
@@ -628,11 +647,11 @@ test('mangal: «Из заготовок» — «Гильотина» её не �
   const r = await openEditor(page, '/editor/mangal/#cut');
   await openSub(page, 'zag');
   await zagCut(page);
-  // подрезка кромки и край — результат «Из заготовок» остаётся
+  // подрезка кромки и угол — результат «Из заготовок» остаётся
   await openSub(page, 'gil');
   await gilCut(page);
   await page.locator('#nEdge').fill('0');
-  await page.locator('#nSide').selectOption('r');
+  await page.locator('#nCorner').selectOption('rt');
   await openSub(page, 'zag');
   await expect(page.locator('#zagRun')).toBeDisabled();
   await expect(zagRow(page, 'Боковина жаровни задняя')).toHaveCount(1);

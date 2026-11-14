@@ -114,7 +114,8 @@ const GILCHK=`(N,lbl)=>{const out=[];N.groups.forEach(G=>{const P=gilScheme(N,G)
     if(JSON.stringify(Object.entries(want).sort())!==JSON.stringify(Object.entries(got).sort()))throw new Error(lbl+': на схеме не те заготовки '+JSON.stringify(got)+', ждали '+JSON.stringify(want));
     P.sheets.forEach((sh,si)=>{const A=sh.items;
       A.forEach(r=>{if(r.x<E-e||r.y<E-e||r.x+r.w>N.W-E+e||r.y+r.h>N.H-E+e)throw new Error(lbl+': заготовка '+r.r.no+' вне листа с подрезкой '+E);});
-      if(Math.abs(Math.min(...A.map(r=>r.x))-E)>e)throw new Error(lbl+': полосы не от левого края');
+      if(N.corner[0]==='l'?Math.abs(Math.min(...A.map(r=>r.x))-E)>e:Math.abs(Math.max(...A.map(r=>r.x+r.w))-(N.W-E))>e)throw new Error(lbl+': полосы не от края '+N.corner);
+      if(Math.abs(N.corner[1]==='b'?Math.min(...A.map(r=>r.y))-E:Math.max(...A.map(r=>r.y+r.h))-(N.H-E))>e)throw new Error(lbl+': ряды не от края '+N.corner);
       for(let i=0;i<A.length;i++)for(let j=i+1;j<A.length;j++){const p=A[i],q=A[j];if(p.x<q.x+q.w-e&&q.x<p.x+p.w-e&&p.y<q.y+q.h-e&&q.y<p.y+p.h-e)throw new Error(lbl+': заготовки пересекаются');}
       // сквозные резы: рекурсивно — в каждом куске с заготовками есть рез от края до края, не через заготовку (свой обход, не gilCuts)
       const thr=(B,x0,y0,x1,y1)=>{const In=B.filter(r=>r.x<x1-e&&r.x+r.w>x0+e&&r.y<y1-e&&r.y+r.h>y0+e);if(!In.length)return;
@@ -150,7 +151,7 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
         if(!odd.length||odd.some(k=>!side(k)))throw new Error('боковина _zag: конец паза не на кромке — '+odd.find(k=>!side(k)));
         if(odd.length!==2*b.open)throw new Error('боковина _zag: концов '+odd.length+', ломаных '+b.open);
         if(S.div&&K('div')!=='zag')throw new Error('перегородка жаровни: '+K('div')+', ждали zag');}
-      const a=CHK(N,'подрезка 10'),z=CHK(nestJob({edge:0}),'подрезка 0');
+      const a=CHK(N,'подрезка 10'),z=CHK(nestJob({edge:0}),'подрезка 0');CHK(nestJob({edge:10,corner:'rt'}),'угол rt');
       return \`рубим: gil \${c.gil} / zag \${c.zag}, не рубим \${c.list}; 5 мм: из листа \${(cl/1000).toFixed(2)} м → по заготовкам \${(cz/1000).toFixed(2)} м; схема: \${(${gilRep})(a)}; без подрезки: \${(${gilRep})(z)}\`;})()`,ctx);}
   catch(e){errs.push(e.message+' '+((e.stack||'').split('\n')[1]||''));}
   console.log('виды',mode,JSON.stringify(extra).slice(0,30),st,errs.length?'FAIL '+errs.join(' | '):'ok');fails+=errs.length;}

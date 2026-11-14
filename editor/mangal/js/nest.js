@@ -49,11 +49,12 @@ function* nestGen(items,W,H,gap,margin){
     S.items.push({id:part.id,no:part.no,flip:false,tr,area:part.area,pts,bb});S.len=Math.max(S.len,bb[2]);}
   sheets.forEach(s=>{const a=s.items.reduce((q,o)=>q+o.area,0);s.used=a/(W*H);s.dense=a/((s.len-margin)*(H-2*margin)||1);delete s.free;});
   return {sheets,too,W,H,gap,used:sheets.length?sheets.reduce((a,s)=>a+s.used,0)/sheets.length:0};}
-// «Прижать к краю: справа» (side 'r'): раскладка каждого листа сдвигается целиком к правому краю (край margin). Сдвиг, не зеркало —
-// деталь в DXF та же (у боковины вырез под ручку остаётся на своей стороне). 'l' — как разложено. Меняет R на месте, возвращает его
-function nestSide(R,W,margin,side){if(side!=='r')return R;
-  R.sheets.forEach(s=>{if(!s.items.length)return;const dx=W-margin-Math.max(...s.items.map(it=>it.bb[2]));
-    s.items.forEach(it=>{it.tr={...it.tr,x:it.tr.x+dx};it.pts=it.pts.map(p=>[p[0]+dx,p[1]]);it.bb=[it.bb[0]+dx,it.bb[1],it.bb[2]+dx,it.bb[3]];});});
+// «Угол листа» (corner: lb | lt | rb | rt, пересмотр 14.11 (2), блок Б): положения рамок деталей отражаются по горизонтали (r) и/или вертикали (t).
+// Раскладка считается от ↙ (там ноль координат DXF), правила алгоритма симметричны — отражение равно расчёту из другого угла.
+// Деталь не зеркалится: поворот tr.c, tr.s тот же, контур и рамка сдвигаются на один (dx, dy) на деталь. Меняет R на месте, возвращает его
+function nestCorner(R,W,H,corner){const [mx,my]=nestFlip(corner);if(!mx&&!my)return R;
+  R.sheets.forEach(s=>s.items.forEach(it=>{const dx=mx?W-it.bb[2]-it.bb[0]:0,dy=my?H-it.bb[3]-it.bb[1]:0;
+    it.tr={...it.tr,x:it.tr.x+dx,y:it.tr.y+dy};it.pts=it.pts.map(p=>[p[0]+dx,p[1]+dy]);it.bb=[it.bb[0]+dx,it.bb[1]+dy,it.bb[2]+dx,it.bb[3]+dy];}));
   return R;}
 
 /* ---------- детали для раскладки ---------- */
@@ -66,21 +67,22 @@ function nestLoop(l){if(!Array.isArray(l))return null;const P=[],same=(a,b)=>Mat
 // значения полей: зазор 1…50 мм с шагом 0,5; лист — из списка (общий для «С листа», «Из заготовок» и «Гильотины»); cgr — колосник мангала на листе
 // (галочка, по умолчанию снята: два колосника — половина реза и почти все врезки листа, а подойдёт готовый перфолист; память браузера md-ncgr2, старый md-ncgr не читается);
 // edge — подрезка кромки на схеме гильотины 0…30 мм, целые (по умолчанию 10, поле во вкладке «Гильотина», память md-nedge);
-// side — к какому краю листа прижаты полосы гильотины: 'l' слева (по умолчанию) | 'r' справа (поле nSide во вкладке «Гильотина», память md-gilside).
+// corner — угол листа, в котором стоят «С листа» и «Гильотина»: lb ↙ (по умолчанию) | lt ↖ | rb ↘ | rt ↗ (общее поле nCorner, память md-corner; старый md-gilside не читается).
 // Галочек «рубим» нет (пересмотр 14.11): что рубить, решает правило gilWhy. Старые md-gilsel2, md-gilsel, md-ngil не читаются
+const NEST_CORNERS=['lb','lt','rb','rt'],nestFlip=corner=>[corner[0]==='r',corner[1]==='t'];   // угол → отражать по горизонтали, по вертикали
 const NEST_CGR=p=>p.pt==='cgr1'||p.pt==='cgr2';
-function nestOpts(){const gi=document.getElementById('nGap'),si=document.getElementById('nSheet'),ci=document.getElementById('nCgr'),ei=document.getElementById('nEdge'),di=document.getElementById('nSide');
+function nestOpts(){const gi=document.getElementById('nGap'),si=document.getElementById('nSheet'),ci=document.getElementById('nCgr'),ei=document.getElementById('nEdge'),di=document.getElementById('nCorner');
   let gap=parseFloat(String(gi&&gi.value!=null?gi.value:'').replace(',','.'));if(!Number.isFinite(gap))gap=5;gap=Math.min(50,Math.max(1,Math.round(gap*2)/2));
   let edge=parseFloat(String(ei&&ei.value!=null?ei.value:'').replace(',','.'));if(!Number.isFinite(edge))edge=10;edge=Math.min(30,Math.max(0,Math.round(edge)));
-  const v=si&&typeof si.value==='string'?si.value:'',sk=NEST_SHEETS[v]?v:'1250x2500',[W,H]=NEST_SHEETS[sk],side=di&&di.value==='r'?'r':'l';
-  return {gap,sk,W,H,edge,side,cgr:!!(ci&&ci.checked===true)};}
+  const v=si&&typeof si.value==='string'?si.value:'',sk=NEST_SHEETS[v]?v:'1250x2500',[W,H]=NEST_SHEETS[sk],corner=NEST_CORNERS.includes(di&&di.value)?di.value:'lb';
+  return {gap,sk,W,H,edge,corner,cgr:!!(ci&&ci.checked===true)};}
 // почему гильотина деталь не рубит: уже GIL_MIN_W (полоса — её берут готовой или режут иначе) или лист толще GIL_MAX_MM; рубит — ''
 const gilWhy=(m,mm)=>Math.min(m.w,m.h)<GIL_MIN_W?'уже 50 мм':mm>GIL_MAX_MM?'толще 8 мм':'';
 // причина для детали задания: колосник мангала без «Колосник на листе» — его режут отдельно или берут перфолист; контура нет — не рубится
 const gilOff=(ty,o)=>ty.kind==='list'?'нет контура':NEST_CGR(ty.p)&&!o.cgr?'снят «Колосник на листе»':gilWhy(ty.m,ty.p.mm);
 const gilOn=(ty,o)=>!gilOff(ty,o);
 // задание: группы по толщине (5 мм первой), в каждой — типы деталей (номер, контур, кол-во) и штуки для раскладки; key — для кэша.
-// over — поменять поля (тесты: {cgr:true}, {edge:0}, {side:'r'}); hasCgr — есть ли колосник мангала (показать галочку).
+// over — поменять поля (тесты: {cgr:true}, {edge:0}, {corner:'rt'}); hasCgr — есть ли колосник мангала (показать галочку).
 // Колосник мангала в типах всегда (строка и DXF в таблице), на лист — только с cgr; без cgr у типа offSheet — нет на листе и в «Итого».
 // У типа kind — вид детали, если её рубить (partKind: gil — после гильотины готова, zag — заготовка под лазер; list — контура нет, не рубится),
 // b — геометрия по заготовке (blankMM, только у zag). Рубит ли гильотина — gilOn (правило gilWhy и «Колосник на листе»)
@@ -90,7 +92,7 @@ function nestJob(over){const o=Object.assign(nestOpts(),over),all=laserParts(),h
       const kind=partKind(m,'gil'),ty={no:++no,p,m,P,q:p.q,kind,b:kind==='zag'?blankMM(p,m):null,offSheet:!o.cgr&&NEST_CGR(p)};G.types.push(ty);
       if(!ty.offSheet)for(let j=0;j<p.q;j++)G.items.push({id:G.items.length,no:ty.no,pts:P,ty});});
     if(G.types.length)groups.push(G);});
-  const key=JSON.stringify([o.W,o.H,o.gap,o.side,groups.map(G=>[G.mm,G.items.length,G.types.map(ty=>[ty.no,ty.q,ty.offSheet?1:0,ty.P.map(q=>q.map(v=>Math.round(v*10)))])])]);
+  const key=JSON.stringify([o.W,o.H,o.gap,o.corner,groups.map(G=>[G.mm,G.items.length,G.types.map(ty=>[ty.no,ty.q,ty.offSheet?1:0,ty.P.map(q=>q.map(v=>Math.round(v*10)))])])]);
   return {...o,groups,key,hasCgr};}
 
 /* ---------- рисунок листа (SVG, мм) ---------- */
@@ -137,7 +139,7 @@ function gilCsv(N,G){const c=v=>/[;"\r\n]/.test(String(v))?'"'+String(v).replace
    Полосы только поперёк листа (пересмотр 14.11): лист заводят торцом и по упору рубят полосу на всю ширину листа, потом её — на детали;
    в полосе ряды снизу вверх. Перебор: 4 сортировки × 4 правила поворота на 90°; не влезло на лист — следующий лист.
    Лучший вариант — меньше листов, при равенстве — меньше отрублено по длине (сумма по листам: с другой стороны — целый остаток), затем меньше занятый прямоугольник.
-   Полосы — от левого края листа; «Прижать к краю: справа» — вся схема листа сдвигается к правому краю. */
+   Полосы — от края листа выбранного угла («Угол листа»: ↙ по умолчанию), ряды в полосе — от края по вертикали; вся схема отражается по рамкам заготовок. */
 const GIL_MIN_W=50;   // мм: деталь, у которой меньшая сторона уже 50, гильотина не рубит: узкую полосу 5 мм ведёт винтом или саблей (задвижки 800 × 30, скобы 12 × 30)
 const GIL_MAX_MM=8;   // мм: лист толще гильотина не рубит — колосник печи 15 мм гильотина цеха не берёт
 function gilTry(rects,W,H,E,dir,sort,pol){const v=dir==='v',LS=(v?W:H)-2*E,LW=(v?H:W)-2*E,e=1e-6,fits=([a,b])=>a<=LS+e&&b<=LW+e;
@@ -172,18 +174,18 @@ function gilCuts(A,x0,y0,x1,y1){const e=1e-6,In=A.filter(r=>r.x<x1-e&&r.x+r.w>x0
   const vx=X.length>=Y.length,C=vx?X:Y,b=[vx?x0:y0,...C,vx?x1:y1];let cuts=C.length,ok=true;
   for(let i=0;i<b.length-1;i++){const s=vx?gilCuts(In,b[i],y0,b[i+1],y1):gilCuts(In,x0,b[i],x1,b[i+1]);cuts+=s.cuts;ok=ok&&s.ok;}
   return {cuts,ok};}
-function gilPack(rects,W,H,edge,side='l'){let best=null;const e=1e-6,len=r=>r.sheets.reduce((s,sh)=>s+Math.max(...sh.items.map(i=>i.x+i.w)),0);
+function gilPack(rects,W,H,edge,corner='lb'){let best=null;const e=1e-6,len=r=>r.sheets.reduce((s,sh)=>s+Math.max(...sh.items.map(i=>i.x+i.w)),0);
   for(let sort=0;sort<4;sort++)for(let pol=0;pol<4;pol++){const r=gilTry(rects,W,H,edge,'v',sort,pol);r.len=len(r);
     if(!best||r.too.length<best.too.length||r.too.length===best.too.length&&(r.sheets.length<best.sheets.length||r.sheets.length===best.sheets.length&&
       (r.len<best.len-e||Math.abs(r.len-best.len)<e&&r.box<best.box-e)))best=r;}
-  if(side==='r')best.sheets.forEach(sh=>{const dx=W-edge-Math.max(...sh.items.map(i=>i.x+i.w));sh.items.forEach(i=>{i.x+=dx;});});   // справа: сдвиг всей схемы листа
-  best.sheets.forEach(sh=>{const a=sh.items.reduce((s,i)=>s+i.w*i.h,0),bw=side==='r'?W-Math.min(...sh.items.map(i=>i.x)):Math.max(...sh.items.map(i=>i.x+i.w)),
-      bx=bw*Math.max(...sh.items.map(i=>i.y+i.h)),c=gilCuts(sh.items,0,0,W,H);
-    Object.assign(sh,{cuts:c.cuts,ok:c.ok,used:a/(W*H),waste:(bx-a)/(W*H)});});   // отход — обрезки внутри занятого прямоугольника (от угла листа со стороны прижима), с подрезкой; дальше — целый остаток листа
+  const [mx,my]=nestFlip(corner);
+  best.sheets.forEach(sh=>{const a=sh.items.reduce((s,i)=>s+i.w*i.h,0),bw=Math.max(...sh.items.map(i=>i.x+i.w)),bh=Math.max(...sh.items.map(i=>i.y+i.h)),bx=bw*bh,c=gilCuts(sh.items,0,0,W,H);   // занято — от ↙, до отражения
+    if(mx||my)sh.items.forEach(i=>{if(mx)i.x=W-i.x-i.w;if(my)i.y=H-i.y-i.h;});   // в выбранный угол: отражаются рамки заготовок
+    Object.assign(sh,{cuts:c.cuts,ok:c.ok,used:a/(W*H),waste:(bx-a)/(W*H)});});   // отход — обрезки внутри занятого прямоугольника (от выбранного угла листа), с подрезкой; дальше — целый остаток листа
   return {sheets:best.sheets,too:best.too,W,H,edge};}
 // заготовки для схемы: каждая штука детали, которую гильотина рубит (gilOn), — габарит детали; что не рубится, на схему не идёт
 function gilRects(N,G){const r=[];G.types.forEach(ty=>{if(gilOn(ty,N))for(let j=0;j<ty.q;j++)r.push({w:ty.m.w,h:ty.m.h,kind:ty.kind,ty,no:ty.no});});return r;}
-const gilScheme=(N,G)=>G.gil||(G.gil=gilPack(gilRects(N,G),N.W,N.H,N.edge,N.side));   // G — группа задания: схему считаем один раз
+const gilScheme=(N,G)=>G.gil||(G.gil=gilPack(gilRects(N,G),N.W,N.H,N.edge,N.corner));   // G — группа задания: схему считаем один раз
 // схема гильотины (SVG, мм): рамка листа, заготовки — серые (готовая деталь) и светло-оранжевые (дальше на лазер), внутри номер и размер; линий лазера нет
 function gilSvg(N,G,sh,isOn,big){const W=N.W,H=N.H,fk=big?1:2,fs=Math.round(H*.035*fk),pd=Math.round(fs*1.6),Y=y=>H-y;
   let g=`<rect class="sh" x="0" y="0" width="${W}" height="${H}"/><text class="dim" x="${W/2}" y="${-fs*.5}" font-size="${fs}" text-anchor="middle">${W}</text><text class="dim" transform="translate(${-fs*.5},${H/2}) rotate(-90)" font-size="${fs}" text-anchor="middle">${H}</text>`;
@@ -258,7 +260,7 @@ function listOne(N,res,d){const G=N.groups[+d.g],R=res[+d.g];if(!G)return null;
    Что рубить, решает правило (gilOff): уже 50 мм, толще 8 мм, колосник без «Колосник на листе» — не рубится: со схемы и из цифр уходит,
    в блоке «Не рубится» под таблицей (с причиной и DXF), над схемой — сноска «N деталей не на схеме — ниже». Галочек нет, на «Из заготовок» не влияет. */
 // ключ схемы: лист, подрезка, край, по каждой детали — рубим ли, кол-во, габарит, вид. Ключ другой — схема устарела
-const gilKey=N=>JSON.stringify([N.W,N.H,N.edge,N.side,N.groups.map(G=>[G.mm,G.types.map(ty=>[ty.no,ty.p.file,ty.q,gilOn(ty,N)?1:0,n1(ty.m.w),n1(ty.m.h),ty.kind])])]);
+const gilKey=N=>JSON.stringify([N.W,N.H,N.edge,N.corner,N.groups.map(G=>[G.mm,G.types.map(ty=>[ty.no,ty.p.file,ty.q,gilOn(ty,N)?1:0,n1(ty.m.w),n1(ty.m.h),ty.kind])])]);
 // итоги для оценки металла и рубки по толщинам: листов, заготовок, резов — по схеме
 const gilTotals=(N,res)=>N.groups.map((G,gi)=>{const P=res[gi]||{sheets:[]};
   return {mm:G.mm,sheets:P.sheets.length,blanks:P.sheets.reduce((a,s)=>a+s.items.length,0),cuts:P.sheets.reduce((a,s)=>a+s.cuts,0)};});
@@ -334,7 +336,7 @@ const nestCnt=t=>document.querySelectorAll('.nestCnt').forEach(e=>{e.textContent
 function nestRun(live,accept,fail){const N=nestJob(),all=N.groups.reduce((a,G)=>a+G.items.length,0),res=[];let gi=0,g=null,n=0;nestCnt('');
   const step=()=>{if(!live())return;const t0=performance.now();
     try{while(gi<N.groups.length){const G=N.groups[gi];if(!g)g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);const v=g.next();
-        if(v.done){res.push(nestSide(v.value,N.W,NEST_EDGE,N.side));g=null;gi++;}else n=N.groups.slice(0,gi).reduce((a,G)=>a+G.items.length,0)+v.value.done;
+        if(v.done){res.push(nestCorner(v.value,N.W,N.H,N.corner));g=null;gi++;}else n=N.groups.slice(0,gi).reduce((a,G)=>a+G.items.length,0)+v.value.done;
         if(performance.now()-t0>60)break;}}
     catch(e){fail();throw e;}   // упало посреди счёта — кнопка не висит на «Считаю…»
     if(gi<N.groups.length){nestCnt(`· ${n} из ${all}`);setTimeout(step,0);return;}
@@ -361,13 +363,13 @@ const LIST=nestVariant('list',{ids:{box:'nestBox',run:'nestRun',save:'dxfAll',wa
 const ZAG=nestVariant('zag',{ids:{box:'zagBox',run:'zagRun',save:'zagAll',wait:'zagWait',msg:'zagMsg'},key:zagKey,calc:quickCalc(N=>N.groups.map(G=>zagTypes(N,G))),html:zagHtml,has:zagHas,one:zagOne});
 const GIL=nestVariant('gil',{ids:{box:'gilBox',run:'gilRun',save:'gilAll',wait:'gilWait',msg:'gilMsg'},key:gilKey,calc:quickCalc(N=>N.groups.map(G=>gilScheme(N,G))),html:gilHtml,has:gilHas,one:gilOne});
 const VARS=[LIST,ZAG,GIL];
-// общие поля «Лист», «Прижать к краю» (md-gilside) и галочка колосника, «Между деталями» лазера и «Подрезка кромки» гильотины (md-nedge):
+// общие поля «Лист», «Угол листа» (md-corner) и галочка колосника, «Между деталями» лазера и «Подрезка кромки» гильотины (md-nedge):
 // значения из памяти браузера (store — в ui.js, к первому показу вкладки он уже есть); кнопки вариантов
-function nestInit(){if(NST.init)return;NST.init=true;const gi=document.getElementById('nGap'),si=document.getElementById('nSheet'),ei=document.getElementById('nEdge'),di=document.getElementById('nSide');if(!gi||!si)return;
-  const g=store('md-ngap'),s=store('md-sheet'),c=store('md-ncgr2'),ed=store('md-nedge'),sd=store('md-gilside'),ci=document.getElementById('nCgr');if(Number.isFinite(+g)&&g!==null)gi.value=g;if(s&&NEST_SHEETS[s])si.value=s;if(ci&&typeof c==='boolean')ci.checked=c;
+function nestInit(){if(NST.init)return;NST.init=true;const gi=document.getElementById('nGap'),si=document.getElementById('nSheet'),ei=document.getElementById('nEdge'),di=document.getElementById('nCorner');if(!gi||!si)return;
+  const g=store('md-ngap'),s=store('md-sheet'),c=store('md-ncgr2'),ed=store('md-nedge'),sd=store('md-corner'),ci=document.getElementById('nCgr');if(Number.isFinite(+g)&&g!==null)gi.value=g;if(s&&NEST_SHEETS[s])si.value=s;if(ci&&typeof c==='boolean')ci.checked=c;
   if(ei&&Number.isFinite(+ed)&&ed!==null)ei.value=ed;
-  if(di)di.value=sd==='r'?'r':'l';
-  const ch=()=>{const o=nestOpts();store('md-ngap',o.gap);store('md-sheet',o.sk);store('md-ncgr2',o.cgr);store('md-nedge',o.edge);store('md-gilside',o.side);nestUI();};
+  if(di)di.value=NEST_CORNERS.includes(sd)?sd:'lb';
+  const ch=()=>{const o=nestOpts();store('md-ngap',o.gap);store('md-sheet',o.sk);store('md-ncgr2',o.cgr);store('md-nedge',o.edge);store('md-corner',o.corner);nestUI();};
   gi.addEventListener('input',ch);gi.addEventListener('change',()=>{gi.value=nestOpts().gap;ch();});si.addEventListener('change',ch);if(ci)ci.addEventListener('change',ch);if(di)di.addEventListener('change',ch);
   if(ei){ei.addEventListener('input',ch);ei.addEventListener('change',()=>{ei.value=nestOpts().edge;ch();});}
   VARS.forEach(V=>V.init());}

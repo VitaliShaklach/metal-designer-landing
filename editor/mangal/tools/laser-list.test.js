@@ -57,23 +57,33 @@ test('итоги «С листа»: «Не поместилось» в рез и
   assert.equal(r.t.cut,r.cut);
 });
 
-// «Прижать к краю» (пересмотр 14.11): одна настройка с «Гильотиной»; справа — та же раскладка, сдвинутая целиком (не зеркально: деталь не меняется)
-test('«С листа» справа: раскладка сдвинута к правому краю, детали те же и так же повёрнуты; ключ меняется', ()=>{
+// «Угол листа» (пересмотр 14.11 (2), блок Б): отражаются рамки деталей, деталь не зеркалится
+test('«С листа» в каждом углу: прижато к своему углу, деталь не зеркалится, ключ меняется, DXF = рисунок', ()=>{
+  const W=2500,H=1250,E=10;
+  for(const mode of ['grill','both']){
+    const c=loadMangal({mode});
+    const get=corner=>run(c,`(N=>${RES}(N).map(R=>(nestCorner(R,N.W,N.H,N.corner),R.sheets.map(s=>s.items.map(it=>({id:it.id,tr:it.tr,pts:it.pts,bb:it.bb}))))))(nestJob({cgr:true,corner:'${corner}'}))`);
+    const L=get('lb');
+    for(const corner of ['lb','lt','rb','rt']){
+      const R=get(corner),mx=corner[0]==='r',my=corner[1]==='t';
+      L.forEach((sheets,gi)=>sheets.forEach((it,si)=>{const ri=R[gi][si],lbl=`${mode} ${corner} ${gi}/${si}`;
+        const bx=ri.map(i=>i.bb);
+        if(mx)assert.ok(Math.abs(Math.max(...bx.map(b=>b[2]))-(W-E))<1e-6,lbl+': не у правого');else assert.ok(Math.abs(Math.min(...bx.map(b=>b[0]))-E)<1e-6,lbl+': не у левого');
+        if(my)assert.ok(Math.abs(Math.max(...bx.map(b=>b[3]))-(H-E))<1e-6,lbl+': не у верха');else assert.ok(Math.abs(Math.min(...bx.map(b=>b[1]))-E)<1e-6,lbl+': не у низа');
+        it.forEach((a,k)=>{const b=ri[k];assert.equal(b.id,a.id);assert.equal(b.tr.c,a.tr.c,lbl);assert.equal(b.tr.s,a.tr.s,lbl);
+          const dx=b.tr.x-a.tr.x,dy=b.tr.y-a.tr.y;
+          assert.ok(b.pts.every((p,j)=>Math.abs(p[0]-a.pts[j][0]-dx)<1e-6&&Math.abs(p[1]-a.pts[j][1]-dy)<1e-6),lbl+': один сдвиг на деталь');
+          const ex=mx?W-a.bb[2]:a.bb[0],ey=my?H-a.bb[3]:a.bb[1];
+          assert.ok(Math.abs(b.bb[0]-ex)<1e-6&&Math.abs(b.bb[1]-ey)<1e-6&&Math.abs(b.bb[2]-b.bb[0]-(a.bb[2]-a.bb[0]))<1e-6&&Math.abs(b.bb[3]-b.bb[1]-(a.bb[3]-a.bb[1]))<1e-6,lbl+': рамка не отражение');});}));}}
   const c=loadMangal({mode:'both'});
-  const get=side=>run(c,`(N=>${RES}(N).map(R=>(nestSide(R,N.W,NEST_EDGE,N.side),R.sheets.map(s=>s.items.map(it=>({id:it.id,tr:it.tr,pts:it.pts,bb:it.bb}))))))(nestJob({cgr:true,side:'${side}'}))`);
-  const L=get('l'),R=get('r'),W=2500,E=10;
-  L.forEach((sheets,gi)=>sheets.forEach((it,si)=>{const ri=R[gi][si],dx=W-E-Math.max(...it.map(i=>i.bb[2]));
-    assert.ok(Math.abs(Math.min(...it.map(i=>i.bb[0]))-E)<1e-6,'слева не у края');
-    assert.ok(Math.abs(Math.max(...ri.map(i=>i.bb[2]))-(W-E))<1e-6,'справа не у края');
-    it.forEach((a,k)=>{const b=ri[k];assert.equal(b.id,a.id);assert.equal(b.tr.c,a.tr.c);assert.equal(b.tr.s,a.tr.s);
-      assert.ok(Math.abs(b.tr.x-a.tr.x-dx)<1e-6&&Math.abs(b.tr.y-a.tr.y)<1e-6,'сдвиг tr');
-      assert.ok(b.pts.every((p,j)=>Math.abs(p[0]-a.pts[j][0]-dx)<1e-6&&Math.abs(p[1]-a.pts[j][1])<1e-6),'сдвиг контура');
-      assert.ok(Math.abs(b.bb[0]-a.bb[0]-dx)<1e-6&&Math.abs(b.bb[2]-a.bb[2]-dx)<1e-6,'сдвиг рамки');});}));
-  assert.notEqual(run(c,`nestJob({side:'r'}).key`),run(c,'nestJob().key'));
-  // DXF листа справа: детали там же, где на рисунке
-  const dxf=run(c,`(N=>{const res=${RES}(N);res.forEach(R=>nestSide(R,N.W,NEST_EDGE,N.side));return nestDxf(N,N.groups[0],res[0].sheets[0]);})(nestJob({side:'r'}))`);
-  const xs=[];const t=dxf.split('\r\n');for(let i=0;i<t.length-1;i++)if(t[i]==='10'&&t[i-2]==='8'&&t[i-1]==='CUT')xs.push(+t[i+1]);
-  assert.ok(xs.length>0&&Math.max(...xs)>W/2,'DXF не сдвинут');
+  assert.notEqual(run(c,`nestJob({corner:'rt'}).key`),run(c,'nestJob().key'));
+  // DXF листа в углу: точки CUT = контуры на рисунке, у каждой детали
+  const dxf=run(c,`(N=>{const res=${RES}(N);res.forEach(R=>nestCorner(R,N.W,N.H,N.corner));const G=N.groups[0],sh=res[0].sheets[0];return {d:nestDxf(N,G,sh),pts:sh.items.map(it=>it.pts)};})(nestJob({corner:'rt'}))`);
+  const cut=[],t=dxf.d.split('\r\n');for(let i=0;i<t.length-1;i++)if(t[i]==='10'&&t[i-2]==='8'&&t[i-1]==='CUT')cut.push([+t[i+1],+t[i+3]]);
+  const want=dxf.pts.flat().map(p=>[Math.round(p[0]*100)/100,Math.round(p[1]*100)/100]);
+  assert.ok(cut.length>0,'нет CUT');
+  const key=p=>p.join(',');const have=new Set(cut.map(key));
+  assert.ok(want.every(p=>have.has(key(p))),'точки контура на рисунке не совпали с DXF');
 });
 
 // старая память браузера: «Заготовки с гильотины» (md-ngil) и «гильотина | лазер» у детали (md-gilsel) задание не меняют
@@ -86,4 +96,18 @@ test('старая память браузера (md-ngil, md-gilsel) задан
   const o=run(c,'nestOpts()');
   assert.equal('gil' in o,false);
   assert.equal('sel' in o,false);
+});
+
+// несколько листов в толщине (лист 1000 × 2000, «оба» с колосником): угол на каждом листе, зазор не меньше заданного
+test('«С листа» на 1000 × 2000: несколько листов, угол и зазор на каждом листе', ()=>{
+  const W=2000,H=1000,E=10,gap=5,c=loadMangal({mode:'both'});
+  for(const corner of ['lb','lt','rb','rt']){
+    const r=run(c,`(N=>${RES}(N).map(R=>(nestCorner(R,N.W,N.H,N.corner),R.sheets.map(s=>{let g=1e9;
+      for(let i=0;i<s.items.length;i++)for(let j=i+1;j<s.items.length;j++)g=Math.min(g,polyGap(s.items[i].pts,s.items[j].pts));
+      return {bb:s.items.map(it=>it.bb),gap:g};}))))(nestJob({cgr:true,corner:'${corner}',W:${W},H:${H},sk:'${W}x${H}',gap:${gap}}))`);
+    assert.ok(r.some(sheets=>sheets.length>1),'ждали несколько листов в толщине');
+    r.forEach(sheets=>sheets.forEach((s,si)=>{const L=`${corner} лист ${si+1}`;
+      if(corner[0]==='r')assert.ok(Math.abs(Math.max(...s.bb.map(b=>b[2]))-(W-E))<1e-6,L);else assert.ok(Math.abs(Math.min(...s.bb.map(b=>b[0]))-E)<1e-6,L);
+      if(corner[1]==='t')assert.ok(Math.abs(Math.max(...s.bb.map(b=>b[3]))-(H-E))<1e-6,L);else assert.ok(Math.abs(Math.min(...s.bb.map(b=>b[1]))-E)<1e-6,L);
+      assert.ok(s.gap>=gap-0.01,L+': зазор '+s.gap);}));}
 });

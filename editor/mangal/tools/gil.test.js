@@ -71,45 +71,52 @@ test('колосник мангала — «Колосник на листе»: 
   assert.ok(!run(c,`(N=>offRows(N,N.groups[0],'gil').map(o=>o.ty.p.name))(nestJob({cgr:true}))`).some(n=>/Колосник/.test(n)));
 });
 
-test('край прижима: по умолчанию слева, память md-gilside — «r» справа, мусор — слева', ()=>{
+test('угол листа: по умолчанию ↙ (lb), память md-corner — «rt» принимается, мусор и старый md-gilside — lb', ()=>{
   const c=loadMangal({mode:'grill'});page(c);
-  assert.equal(run(c,'nestOpts().side'),'l');
-  const d=loadMangal({mode:'grill'});page(d,{'md-gilside':'"r"'});
-  assert.equal(run(d,'nestOpts().side'),'r');
-  const e=loadMangal({mode:'grill'});page(e,{'md-gilside':'xx'});
-  assert.equal(run(e,'nestOpts().side'),'l');
+  assert.equal(run(c,'nestOpts().corner'),'lb');
+  const d=loadMangal({mode:'grill'});page(d,{'md-corner':'"rt"'});
+  assert.equal(run(d,'nestOpts().corner'),'rt');
+  const e=loadMangal({mode:'grill'});page(e,{'md-corner':'xx'});
+  assert.equal(run(e,'nestOpts().corner'),'lb');
+  const f=loadMangal({mode:'grill'});page(f,{'md-gilside':'"r"'});
+  assert.equal(run(f,'nestOpts().corner'),'lb');
 });
 
-test('схема — полосы поперёк листа у выбранного края: сквозные резы на всю ширину листа, с другой стороны целый остаток', ()=>{
-  for(const side of ['l','r'])for(const [mode,cgr] of [['grill',false],['grill',true],['stove',false],['both',true]])
+test('схема — полосы поперёк листа от выбранного края, ряды в полосе — от выбранного края по вертикали; резы, занято, отход как у ↙', ()=>{
+  const E=10,sch=(mode,o)=>{const c=loadMangal({mode});page(c);
+    return run(c,`(N=>${RES}(N).map(P=>P.sheets.map(s=>({it:s.items.map(i=>[i.x,i.y,i.w,i.h]),cuts:s.cuts,ok:s.ok,used:s.used,waste:s.waste}))))(nestJob(${JSON.stringify(o)}))`);};
+  for(const corner of ['lb','lt','rb','rt'])for(const [mode,cgr] of [['grill',false],['grill',true],['stove',false],['both',true]])
     for(const [W,H] of [[2500,1250],[3000,1500],[2000,1000]]){
-      const c=loadMangal({mode});page(c);
-      const r=run(c,`(N=>${RES}(N).map(P=>P.sheets.map(s=>s.items.map(i=>[i.x,i.y,i.w,i.h]))))(nestJob(${JSON.stringify({cgr,W,H,sk:W+'x'+H,side})}))`);
-      const E=10,lbl=`${side} ${mode} cgr=${cgr} ${H}×${W}`;
-      r.forEach((sheets,gi)=>sheets.forEach((it,si)=>{
-        const L=`${lbl} толщина ${gi} лист ${si}`,x0=Math.min(...it.map(i=>i[0])),x1=Math.max(...it.map(i=>i[0]+i[2]));
-        if(side==='l')assert.ok(Math.abs(x0-E)<1e-6,L+': не у левого края, x0='+x0);
+      const o={cgr,W,H,sk:W+'x'+H},base=sch(mode,{...o,corner:'lb'}),r=sch(mode,{...o,corner}),lbl=`${corner} ${mode} cgr=${cgr} ${H}×${W}`;
+      r.forEach((sheets,gi)=>sheets.forEach((sh,si)=>{
+        const it=sh.it,L=`${lbl} толщина ${gi} лист ${si}`,x0=Math.min(...it.map(i=>i[0])),x1=Math.max(...it.map(i=>i[0]+i[2]));
+        if(corner[0]==='l')assert.ok(Math.abs(x0-E)<1e-6,L+': не у левого края, x0='+x0);
         else assert.ok(Math.abs(x1-(W-E))<1e-6,L+': не у правого края, x1='+x1);
-        // полосы: каждая — от низа листа до верха (сквозной рез поперёк), детали в полосе не вылезают за её границы
         const cuts=[...new Set(it.flatMap(i=>[i[0],i[0]+i[2]]))].filter(x=>!it.some(i=>i[0]<x-1e-6&&i[0]+i[2]>x+1e-6)).sort((a,b)=>a-b);
         assert.equal(cuts[0],x0,L);assert.equal(cuts[cuts.length-1],x1,L);
-        // в полосе детали снизу вверх: самая нижняя у каждой полосы стоит на подрезке
         for(let k=0;k<cuts.length-1;k++){const s=it.filter(i=>i[0]>=cuts[k]-1e-6&&i[0]+i[2]<=cuts[k+1]+1e-6);
-          if(s.length)assert.ok(Math.abs(Math.min(...s.map(i=>i[1]))-E)<1e-6,L+': полоса не от низа');}
-        assert.ok(it.every(i=>i[1]>=E-1e-6&&i[1]+i[3]<=H-E+1e-6),L+': вне листа');}));}
+          if(!s.length)continue;
+          if(corner[1]==='b')assert.ok(Math.abs(Math.min(...s.map(i=>i[1]))-E)<1e-6,L+': полоса не от низа');
+          else assert.ok(Math.abs(Math.max(...s.map(i=>i[1]+i[3]))-(H-E))<1e-6,L+': полоса не от верха');}
+        assert.ok(it.every(i=>i[1]>=E-1e-6&&i[1]+i[3]<=H-E+1e-6),L+': вне листа');
+        const b=base[gi][si];
+        assert.equal(sh.cuts,b.cuts,L+': резы');assert.equal(sh.ok,b.ok,L);
+        assert.ok(Math.abs(sh.used-b.used)<1e-9&&Math.abs(sh.waste-b.waste)<1e-9,L+': занято/отход как у lb');
+        const mx=corner[0]==='r',my=corner[1]==='t';
+        assert.deepEqual(it.map(i=>[i[2],i[3]]),b.it.map(i=>[i[2],i[3]]),L);
+        it.forEach((i,k)=>{const q=b.it[k];assert.ok(Math.abs(i[0]-(mx?W-q[0]-q[2]:q[0]))<1e-6&&Math.abs(i[1]-(my?H-q[1]-q[3]:q[1]))<1e-6,L+': не отражение');});}));}
 });
 
-test('схема отрубает меньше листа по длине: мангал на 1500 × 3000 — короче 1000 мм', ()=>{
+test('схема отрубает меньше листа по длине: мангал на 1500 × 3000 — короче 1000 мм; в любом углу то же', ()=>{
   const c=loadMangal({mode:'grill'});page(c);
-  const len=side=>run(c,`(N=>${RES}(N)[0].sheets.map(s=>Math.max(...s.items.map(i=>i.x+i.w))-Math.min(...s.items.map(i=>i.x))))(nestJob({W:3000,H:1500,sk:'3000x1500',side:'${side}'}))`);
-  const l=len('l'),r=len('r');
+  const len=corner=>run(c,`(N=>${RES}(N)[0].sheets.map(s=>Math.max(...s.items.map(i=>i.x+i.w))-Math.min(...s.items.map(i=>i.x))))(nestJob({W:3000,H:1500,sk:'3000x1500',corner:'${corner}'}))`);
+  const l=len('lb');
   assert.equal(l.length,1);
   assert.ok(l[0]<1000,'отрублено '+l[0]+' мм');
-  assert.deepEqual(r,l,'справа — та же раскладка, сдвинута');
-  // отход — обрезки в отрубленном куске, а не целый остаток: справа тот же, что слева
-  const w=side=>run(c,`(N=>${RES}(N)[0].sheets.map(s=>[s.waste,s.used,s.cuts]))(nestJob({side:'${side}'}))`);
-  assert.deepEqual(w('r'),w('l'));
-  assert.ok(w('l')[0][0]<0.1,'отход '+w('l')[0][0]);
+  for(const k of ['lt','rb','rt'])assert.deepEqual(len(k),l,k);
+  const w=corner=>run(c,`(N=>${RES}(N)[0].sheets.map(s=>[s.waste,s.used,s.cuts]))(nestJob({corner:'${corner}'}))`);
+  for(const k of ['lt','rb','rt'])assert.deepEqual(w(k),w('lb'),k);
+  assert.ok(w('lb')[0][0]<0.1,'отход '+w('lb')[0][0]);
 });
 
 test('итоги «Гильотины»: листы, заготовки, резы — по схеме', ()=>{
@@ -146,7 +153,8 @@ test('ключ «Гильотины» меняется от подрезки, л
   assert.notEqual(k({edge:0}),base);
   assert.notEqual(k({cgr:true}),base);
   assert.notEqual(k({W:3000,H:1500}),base);
-  assert.notEqual(k({side:'r'}),base);
+  assert.notEqual(k({corner:'rt'}),base);
+  assert.equal(run(c,`zagKey(nestJob({corner:'rt'}))`),run(c,'zagKey(nestJob())'));
   const d=loadMangal({mode:'grill'});page(d,{'md-gilsel2':{grill_bottom:false},'md-gilsel':{grill_bottom:'laser'},'md-ngil':true});
   assert.equal(run(d,'gilKey(nestJob())'),base);
   assert.equal(run(d,'nestJob().key'),run(c,'nestJob().key'));
