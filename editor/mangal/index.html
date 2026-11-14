@@ -12,9 +12,9 @@
 <meta property="og:url" content="https://vitalishaklach.github.io/metal-designer/mangal/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-14j">
-<link rel="stylesheet" href="../editor.css?v=2026-11-14j">
-<link rel="stylesheet" href="css/style.css?v=2026-11-14j">
+<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-14k">
+<link rel="stylesheet" href="../editor.css?v=2026-11-14k">
+<link rel="stylesheet" href="css/style.css?v=2026-11-14k">
 </head>
 <body>
 <div class="edbar">
@@ -160,6 +160,7 @@
       <button role="tab" data-tab="dims" aria-selected="true"><b>Размеры</b><small>какие показать на модели</small></button>
       <button role="tab" data-tab="mass" aria-selected="false"><b>Раскрой и масса</b><small>детали, вес, металл</small></button>
       <button role="tab" data-tab="cut" aria-selected="false"><b>Лазер · DXF</b><small>лист, заготовки, гильотина</small></button>
+      <button role="tab" data-tab="sheets" aria-selected="false"><b>Чертежи</b><small>листы А3 и PDF для печати</small></button>
       <button role="tab" data-tab="buy" aria-selected="false"><b>Что купить</b><small>покупное со ссылками</small></button>
       <button role="tab" data-tab="notes" aria-selected="false"><b>Заметки</b><small>как устроено</small></button>
     </div>
@@ -199,6 +200,16 @@
         <div class="dimbar nestbar"><label title="Отступ от края листа на схеме: заводскую кромку срезают">Подрезка кромки, мм <input id="nEdge" type="number" value="10" min="0" max="30" step="1" inputmode="numeric"></label><button id="gilRun" class="calcbtn">Рассчитать</button></div>
         <div class="nestwait" id="gilWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Считаю схему гильотины</span></div>
         <div class="nestbox" id="gilBox"></div>
+      </div>
+    </div>
+
+    <div class="tabpane" id="tab-sheets" role="tabpanel" hidden>
+      <p class="tabnote" id="shStove" hidden>Чертежи печи пока не готовы</p>
+      <div id="shMain">
+        <p class="tabnote">Общий вид, порядок сборки, детали, спецификация и раскрой — листы А3 по текущим настройкам. Считается по кнопке; поменяли детали — листы убираются</p>
+        <div class="dimbar nestbar"><button id="shRun" class="calcbtn">Рассчитать</button><button id="shPdf" type="button" disabled>Скачать PDF (А3)</button></div>
+        <div class="nestwait" id="shWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Считаю чертежи, это может занять несколько минут</span><span class="nestCnt"></span></div>
+        <div class="sheets" id="shBox"></div>
       </div>
     </div>
 
@@ -247,18 +258,22 @@
 </div>
 
 <div class="zoom" id="zoom" hidden role="dialog" aria-modal="true" aria-label="Лист крупно"><div class="zoombar"><span id="zoomTtl"></span><button type="button" id="zoomOut" aria-label="Мельче">−</button><span id="zoomK">100%</span><button type="button" id="zoomIn" aria-label="Крупнее">+</button><button type="button" id="zoomFit">Весь лист</button><button type="button" id="zoomX" aria-label="Закрыть">✕</button></div><div class="zoombox" id="zoomBox"></div></div>
+<div id="printBox"></div>
 <script src="../../vendor/three/three.min.js"></script>
 <script src="../../vendor/three/OrbitControls.js"></script>
 <script src="../../vendor/three/CSS2DRenderer.js"></script>
-<script src="js/params.js?v=2026-11-14j"></script>
-<script src="js/parts.js?v=2026-11-14j"></script>
-<script src="js/model.js?v=2026-11-14j"></script>
-<script src="js/dims.js?v=2026-11-14j"></script>
-<script src="js/cut.js?v=2026-11-14j"></script>
-<script src="js/dxf.js?v=2026-11-14j"></script>
-<script src="js/engrave.js?v=2026-11-14j"></script>
-<script src="../common/calc.js?v=2026-11-14j"></script>
-<script src="js/nest.js?v=2026-11-14j"></script>
-<script src="js/ui.js?v=2026-11-14j"></script>
+<script src="js/params.js?v=2026-11-14k"></script>
+<script src="js/parts.js?v=2026-11-14k"></script>
+<script src="js/model.js?v=2026-11-14k"></script>
+<script src="js/dims.js?v=2026-11-14k"></script>
+<script src="js/cut.js?v=2026-11-14k"></script>
+<script src="js/dxf.js?v=2026-11-14k"></script>
+<script src="js/engrave.js?v=2026-11-14k"></script>
+<script src="../common/calc.js?v=2026-11-14k"></script>
+<script src="js/nest.js?v=2026-11-14k"></script>
+<script src="js/sheet-kit.js?v=2026-11-14k"></script>
+<script src="js/views.js?v=2026-11-14k"></script>
+<script src="js/sheets.js?v=2026-11-14k"></script>
+<script src="js/ui.js?v=2026-11-14k"></script>
 </body>
 </html>

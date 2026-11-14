@@ -76,10 +76,10 @@ test('mangal: на телефоне без горизонтальной прок
 test('mangal: вкладки — порядок, подписи, старые адреса', async ({page}) => {
   await openEditor(page, '/editor/mangal/');
   const tabs = page.locator('.tabbar [role=tab]');
-  expect(await tabs.evaluateAll(t => t.map(b => b.dataset.tab))).toEqual(['dims', 'mass', 'cut', 'buy', 'notes']);
-  expect(await tabs.locator('b').allTextContents()).toEqual(['Размеры', 'Раскрой и масса', 'Лазер · DXF', 'Что купить', 'Заметки']);
+  expect(await tabs.evaluateAll(t => t.map(b => b.dataset.tab))).toEqual(['dims', 'mass', 'cut', 'sheets', 'buy', 'notes']);
+  expect(await tabs.locator('b').allTextContents()).toEqual(['Размеры', 'Раскрой и масса', 'Лазер · DXF', 'Чертежи', 'Что купить', 'Заметки']);
   expect(await tabs.locator('small').allTextContents()).toEqual(
-    ['какие показать на модели', 'детали, вес, металл', 'лист, заготовки, гильотина', 'покупное со ссылками', 'как устроено']);
+    ['какие показать на модели', 'детали, вес, металл', 'лист, заготовки, гильотина', 'листы А3 и PDF для печати', 'покупное со ссылками', 'как устроено']);
   // стрелки: вправо с «Размеров» — «Раскрой и масса», влево с первой — последняя
   await tabs.first().focus();
   await page.keyboard.press('ArrowRight');
@@ -112,7 +112,7 @@ test('mangal: вкладки — на телефоне столбцом с по�
       if (i) expect(boxes[i].top).toBeGreaterThanOrEqual(boxes[i - 1].bottom);   // одна под другой
     }
     for (const s of await small.all()) await expect(s).toBeVisible();
-    for (const t of ['dims', 'mass', 'cut', 'buy', 'notes']) {
+    for (const t of ['dims', 'mass', 'cut', 'sheets', 'buy', 'notes']) {
       await page.locator(`[role=tab][data-tab=${t}]`).click();
       const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
       expect(sw, t).toBeLessThanOrEqual(iw);
@@ -882,4 +882,80 @@ test('mangal: клик по схеме гильотины открывает е�
   await page.locator('#zoomX').click();
   await expect(page.locator('#zoom')).toBeHidden();
   expect(r.errors).toEqual([]);
+});
+
+// ---------- мангал: «Чертежи» по кнопке «Рассчитать» (#67) ----------
+
+// Чертежи посчитаны: листы на месте, «Рассчитать» неактивна, «Скачать PDF» активна
+async function mangalSheets(page) {
+  await press(page, '#shRun');   // на телефоне 3D-сцена может лежать поверх кнопки после прокрутки
+  await expect(page.locator('#shBox svg.shs').first()).toBeVisible({timeout: 60000});
+  await expect(page.locator('#shRun')).toBeDisabled();
+  await expect(page.locator('#shPdf')).toBeEnabled();
+}
+// Результата нет: листов нет, «Рассчитать» активна, «Скачать PDF» неактивна
+async function mangalNoSheets(page) {
+  await expect(page.locator('#shRun')).toBeEnabled();
+  await expect(page.locator('#shRun')).toHaveText('Рассчитать');
+  await expect(page.locator('#shBox svg')).toHaveCount(0);
+  await expect(page.locator('#shPdf')).toBeDisabled();
+}
+
+test('mangal: «Чертежи» — до «Рассчитать» листов нет, после — комплект, PDF только с ним', async ({page}) => {
+  test.slow();
+  await page.addInitScript(() => { window.__printed = 0; window.print = () => { window.__printed++; window.__printN = document.querySelectorAll('#printBox svg').length; }; });
+  const r = await openEditor(page, '/editor/mangal/#sheets');
+  await expect(page.locator('#tab-sheets')).toBeVisible();
+  await mangalNoSheets(page);
+  await mangalSheets(page);
+  const caps = await page.locator('#shBox figcaption').allTextContents();
+  expect(caps.length).toBeGreaterThan(4);
+  expect(caps[0]).toContain('Общий вид');
+  expect(caps[caps.length - 1]).toContain('Раскрой');
+  await page.locator('#shPdf').click();
+  expect(await page.evaluate(() => [window.__printed, window.__printN])).toEqual([1, caps.length]);
+  expect(r.errors).toEqual([]);
+  expect(r.external).toEqual([]);
+});
+
+test('mangal: «Чертежи» — изменение деталей убирает листы, вид модели — нет', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#sheets');
+  await mangalSheets(page);
+  // размеры на модели и другая вкладка листов не трогают
+  await page.locator('[role=tab][data-tab=dims]').click();
+  await press(page, '#dAll');
+  await settle(page);
+  await page.locator('[role=tab][data-tab=sheets]').click();
+  await expect(page.locator('#shBox svg.shs').first()).toBeVisible();
+  await expect(page.locator('#shPdf')).toBeEnabled();
+  // деталь поменяли — листов нет, кнопка снова активна
+  await page.locator('#hTop').evaluate(e => { e.value = String(+e.value + 2); e.dispatchEvent(new Event('input')); });
+  await mangalNoSheets(page);
+  await mangalSheets(page);
+  await press(page, '#modeSeg [data-v=stove]');
+  await expect(page.locator('#shBox svg')).toHaveCount(0);
+  expect(r.errors).toEqual([]);
+});
+
+test('mangal: «Чертежи» в печи и «оба» — «Чертежи печи пока не готовы», кнопки нет', async ({page}) => {
+  await openEditor(page, '/editor/mangal/#sheets');
+  for (const m of ['stove', 'both']) {
+    await press(page, `#modeSeg [data-v=${m}]`);
+    await expect(page.locator('#shStove')).toBeVisible();
+    await expect(page.locator('#shStove')).toHaveText('Чертежи печи пока не готовы');
+    await expect(page.locator('#shRun')).toBeHidden();
+    await expect(page.locator('#shPdf')).toBeHidden();
+  }
+  await press(page, '#modeSeg [data-v=grill]');
+  await expect(page.locator('#shStove')).toBeHidden();
+  await expect(page.locator('#shRun')).toBeVisible();
+});
+
+test('mangal: «Чертежи» на телефоне без горизонтальной прокрутки', async ({page}, info) => {
+  test.slow();
+  await openEditor(page, '/editor/mangal/#sheets');
+  await mangalSheets(page);
+  const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  expect(sw).toBeLessThanOrEqual(iw);
 });

@@ -107,18 +107,8 @@ function massRows(){let grp=null,el=null,skip=false,tot=0;const rows=[];
     tot+=p.m*p.q;rows.push(Object.assign({},p,{grp,el}));});
   return {rows,tot};}
 const kg1=v=>v.toFixed(1).replace('.',',');   // итог массы: таблица и шапка — одна цифра
-function drawCut(){
-  const {rows,tot}=massRows();
-  let sel=0,grp=null,h='<thead><tr><th>Деталь</th><th>Эскиз</th><th>Размер, мм</th><th class="r">Кол-во</th><th class="r">Масса, кг</th></tr></thead><tbody>';
-  rows.forEach(p=>{
-    if(!inSel(p.el,p.pt))return;
-    const m=p.m*p.q;sel+=m;
-    if(p.grp!==grp){grp=p.grp;h+=`<tr class="grp"><td colspan="5">${grp}</td></tr>`;}
-    h+=`<tr><td>${p.n}${p.note?`<small>${p.note}</small>`:''}</td><td>${cutSketch(p)}</td><td class="n">${String(p.s).replace(/\d+\.\d+/g,v=>fmt(+v,1))}</td><td class="n r">${p.q}</td><td class="n r">${m.toFixed(2).replace('.',',')}</td></tr>`;
-  });
-  if(S.sel.el)h+=`<tr class="tot"><td colspan="4">Итого выбранного: ${S.sel.part?partName(S.sel.part):elOf(S.sel.el).name}</td><td class="n r">${kg1(sel)}</td></tr>`;
-  h+=`<tr class="tot"><td colspan="4">Итого металла ${({both:'всего мангала',grill:'мангала',stove:'печи'})[S.mode]}</td><td class="n r">${kg1(tot)}</td></tr></tbody>`;
-  document.getElementById('cut').innerHTML=h;
+// металл под таблицей: [название, количество (площадь или метраж), для чего] — «Раскрой и масса» и спецификация в «Чертежах»
+function metalRows(){
   const ln=(a)=>fmt(a/100,2)+' м',ar=(a)=>fmt(a/10000,2)+' м²';
   const g=gOn(),k=sOn(),LL=legsList(),nW=LL.filter(l=>l[3]).length,nF=LL.length-nW;
   const legM=LL.reduce((a,[x,z,top,wh])=>a+legTube(top,wh),0);
@@ -137,7 +127,20 @@ function drawCut(){
     ...(g?[['Уголок 30×30×3',ln(2*GA_L),'уголки в жаровне'],...(S.cgr?[['Уголок 30×30×4',ln(2*CA_L),'опоры колосника'],['Перфолист 5–10 мм',ar(2*CG_L*CG_W),'колосниковая решётка, 2 половины']]:[])]:[]),
     ...(k?[['Квадрат 6×6',ln(2*SH_L),'проставки направляющих шибера'],['Полоса 20×3',ln(2*SH_L),'направляющие шибера'],['Профтруба 60×60×2',ln(CH_H+CH_V+CH+CH_X_L),'труба печи + удлинитель 1 м'],['Пруток Ø12',ln(18),'ручка дверцы']]:[]),
   ];
-  document.getElementById('metal').innerHTML=mt.map(([n,q,w])=>`<li><b>${n}</b> — ${q} · ${w}</li>`).join('');
+  return mt;}
+function drawCut(){
+  const {rows,tot}=massRows();
+  let sel=0,grp=null,h='<thead><tr><th>Деталь</th><th>Эскиз</th><th>Размер, мм</th><th class="r">Кол-во</th><th class="r">Масса, кг</th></tr></thead><tbody>';
+  rows.forEach(p=>{
+    if(!inSel(p.el,p.pt))return;
+    const m=p.m*p.q;sel+=m;
+    if(p.grp!==grp){grp=p.grp;h+=`<tr class="grp"><td colspan="5">${grp}</td></tr>`;}
+    h+=`<tr><td>${p.n}${p.note?`<small>${p.note}</small>`:''}</td><td>${cutSketch(p)}</td><td class="n">${String(p.s).replace(/\d+\.\d+/g,v=>fmt(+v,1))}</td><td class="n r">${p.q}</td><td class="n r">${m.toFixed(2).replace('.',',')}</td></tr>`;
+  });
+  if(S.sel.el)h+=`<tr class="tot"><td colspan="4">Итого выбранного: ${S.sel.part?partName(S.sel.part):elOf(S.sel.el).name}</td><td class="n r">${kg1(sel)}</td></tr>`;
+  h+=`<tr class="tot"><td colspan="4">Итого металла ${({both:'всего мангала',grill:'мангала',stove:'печи'})[S.mode]}</td><td class="n r">${kg1(tot)}</td></tr></tbody>`;
+  document.getElementById('cut').innerHTML=h;
+  document.getElementById('metal').innerHTML=metalRows().map(([n,q,w])=>`<li><b>${n}</b> — ${q} · ${w}</li>`).join('');
 
   document.getElementById('stats').innerHTML=[
     [`${u(XR()+HX-XL())} × ${u(HG)}`,`длина × ширина, ${UN()}`],

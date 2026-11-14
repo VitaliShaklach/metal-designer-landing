@@ -198,14 +198,15 @@ document.getElementById('dFold').addEventListener('click',()=>{const all=[...doc
 // после каждой перерисовки списка — подпись кнопки
 new MutationObserver(foldBtn).observe(document.getElementById('dimList'),{childList:true});foldBtn();
 
-/* ---------- вкладки под 3D: Размеры | Раскрой и масса (mass) | Лазер · DXF (cut) | Что купить | Заметки ---------- */
+/* ---------- вкладки под 3D: Размеры | Раскрой и масса (mass) | Лазер · DXF (cut) | Чертежи (sheets) | Что купить | Заметки ---------- */
+sheetsInit();
 const TABS=[...document.querySelectorAll('.tabbar button')];
 function showTab(k){if(k==='dxf')k='cut';if(!TABS.some(b=>b.dataset.tab===k))k='dims';   // «Лазер · DXF» (до v1.2) теперь в «Раскрое» — старые ссылки и память
   TABS.forEach(b=>{const on=b.dataset.tab===k;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;document.getElementById('tab-'+b.dataset.tab).hidden=!on;});
-  store('md-tab',k);if(k==='cut')nestUI(true);}   // настройки раскроя и готовый результат — сразу; считается раскрой только по «Рассчитать»
+  store('md-tab',k);if(k==='cut')nestUI(true);if(k==='sheets'){nestInit();sheetsUI();}}   // настройки раскроя и готовый результат — сразу; считается раскрой только по «Рассчитать»
 TABS.forEach((b,i)=>{b.addEventListener('click',()=>showTab(b.dataset.tab));
   b.addEventListener('keydown',e=>{const d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(!d)return;const n=TABS[(i+d+TABS.length)%TABS.length];n.focus();showTab(n.dataset.tab);});});
-showTab((location.hash.match(/^#(dims|cut|mass|dxf|buy|notes)$/)||[])[1]||store('md-tab')||'dims');
+showTab((location.hash.match(/^#(dims|cut|mass|dxf|sheets|buy|notes)$/)||[])[1]||store('md-tab')||'dims');
 // внутренние вкладки «Лазер · DXF»: Лазер (С листа | Из заготовок) | Гильотина. Каждая открывает свою панель #sub-<data-sub>; выбор не запоминается —
 // страница всегда открывается на «Лазер → С листа»
 document.querySelectorAll('.subtabs').forEach(bar=>{const bs=[...bar.querySelectorAll(':scope>[role=tab]')];

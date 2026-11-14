@@ -2,7 +2,7 @@
 // THREE.Shape/Path — простые заглушки с точками (как mkReal в smoke.js), чтобы контуры деталей были настоящими.
 const fs=require('fs'),vm=require('vm'),path=require('path');
 const P=path.join(__dirname,'..');
-const FILES=['params','parts','model','dims','cut','dxf','engrave','nest','ui'];
+const FILES=['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','ui'];
 const mk=()=>{const U=new Proxy(function(){},{get:(t,k)=>{if(k===Symbol.toPrimitive)return()=>0;if(k===Symbol.iterator)return function*(){};if(k==='then')return undefined;return U;},apply:()=>U,construct:()=>U,set:()=>true});return U;};
 class SPath{constructor(){this.pts=[];this.curves=[];this.holes=[];}moveTo(x,y){this.pts.push({x,y});}lineTo(x,y){const l=this.pts[this.pts.length-1];if(!l||l.x!==x||l.y!==y)this.pts.push({x,y});}
   absarc(x,y,r){this.curves=[{isEllipseCurve:true,aX:x,aY:y,xRadius:r}];}getPoints(){return this.pts;}}

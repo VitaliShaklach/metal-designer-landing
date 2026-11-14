@@ -12,7 +12,7 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
     addEventListener:()=>{},requestAnimationFrame:()=>{},ResizeObserver:U,MutationObserver:U,devicePixelRatio:1,performance:{now:()=>0},navigator:U,URLSearchParams,console,Math,JSON,Set,Object,Array,Number,String,Symbol,setTimeout,clearTimeout};
   vm.createContext(ctx);
   // классические скрипты делят одну лексическую область — склеиваем
-  const src=[P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n');
+  const src=[P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n');
   try{vm.runInContext(src,ctx,{filename:'all.js'});
       vm.runInContext("dimVisible().forEach(r=>{try{r.fn()}catch(e){throw new Error('dim '+r.id+': '+e.message)}});drawCut();",ctx);
       // крыша от дождя: тексты шапки, «Общего», «Массы», проката и «Заметок» — с крышей есть, без неё ни слова; элемент «Крыша», её детали и размеры — только с крышей
@@ -27,6 +27,8 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
           const m=all.match(roofRx);if(m)throw new Error('крыша выключена, а в тексте «'+m[0]+'»: '+all.slice(Math.max(0,m.index-60),m.index+40).replace(/<[^>]+>/g,''));}}`,ctx);
       // раскрой листа: детали для раскладки (у боковин в Node контур пустой — пропускаются), раскладка и рисунок
       vm.runInContext("{const N=nestJob(),res=N.groups.map(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);return v.value;});LIST.draw(N,res);nestUI();nestUI(true);}",ctx);
+      // чертежи (без 3D виды — надпись): комплект собирается в любом режиме, раскрой — по листу на каждый лист каждой толщины
+      vm.runInContext("{const o=ok;ok=false;try{const N=nestJob(),res=N.groups.map(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);return v.value;}),L=sheetsBuild(N,res),k=res.reduce((a,R)=>a+R.sheets.length,0);if(L.filter(s=>s.title==='Раскрой').length!==k)throw new Error('чертежи: листов раскроя '+L.filter(s=>s.title==='Раскрой').length+', ждали '+k);if(L[0].title!=='Общий вид')throw new Error('чертежи: первый лист не «Общий вид»');}finally{ok=o;}}",ctx);
       // колосник мангала: в таблице листа 5 мм, когда он есть на модели; на лист — только с галочкой (по умолчанию снята); у половины 18 × 19 отверстий Ø10
       vm.runInContext(`{const has=N=>N.groups.some(G=>G.types.some(t=>NEST_CGR(t.p))),on=N=>N.groups.reduce((a,G)=>a+G.items.filter(i=>NEST_CGR(i.ty.p)).length,0),a=nestJob(),b=nestJob({cgr:true}),want=gOn()&&S.cgr;
         if(a.cgr)throw new Error('колосник мангала на листе по умолчанию');if(has(a)!==want||a.hasCgr!==want)throw new Error('колосник мангала: в таблице '+has(a)+', ждали '+want);
@@ -88,7 +90,7 @@ for(const [search,want] of [['',false],['?view=1,1,1,0,0,0',false],['?view=1,1,1
   const U=mk(),errs=[],ctx={THREE:U,document:U,window:{addEventListener:()=>{}},location:{hash:'',href:'http://x/',search},
     addEventListener:()=>{},requestAnimationFrame:()=>{},ResizeObserver:U,MutationObserver:U,devicePixelRatio:1,performance:{now:()=>0},navigator:U,URLSearchParams,console,Math,JSON,Set,Object,Array,Number,String,Symbol,setTimeout,clearTimeout};
   vm.createContext(ctx);
-  const src=[P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n');
+  const src=[P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n');
   try{vm.runInContext(src,ctx,{filename:'all.js'});const r=vm.runInContext('S.rain',ctx);if(r!==want)throw new Error('S.rain='+r+', ждали '+want);}
   catch(e){errs.push(e.message+' '+((e.stack||'').split('\n')[1]||''));}
   console.log('крыша по ссылке',JSON.stringify(search.slice(0,40)),errs.length?'FAIL '+errs.join(' | '):'ok');fails+=errs.length;}
@@ -104,7 +106,7 @@ class SPath{constructor(){this.pts=[];this.curves=[];this.holes=[];}moveTo(x,y){
 const mkReal=(flags,search)=>{const U=mk(),TH=new Proxy({Shape:SPath,Path:SPath},{get:(t,k)=>k in t?t[k]:U});
   const ctx={THREE:TH,__U:U,document:U,window:{addEventListener:()=>{}},location:{hash:'',href:'http://x/',search:search||'?view=1,1,1,0,0,0&flags='+encodeURIComponent(JSON.stringify(flags))},
     addEventListener:()=>{},requestAnimationFrame:()=>{},ResizeObserver:U,MutationObserver:U,devicePixelRatio:1,performance:{now:()=>0},navigator:U,URLSearchParams,console,Math,JSON,Set,Object,Array,Number,String,Symbol,setTimeout,clearTimeout};
-  vm.createContext(ctx);vm.runInContext([P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n'),ctx,{filename:'all.js'});return ctx;};
+  vm.createContext(ctx);vm.runInContext([P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n'),ctx,{filename:'all.js'});return ctx;};
 const GILCHK=`(N,lbl)=>{const out=[];N.groups.forEach(G=>{const P=gilScheme(N,G),E=N.edge,e=1e-6;
     if(P.too.length)throw new Error(lbl+': на схеме не поместилось '+P.too.length);
     const want={},got={},k=r=>r.kind+r.no;
