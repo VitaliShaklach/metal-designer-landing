@@ -450,7 +450,7 @@ test('mangal: во время раскроя виден индикатор, по
 
 // ---------- мангал: раскрой по кнопке «Рассчитать» ----------
 
-// Раскрой посчитан: лист и таблица на месте, «Рассчитать» неактивна, под листом кнопка «Скачать DXF листа»
+// Раскрой посчитан: лист и таблица на месте, «Рассчитать» неактивна, над схемой кнопка «Скачать DXF листа»
 async function mangalCut(page) {
   await page.locator('#nestRun').click();
   await expect(page.locator('#nestBox svg').first()).toBeVisible();
@@ -459,6 +459,11 @@ async function mangalCut(page) {
   await expect(page.locator('#nestBox [data-act=sheet]').first()).toBeVisible();
   await expect(page.locator('#dxfAll, #zagAll, #gilAll')).toHaveCount(0);   // кнопок архива нет
 }
+// #103: у каждого листа порядок детей фигуры — figcaption, кнопка «Скачать DXF листа», схема; по листу — true/false
+const aboveSvg = (page, box) => page.locator(`${box} figure.nsheet`).evaluateAll(fs => fs.map(f => {
+  const k = [...f.children], i = k.findIndex(e => e.matches('[data-act=sheet], [data-act=gil]') || e.querySelector('[data-act=sheet], [data-act=gil]')), v = k.findIndex(e => e.matches('svg'));
+  return k[0].tagName === 'FIGCAPTION' && i === 1 && v === 2;
+}));
 // Результата нет: листа нет, «Рассчитать» снова активна, кнопок листа нет
 async function mangalNoCut(page) {
   await expect(page.locator('#nestRun')).toBeEnabled();
@@ -637,7 +642,8 @@ test('mangal: «С листа» — схема, таблица, итоги и «
   const sheetBtn = page.locator('#nestBox [data-act=sheet]');
   await expect(sheetBtn).toHaveCount(1);
   await expect(sheetBtn).toHaveText('Скачать DXF листа');
-  await expect(page.locator('#nestBox figure.nsheet [data-act=sheet]')).toHaveCount(1);   // кнопка — под самим листом
+  await expect(page.locator('#nestBox figure.nsheet [data-act=sheet]')).toHaveCount(1);   // кнопка — в самой фигуре листа
+  expect(await aboveSvg(page, '#nestBox')).toEqual([true]);   // и над схемой: подпись, кнопка, схема (#103)
   const [d] = await Promise.all([page.waitForEvent('download'), sheetBtn.click()]);
   expect(d.suggestedFilename()).toBe('list_5mm_1250x2500.dxf');
   await expect(sheetBtn.locator('xpath=following-sibling::*[1]')).toHaveText('Скачано: list_5mm_1250x2500.dxf');   // надпись — сразу у нажатой кнопки
@@ -670,12 +676,38 @@ test('mangal: пластины ручки колосника — DXF в «С л�
   expect(r.errors).toEqual([]);
 });
 
+// #103: несколько листов в толщине — «Скачать DXF листа 1», «… 2», каждая над своим листом, в «С листа» и в «Гильотине»
+test('mangal: «оба» на листе 1000 × 2000 — «Скачать DXF листа 1», «… 2» над своими листами', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await press(page, '#modeSeg [data-v=both]');
+  await page.locator('#nSheet').selectOption('1000x2000');
+  await page.locator('#nCgr').check();
+  await mangalCut(page);
+  const names = await page.locator('#nestBox [data-act=sheet]').allTextContents();
+  expect(names).toContain('Скачать DXF листа 1');
+  expect(names).toContain('Скачать DXF листа 2');
+  const flags = await aboveSvg(page, '#nestBox');
+  expect(flags.length).toBe(names.length);
+  expect(flags.every(Boolean)).toBe(true);
+  await expect(page.locator('#nestBox figure.nsheet [data-act=sheet]')).toHaveCount(names.length);
+  await openSub(page, 'gil');
+  await gilCut(page);
+  const gn = await page.locator('#gilBox [data-act=gil]').allTextContents();
+  expect(gn.length).toBeGreaterThan(1);
+  expect(gn.some(t => t === 'Скачать DXF листа 1')).toBe(true);
+  expect(gn.some(t => t === 'Скачать DXF листа 2')).toBe(true);
+  expect((await aboveSvg(page, '#gilBox')).every(Boolean)).toBe(true);
+  expect(r.errors).toEqual([]);
+});
+
 test('mangal: печь — «С листа»: три кнопки листа (5, 3, 15 мм)', async ({page}) => {
   const r = await openEditor(page, '/editor/mangal/#cut');
   await press(page, '#modeSeg [data-v=stove]');
   await mangalCut(page);
   await expect(page.locator('#nestBox .ntot')).toHaveCount(3);
   await expect(page.locator('#nestBox [data-act=sheet]')).toHaveCount(3);
+  expect((await aboveSvg(page, '#nestBox')).every(Boolean)).toBe(true);
   const [d] = await Promise.all([page.waitForEvent('download'), page.locator('#nestBox .nblock').nth(2).locator('[data-act=sheet]').click()]);
   expect(d.suggestedFilename()).toBe('list_15mm_1250x2500.dxf');
   expect(r.errors).toEqual([]);
@@ -780,6 +812,7 @@ test('mangal: «Гильотина» — по «Рассчитать», без �
   expect((await gilSpan(page))[0]).toBe(10);
   const gilBtn = page.locator('#gilBox [data-act=gil]');
   await expect(gilBtn).toHaveText('Скачать DXF листа');
+  expect(await aboveSvg(page, '#gilBox')).toEqual([true]);   // над схемой (#103)
   const [d] = await Promise.all([page.waitForEvent('download'), gilBtn.click()]);
   expect(d.suggestedFilename()).toBe('gilotina_5mm_1250x2500.dxf');
   await expect(gilBtn.locator('xpath=following-sibling::*[1]')).toHaveText('Скачано: gilotina_5mm_1250x2500.dxf');
@@ -846,6 +879,7 @@ test('mangal: «Гильотина» в печи — колосник 15 мм н
   await expect(b15.locator('.otbl tr', {hasText: 'Колосник печи'})).toContainText('толще 8 мм');
   await expect(b15.locator('.gtbl')).toHaveCount(0);
   await expect(page.locator('#gilBox [data-act=gil]')).toHaveCount(2);   // 5 и 3 мм; на 15 мм рубить нечего
+  expect(await aboveSvg(page, '#gilBox')).toEqual([true, true]);   // над схемой (#103)
   const [d] = await Promise.all([page.waitForEvent('download'), page.locator('#gilBox .nblock').nth(1).locator('[data-act=gil]').click()]);
   expect(d.suggestedFilename()).toBe('gilotina_3mm_1250x2500.dxf');
   // правка модели: схема убрана, «Рассчитать» снова активна; подрезка кромки — тоже

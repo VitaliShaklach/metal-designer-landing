@@ -36,6 +36,9 @@ test('печь и «оба»: кнопки листа 5, 3 и 15 мм', ()=>{
     const files=run(c,`(N=>{const res=${RES}(N);return N.groups.map((G,gi)=>listOne(N,res,{act:'sheet',g:String(gi),s:'0'})[0]);})(nestJob())`);
     assert.deepEqual(files,['list_5mm_1250x2500.dxf','list_3mm_1250x2500.dxf','list_15mm_1250x2500.dxf'],mode);
     assert.ok(!/Скачать архив|ZIP/.test(h));
+    const figs=h.split('<figure class="nsheet">').slice(1);   // #103: подпись, кнопка, схема
+    assert.equal(figs.length,3,mode);
+    figs.forEach(f=>{const a=f.indexOf('</figcaption>'),b=f.indexOf('data-act="sheet"'),v=f.indexOf('<svg');assert.ok(a>0&&b>a&&v>b,mode+': кнопка листа должна стоять над схемой');});
   }
 });
 

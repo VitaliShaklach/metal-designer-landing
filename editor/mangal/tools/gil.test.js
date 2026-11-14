@@ -143,6 +143,10 @@ test('«Гильотина»: DXF листа gilotina_5mm_1250x2500.dxf, кно�
   btns.forEach(m=>assert.equal(m[3],'Скачать DXF листа'));
   assert.deepEqual(run(s,`(N=>{const res=${RES}(N);return N.groups.slice(0,2).map((G,gi)=>gilOne(N,res,{act:'gil',g:String(gi),s:'0'})[0]);})(nestJob())`),['gilotina_5mm_1250x2500.dxf','gilotina_3mm_1250x2500.dxf']);
   assert.ok(!/Скачать архив|ZIP|Скачать DXF схемы/.test(h));
+  // #103: в каждой фигуре листа — подпись, кнопка, схема
+  const figs=h.split('<figure class="nsheet">').slice(1);
+  assert.equal(figs.length,2);
+  figs.forEach(f=>{const a=f.indexOf('</figcaption>'),b=f.indexOf('data-act="gil"'),v=f.indexOf('<svg');assert.ok(a>0&&b>a&&v>b,'кнопка листа должна стоять над схемой');});
 });
 
 test('ключ «Гильотины» меняется от подрезки, листа, колосника; старая память галочек на него не влияет', ()=>{

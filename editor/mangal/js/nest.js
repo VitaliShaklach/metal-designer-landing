@@ -236,7 +236,7 @@ function offHtml(N,G,gi,v){const rows=offRows(N,G,v);if(!rows.length)return '';
     rows.map(o=>{const ty=o.ty,p=ty.p;return `<tr${nestSelOn(ty)?' class="on"':''}><td class="n r">${ty.no}</td><td>${p.name}${p.note?`<small>${p.note}</small>`:''}<small class="fn">${dxfName(p)}</small></td><td>${dxfSketch(ty.m,v==='gil'?ty.kind:'list',v==='gil'?ty.b:undefined)}</td><td class="n r">${ty.q}</td><td>${o.why}</td>`+
       `<td class="r dl"><button class="dxfbtn dl" data-act="part" data-g="${gi}" data-t="${o.ti}" title="Скачать DXF детали" aria-label="Скачать DXF детали">⬇︎ DXF</button></td></tr>`;}).join('')+'</tbody>';
   return `<section class="noff"><h4>${v==='gil'?'Не рубится':'Не на листе'}</h4><div class="tbl"><table class="ntbl otbl">${t}</table></div></section>`;}
-// кнопка «Скачать DXF листа» под листом (act: sheet — «С листа», gil — «Гильотина»); n — листов в толщине, номер — если больше одного
+// кнопка «Скачать DXF листа» над схемой листа (act: sheet — «С листа», gil — «Гильотина»); n — листов в толщине, номер — если больше одного
 const sheetBtn=(act,gi,si,n)=>`<div class="nbtns"><button class="dxfbtn" data-act="${act}" data-g="${gi}" data-s="${si}">Скачать DXF листа${n>1?' '+(si+1):''}</button></div>`;
 // вкладка «С листа»: на каждую толщину (5 → 3 → 15 мм) — заголовок, итоги для оценки, кнопки скачивания, лист, под ним детали этого листа;
 // № в таблице — тот же, что на листе; выбранное на модели подсвечено
@@ -245,7 +245,7 @@ function nestHtml(N,res){const tot=listTotals(N,res),wide=nestWide('nestBox');
     let h=`<section class="nblock${main?' main':''}"><h3>Лист ${G.mm} мм</h3>`;
     h+=`<p class="ntot"><span>Рез <b>${fmt(T.cut/1000,2)} м</b></span><span>Врезки <b>${T.pierce}</b></span>${engSpan(N,T.eng)}<span>Лист <b>${ns} ${sheetsWord(ns)} ${N.H} × ${N.W}</b></span><span>Заполнение <b>${Math.round(T.fill*100)} %</b></span></p>`;
     h+=offNote(offRows(N,G,'list'),'list');
-    R.sheets.forEach((sh,si)=>{h+=`<figure class="nsheet"><figcaption>${ns>1?`Лист ${si+1} из ${ns} · `:''}${N.H} × ${N.W} · деталей ${sh.items.length} · занято ${Math.round(sh.used*100)} % · зазор ${fmt(N.gap,1)} мм, от края ${NEST_EDGE} мм</figcaption>${nestSvg(N,G,sh,nestSelOn,wide)}${sheetBtn('sheet',gi,si,ns)}</figure>`;});
+    R.sheets.forEach((sh,si)=>{h+=`<figure class="nsheet"><figcaption>${ns>1?`Лист ${si+1} из ${ns} · `:''}${N.H} × ${N.W} · деталей ${sh.items.length} · занято ${Math.round(sh.used*100)} % · зазор ${fmt(N.gap,1)} мм, от края ${NEST_EDGE} мм</figcaption>${sheetBtn('sheet',gi,si,ns)}${nestSvg(N,G,sh,nestSelOn,wide)}</figure>`;});
     if(R.too.length){const c={};R.too.forEach(o=>c[o.no]=(c[o.no]||0)+1);
       h+=`<p class="nwarn">Не поместилось: ${Object.keys(c).map(no=>{const ty=G.types.find(t=>t.no===+no);return `${no} ${ty.p.name}${c[no]>1?` × ${c[no]}`:''}`;}).join(', ')}</p>`;}
     let tq=0,t=`<thead><tr><th class="r">№</th><th>Деталь</th><th>Эскиз</th><th class="r">Кол-во</th><th>Габарит, мм</th><th class="r">Рез, м</th><th class="r">Врезок</th><th class="r dl">Скачать</th></tr></thead><tbody>`;
@@ -281,7 +281,7 @@ function gilHtml(N,res){const tot=gilTotals(N,res),wide=nestWide('gilBox');
     if(!rub){h+='<p class="gnone">Ничего не рубим</p>';}
     else{h+=`<p class="ntot"><span>Лист <b>${np} ${sheetsWord(np)} ${N.H} × ${N.W}</b></span><span>Заготовки <b>${T.blanks}</b></span><span>Резы <b>${T.cuts}</b></span></p>`;
       h+=offNote(off,'gil');
-      P.sheets.forEach((sh,si)=>{h+=`<figure class="nsheet"><figcaption>${np>1?`Лист ${si+1} из ${np} · `:''}${N.H} × ${N.W} · резов ${sh.cuts}, заготовок ${sh.items.length} · занято ${Math.round(sh.used*100)} %, отход ${Math.round(sh.waste*100)} % · подрезка кромки ${N.edge} мм</figcaption>${gilSvg(N,G,sh,nestSelOn,wide)}${sheetBtn('gil',gi,si,np)}</figure>`;});
+      P.sheets.forEach((sh,si)=>{h+=`<figure class="nsheet"><figcaption>${np>1?`Лист ${si+1} из ${np} · `:''}${N.H} × ${N.W} · резов ${sh.cuts}, заготовок ${sh.items.length} · занято ${Math.round(sh.used*100)} %, отход ${Math.round(sh.waste*100)} % · подрезка кромки ${N.edge} мм</figcaption>${sheetBtn('gil',gi,si,np)}${gilSvg(N,G,sh,nestSelOn,wide)}</figure>`;});
       if(np)h+='<p class="glegend"><span><i class="lg gil">▪</i> серый — готовая деталь, лазер не нужен</span><span><i class="lg las">▪</i> оранжевый — заготовка, дальше на лазер</span></p>';
       if(P.too.length){const c={};P.too.forEach(r=>c[r.no]=(c[r.no]||0)+1);
         h+=`<p class="nwarn">Не помещается на лист с подрезкой кромки: ${Object.keys(c).map(no=>{const ty=G.types.find(t=>t.no===+no);return `${no} ${ty.p.name}${c[no]>1?` × ${c[no]}`:''}`;}).join(', ')}</p>`;}}
