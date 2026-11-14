@@ -348,14 +348,15 @@ SHEETS.calc = () => SHEETS.c || (SHEETS.c = makeCalc({
 }));
 
 // Печать по образцу printSvgs рыси: листы — в #printBox, размер страницы — @page, после печати всё убирается
-function printSheets(list) {
+// a4 — карты деталей (А4 книжно), иначе чертежи (А3 альбомно)
+function printSheets(list, a4 = false) {
   const pb = document.getElementById('printBox'), pg = document.createElement('style');
   pb.innerHTML = list.map(s => s.svg).join('');
-  pb.classList.remove('a4');
-  pg.textContent = '@media print{@page{size:A3 landscape;margin:0}}';
+  pb.classList.toggle('a4', a4);
+  pg.textContent = `@media print{@page{size:${a4 ? 'A4 portrait' : 'A3 landscape'};margin:0}}`;
   document.head.appendChild(pg);
   const t = document.title;
-  document.title = sheetName() + ' — чертежи';   // имя файла PDF по умолчанию
+  document.title = sheetName() + (a4 ? ' — карты деталей' : ' — чертежи');   // имя файла PDF по умолчанию
   const done = () => { document.title = t; pb.innerHTML = ''; pg.remove(); removeEventListener('afterprint', done); };
   addEventListener('afterprint', done);
   window.print();

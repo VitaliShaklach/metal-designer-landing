@@ -368,7 +368,8 @@ body.noscroll{overflow:hidden}
 .shprev{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0}
 .shprev figcaption{font:13px/1.4 var(--f-mono);color:var(--muted)}
 .shprev svg{display:block;width:100%;height:auto;border:1px solid var(--line);background:#fff}
-#shMain[hidden],#shStove[hidden]{display:none}
+#shMain[hidden],#shStove[hidden],#cdMain[hidden],#cdStove[hidden]{display:none}
+.sheets.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))}
 #printBox{display:none}
 @media print{
   body>*:not(#printBox){display:none !important}
@@ -376,4 +377,5 @@ body.noscroll{overflow:hidden}
   #printBox{display:block}
   #printBox svg{display:block;width:420mm;height:296mm;break-after:page;page-break-after:always}
   #printBox svg:last-child{break-after:auto;page-break-after:auto}
+  #printBox.a4 svg{width:210mm;height:296mm}
 }

@@ -12,9 +12,9 @@
 <meta property="og:url" content="https://vitalishaklach.github.io/metal-designer/mangal/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-14k">
-<link rel="stylesheet" href="../editor.css?v=2026-11-14k">
-<link rel="stylesheet" href="css/style.css?v=2026-11-14k">
+<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-14l">
+<link rel="stylesheet" href="../editor.css?v=2026-11-14l">
+<link rel="stylesheet" href="css/style.css?v=2026-11-14l">
 </head>
 <body>
 <div class="edbar">
@@ -161,6 +161,7 @@
       <button role="tab" data-tab="mass" aria-selected="false"><b>Раскрой и масса</b><small>детали, вес, металл</small></button>
       <button role="tab" data-tab="cut" aria-selected="false"><b>Лазер · DXF</b><small>лист, заготовки, гильотина</small></button>
       <button role="tab" data-tab="sheets" aria-selected="false"><b>Чертежи</b><small>листы А3 и PDF для печати</small></button>
+      <button role="tab" data-tab="cards" aria-selected="false"><b>Карты деталей</b><small>А4 на каждую деталь: рез, швы, гибка</small></button>
       <button role="tab" data-tab="buy" aria-selected="false"><b>Что купить</b><small>покупное со ссылками</small></button>
       <button role="tab" data-tab="notes" aria-selected="false"><b>Заметки</b><small>как устроено</small></button>
     </div>
@@ -213,6 +214,16 @@
       </div>
     </div>
 
+    <div class="tabpane" id="tab-cards" role="tabpanel" hidden>
+      <p class="tabnote" id="cdStove" hidden>Карты печи пока не готовы</p>
+      <div id="cdMain">
+        <p class="tabnote">Лист А4 на каждую деталь, которую делает цех, — лазерную и из проката: как режут, как выглядит с 4 сторон, где стоит на мангале, к чему варить и какой длины шов, как гнуть. Масса — как в «Раскрое и массе». Покупное — в «Что купить». Считается по кнопке; поменяли детали — карты убираются</p>
+        <div class="dimbar nestbar"><button id="cdRun" class="calcbtn">Рассчитать</button><button id="cdPdf" type="button" disabled>Скачать PDF (А4)</button></div>
+        <div class="nestwait" id="cdWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Считаю карты деталей</span><span id="cdCnt"></span></div>
+        <div class="sheets cards" id="cdBox"></div>
+      </div>
+    </div>
+
     <div class="tabpane" id="tab-mass" role="tabpanel" hidden>
       <p class="tabnote">Металл, который делает цех; размеры — в мм. Лист 5 мм ≈ 39,3 кг/м². Покупное — в «Что купить», сборка — в «Заметках»</p>
       <div class="tbl"><table id="cut"></table></div>
@@ -262,18 +273,19 @@
 <script src="../../vendor/three/three.min.js"></script>
 <script src="../../vendor/three/OrbitControls.js"></script>
 <script src="../../vendor/three/CSS2DRenderer.js"></script>
-<script src="js/params.js?v=2026-11-14k"></script>
-<script src="js/parts.js?v=2026-11-14k"></script>
-<script src="js/model.js?v=2026-11-14k"></script>
-<script src="js/dims.js?v=2026-11-14k"></script>
-<script src="js/cut.js?v=2026-11-14k"></script>
-<script src="js/dxf.js?v=2026-11-14k"></script>
-<script src="js/engrave.js?v=2026-11-14k"></script>
-<script src="../common/calc.js?v=2026-11-14k"></script>
-<script src="js/nest.js?v=2026-11-14k"></script>
-<script src="js/sheet-kit.js?v=2026-11-14k"></script>
-<script src="js/views.js?v=2026-11-14k"></script>
-<script src="js/sheets.js?v=2026-11-14k"></script>
-<script src="js/ui.js?v=2026-11-14k"></script>
+<script src="js/params.js?v=2026-11-14l"></script>
+<script src="js/parts.js?v=2026-11-14l"></script>
+<script src="js/model.js?v=2026-11-14l"></script>
+<script src="js/dims.js?v=2026-11-14l"></script>
+<script src="js/cut.js?v=2026-11-14l"></script>
+<script src="js/dxf.js?v=2026-11-14l"></script>
+<script src="js/engrave.js?v=2026-11-14l"></script>
+<script src="../common/calc.js?v=2026-11-14l"></script>
+<script src="js/nest.js?v=2026-11-14l"></script>
+<script src="js/sheet-kit.js?v=2026-11-14l"></script>
+<script src="js/views.js?v=2026-11-14l"></script>
+<script src="js/sheets.js?v=2026-11-14l"></script>
+<script src="js/cards.js?v=2026-11-14l"></script>
+<script src="js/ui.js?v=2026-11-14l"></script>
 </body>
 </html>

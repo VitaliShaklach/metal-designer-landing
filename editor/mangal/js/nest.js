@@ -368,6 +368,7 @@ function nestInit(){if(NST.init)return;NST.init=true;const gi=document.getElemen
 // любая правка (build3D, drawCut, поля и галочки «Лазер · DXF») и показ вкладки; сам ничего не считает. У каждого варианта свой ключ
 function nestUI(now){clearTimeout(NST.t);if(!now){NST.t=setTimeout(()=>nestUI(true),300);return;}
   if(typeof sheetsUI==='function')sheetsUI();   // «Чертежи»: ключ другой — листы убраны (тот же срок 0,3 с)
+  if(typeof cardsUI==='function')cardsUI();   // «Карты деталей» — так же
   const pane=document.getElementById('tab-cut'),vis=!!pane&&pane.hidden===false;
   if(vis)nestInit();   // до nestJob: задание — по полям со значениями из памяти браузера
   if(!vis&&!VARS.some(V=>V.calc().held()))return;   // вкладка закрыта, результатов нет — сравнивать нечего (nestJob считает контуры всех деталей)

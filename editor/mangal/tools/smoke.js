@@ -12,7 +12,7 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
     addEventListener:()=>{},requestAnimationFrame:()=>{},ResizeObserver:U,MutationObserver:U,devicePixelRatio:1,performance:{now:()=>0},navigator:U,URLSearchParams,console,Math,JSON,Set,Object,Array,Number,String,Symbol,setTimeout,clearTimeout};
   vm.createContext(ctx);
   // классические скрипты делят одну лексическую область — склеиваем
-  const src=[P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n');
+  const src=[P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','cards','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n');
   try{vm.runInContext(src,ctx,{filename:'all.js'});
       vm.runInContext("dimVisible().forEach(r=>{try{r.fn()}catch(e){throw new Error('dim '+r.id+': '+e.message)}});drawCut();",ctx);
       // крыша от дождя: тексты шапки, «Общего», «Массы», проката и «Заметок» — с крышей есть, без неё ни слова; элемент «Крыша», её детали и размеры — только с крышей
@@ -90,7 +90,7 @@ for(const [search,want] of [['',false],['?view=1,1,1,0,0,0',false],['?view=1,1,1
   const U=mk(),errs=[],ctx={THREE:U,document:U,window:{addEventListener:()=>{}},location:{hash:'',href:'http://x/',search},
     addEventListener:()=>{},requestAnimationFrame:()=>{},ResizeObserver:U,MutationObserver:U,devicePixelRatio:1,performance:{now:()=>0},navigator:U,URLSearchParams,console,Math,JSON,Set,Object,Array,Number,String,Symbol,setTimeout,clearTimeout};
   vm.createContext(ctx);
-  const src=[P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n');
+  const src=[P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','cards','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n');
   try{vm.runInContext(src,ctx,{filename:'all.js'});const r=vm.runInContext('S.rain',ctx);if(r!==want)throw new Error('S.rain='+r+', ждали '+want);}
   catch(e){errs.push(e.message+' '+((e.stack||'').split('\n')[1]||''));}
   console.log('крыша по ссылке',JSON.stringify(search.slice(0,40)),errs.length?'FAIL '+errs.join(' | '):'ok');fails+=errs.length;}
@@ -106,7 +106,7 @@ class SPath{constructor(){this.pts=[];this.curves=[];this.holes=[];}moveTo(x,y){
 const mkReal=(flags,search)=>{const U=mk(),TH=new Proxy({Shape:SPath,Path:SPath},{get:(t,k)=>k in t?t[k]:U});
   const ctx={THREE:TH,__U:U,document:U,window:{addEventListener:()=>{}},location:{hash:'',href:'http://x/',search:search||'?view=1,1,1,0,0,0&flags='+encodeURIComponent(JSON.stringify(flags))},
     addEventListener:()=>{},requestAnimationFrame:()=>{},ResizeObserver:U,MutationObserver:U,devicePixelRatio:1,performance:{now:()=>0},navigator:U,URLSearchParams,console,Math,JSON,Set,Object,Array,Number,String,Symbol,setTimeout,clearTimeout};
-  vm.createContext(ctx);vm.runInContext([P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n'),ctx,{filename:'all.js'});return ctx;};
+  vm.createContext(ctx);vm.runInContext([P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','cards','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n'),ctx,{filename:'all.js'});return ctx;};
 const GILCHK=`(N,lbl)=>{const out=[];N.groups.forEach(G=>{const P=gilScheme(N,G),E=N.edge,e=1e-6;
     if(P.too.length)throw new Error(lbl+': на схеме не поместилось '+P.too.length);
     const want={},got={},k=r=>r.kind+r.no;
