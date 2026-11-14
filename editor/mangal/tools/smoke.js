@@ -138,7 +138,7 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
     st=vm.runInContext(`(()=>{const lp=laserParts(),c={gil:0,zag:0,list:0},CHK=${GILCHK};let cl=0,cz=0;
       const N=nestJob({edge:10}),T=N.groups.flatMap(G=>G.types),K=pt=>{const t=T.find(t=>t.p.pt===pt);return t&&t.kind;};
       if(T.length!==lp.length)throw new Error('не все детали в таблице');
-      T.forEach(ty=>{const m=ty.m,want=ty.p.pt==='air'||ty.p.pt==='hook'?'уже 50 мм':ty.p.mm>8?'толще 8 мм':'';if(!(m.w>0))throw new Error('нет контура: '+ty.p.name);
+      T.forEach(ty=>{const m=ty.m,want=ty.p.pt==='air'||ty.p.pt==='hook'||ty.p.pt==='cgrH'?'уже 50 мм':ty.p.mm>8?'толще 8 мм':'';if(!(m.w>0))throw new Error('нет контура: '+ty.p.name);
         if(gilWhy(m,ty.p.mm)!==want)throw new Error('правило: '+ty.p.name+' '+m.w+' × '+m.h+' × '+ty.p.mm+' — «'+gilWhy(m,ty.p.mm)+'», ждали «'+want+'»');
         const on=gilOn(ty,N);if(on!==(NEST_CGR(ty.p)?N.cgr:!want))throw new Error('рубим '+ty.p.name+': '+on);
         const plain=!blankMM(ty.p,m).open&&m.loops.length===1&&!m.circles.length,k=plain?'gil':'zag';if(ty.kind!==k)throw new Error('вид '+ty.p.name+': '+ty.kind+', ждали '+k);

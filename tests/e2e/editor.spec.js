@@ -651,6 +651,25 @@ test('mangal: «С листа» — схема, таблица, итоги и «
   expect(r.errors).toEqual([]);
 });
 
+// #102: ручка колосника — четыре пластины 30 × 80 × 5: строка с DXF в «С листа», в «Гильотине» — «Не рубится»
+test('mangal: пластины ручки колосника — DXF в «С листа», в «Гильотине» «Не рубится: уже 50 мм»', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await mangalCut(page);
+  const row = page.locator('#nestBox .ntbl tr', {hasText: 'Пластина ручки колосника'});
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('4');
+  const [d] = await Promise.all([page.waitForEvent('download'), row.locator('[data-act=part]').click()]);
+  expect(d.suggestedFilename()).toBe('grill_grate_handle_5mm_x4.dxf');
+  await openSub(page, 'gil');
+  await gilCut(page);
+  const off = page.locator('#gilBox .otbl tr', {hasText: 'Пластина ручки колосника'});
+  await expect(off).toHaveCount(1);
+  await expect(off).toContainText('уже 50 мм');
+  await expect(page.locator('#gilBox .gtbl tr', {hasText: 'Пластина ручки колосника'})).toHaveCount(0);
+  expect(r.errors).toEqual([]);
+});
+
 test('mangal: печь — «С листа»: три кнопки листа (5, 3, 15 мм)', async ({page}) => {
   const r = await openEditor(page, '/editor/mangal/#cut');
   await press(page, '#modeSeg [data-v=stove]');
@@ -750,7 +769,7 @@ test('mangal: «Гильотина» — по «Рассчитать», без �
   await expect(offRow('Колосник мангала 1')).toContainText('снят «Колосник на листе»');
   await expect(page.locator('#gilBox .noff h4')).toHaveText('Не рубится');
   const note = page.locator('#gilBox .nfoot');
-  await expect(note).toHaveText('8 деталей не на схеме — ниже');
+  await expect(note).toHaveText('12 деталей не на схеме — ниже');
   await expect(page.locator('#gilBox')).not.toContainText('Не рубится: ');
   expect(await note.evaluate(e => !!(e.compareDocumentPosition(document.querySelector('#gilBox svg.gilsv')) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);   // над схемой
   const [ds] = await Promise.all([page.waitForEvent('download'), offRow('Задвижка поддува').locator('button[data-act=part]').click()]);
@@ -1023,8 +1042,8 @@ test('mangal: «Раскрой и масса» — только металл, и
   const notes = await page.locator('#cut tbody small').allTextContents();
   expect(notes.filter(s => s.length > 80)).toEqual([]);
   const tot = page.locator('#cut tr.tot td.n').last();
-  await expect(tot).toHaveText('62,9');
-  await expect(page.locator('#stats')).toContainText('≈ 62,9 кг');
+  await expect(tot).toHaveText('63,1');
+  await expect(page.locator('#stats')).toContainText('≈ 63,1 кг');
   // печь: без плиты, около 87,3 кг
   await page.locator('#modeSeg [data-v=stove]').click();
   await expect(tot).toHaveText('87,3');

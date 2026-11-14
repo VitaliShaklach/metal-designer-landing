@@ -135,9 +135,9 @@ function buildParts(tag){
     box(DIV_T,DIV_HH,DIV_HL,x0,T-DIV_SD,-DIV_HL,M.prop);}   // ручка — прямоугольный выступ того же листа, наружу через прорезь задней боковины
   // уголки под колосник (задний — cgrAngB, передний — cgrAngF): полка вниз плотно по боковине над отверстиями, полка сверху внутрь: одна полка вверх — плотно к боковине, вторая внутрь под решётку, над отверстиями поддува
   if(S.cgr&&S.cgrAng)[[t,1],[W-t,-1]].forEach(([zw,sd])=>{tag(sd>0?'cgrAngB':'cgrAngF');box(CA_L,CA_T,CA_A,CA_X0,B+CA_TOP-CA_T,sd>0?zw:zw-CA_A,M.prop);box(CA_L,CA_A,CA_T,CA_X0,B+CA_Y,sd>0?zw:zw-CA_T,M.prop);});   // полка сверху внутрь + полка вниз по боковине
-  // колосниковая решётка: 2 половины — «Колосник 1» (левая) и «Колосник 2» (правая, у ручки), лист с отверстиями, ручки — уголки 30×30×3
+  // колосниковая решётка: 2 половины — «Колосник 1» (левая) и «Колосник 2» (правая, у ручки), лист с отверстиями, ручки — по две пластины 30 × 80 × 5
   if(S.cgr)[0,1].forEach(i=>{tag('cgr'+(i+1));if(!S['cgrPlate'+(i+1)])return;const y=B+CA_TOP,z0=W/2-CG_W/2;box(CG_L,CG_T,CG_W,cgX()[i],y,z0,M.perf);   // перфолист (отверстия — рисунком)
-      [cgHX()[i]].forEach(xc=>{const yt=B+CA_TOP+CG_T,x0=xc-CG_HA/2;   // ручка — уголок 30×30×3: вертикальная полка приварена нижней кромкой, верхняя торчит вбок; поперёк жаровни
+      [cgHX()[i]].forEach(xc=>{tag('cgrH');const yt=B+CA_TOP+CG_T,x0=xc-CG_HA/2;   // ручка — две пластины 30 × 80 × 5 (CG_HA × CG_HL × CG_HT): первая стоит на решётке, приварена нижней кромкой, вторая приварена сверху и торчит вбок; поперёк жаровни
         box(CG_HT,CG_HA,CG_HL,x0,yt,W/2-CG_HL/2,M.prop);box(CG_HA,CG_HT,CG_HL,x0,yt+CG_HA-CG_HT,W/2-CG_HL/2,M.prop);});});
   tag('gAng');
   if(S.gAng)GA_XS.forEach(x0=>{const y=B+t+GA_H;box(GA_L,.3,GA_A,x0,y-.3,GA_Z-GA_A,M.steel);box(GA_L,GA_A,.3,x0,y-GA_A,GA_Z-.3,M.steel);});

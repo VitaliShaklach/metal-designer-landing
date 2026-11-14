@@ -46,12 +46,12 @@ test('итоги «С листа»: рез, врезки, листы, запол
   const [g]=run(c,`(N=>listTotals(N,${RES}(N)))(nestJob({cgr:false}))`);
   assert.equal(g.mm,5);
   assert.equal(g.sheets,1);
-  assert.ok(Math.abs(g.cut/1000-22.90)<0.02,'рез '+g.cut);
-  assert.equal(g.pierce,86);
+  assert.ok(Math.abs(g.cut/1000-23.78)<0.02,'рез '+g.cut);
+  assert.equal(g.pierce,90);
   assert.ok(g.fill>0.25&&g.fill<0.4,'заполнение '+g.fill);
   const [g2]=run(c,`(N=>listTotals(N,${RES}(N)))(nestJob({cgr:true}))`);
-  assert.ok(Math.abs(g2.cut/1000-47.47)<0.02,'рез с колосником '+g2.cut);
-  assert.equal(g2.pierce,772);
+  assert.ok(Math.abs(g2.cut/1000-48.35)<0.02,'рез с колосником '+g2.cut);
+  assert.equal(g2.pierce,776);
   assert.ok(g2.fill>g.fill);
 });
 
@@ -120,4 +120,21 @@ test('«С листа» на 1000 × 2000: несколько листов, уг
       if(corner[0]==='r')assert.ok(Math.abs(Math.max(...s.bb.map(b=>b[2]))-(W-E))<1e-6,L);else assert.ok(Math.abs(Math.min(...s.bb.map(b=>b[0]))-E)<1e-6,L);
       if(corner[1]==='t')assert.ok(Math.abs(Math.max(...s.bb.map(b=>b[3]))-(H-E))<1e-6,L);else assert.ok(Math.abs(Math.min(...s.bb.map(b=>b[1]))-E)<1e-6,L);
       assert.ok(s.gap>=gap-0.01,L+': зазор '+s.gap);}));}
+});
+
+// #102: пластины ручки колосника на схеме «С листа» и в DXF
+test('пластины ручки: деталь grill_grate_handle ×4, 5 мм; на схеме 4 штуки под одним номером; зазор не меньше заданного; DXF-имя', ()=>{
+  const c=loadMangal({mode:'grill'});
+  const p=run(c,`laserParts().filter(p=>p.file==='grill_grate_handle').map(p=>[p.q,p.mm,p.pt,p.name,dxfName(p)])`);
+  assert.deepEqual(p,[[4,5,'cgrH','Пластина ручки колосника','grill_grate_handle_5mm_x4.dxf']]);
+  for(const cgr of [false,true]){
+    const r=run(c,`(N=>{const R=${RES}(N)[0],G=N.groups[0],no=G.types.find(t=>t.p.pt==='cgrH').no;
+      const its=R.sheets.flatMap(s=>s.items).filter(it=>G.items[it.id].ty.no===no);
+      let g=1e9;R.sheets.forEach(s=>{for(let i=0;i<s.items.length;i++)for(let j=i+1;j<s.items.length;j++)g=Math.min(g,polyGap(s.items[i].pts,s.items[j].pts));});
+      return {n:its.length,g,gap:N.gap,h:nestHtml(N,[R])};})(nestJob({cgr:${cgr}}))`);
+    assert.equal(r.n,4);assert.ok(r.g>=r.gap-0.01,'зазор '+r.g);
+    assert.match(r.h,/grill_grate_handle_5mm_x4\.dxf/);
+  }
+  const f=run(c,`(N=>partFile(N.groups[0].types.find(t=>t.p.pt==='cgrH')))(nestJob())`);
+  assert.equal(f[0],'grill_grate_handle_5mm_x4.dxf');
 });

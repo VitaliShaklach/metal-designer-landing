@@ -39,7 +39,8 @@ function laserParts(){const g=gOn(),k=sOn(),LL=legsList(),r=[];
     if(S.mode==='grill')add('grill_end_left','Торец жаровни левый',5,1,'gEnd0',()=>logoWallGeo(t,W-2*t,B+t,H1-t),S.logo?'с логотипом':'');
     if(S.div)add('grill_divider','Перегородка жаровни',5,1,'div',dividerGeo,'тело, ушки и ручка — одна деталь');
     if(S.cgr){const nh=`${cgGrid(CG_L).length*cgGrid(CG_W).length} отв. Ø${CG_D*10} шагом ${CG_P*10}`;   // половины одинаковые; две строки — чтобы выбирались на модели по отдельности
-      add('grill_grate_1','Колосник мангала 1 (левая половина)',5,1,'cgr1',grillGrateGeo,nh);add('grill_grate_2','Колосник мангала 2 (правая, у ручки)',5,1,'cgr2',grillGrateGeo,nh);}
+      add('grill_grate_1','Колосник мангала 1 (левая половина)',5,1,'cgr1',grillGrateGeo,nh);add('grill_grate_2','Колосник мангала 2 (правая, у ручки)',5,1,'cgr2',grillGrateGeo,nh);
+      add('grill_grate_handle','Пластина ручки колосника',Math.round(CG_HT*10),4,'cgrH',()=>geoR(CG_HL,CG_HA),'по две на половину: сварить в уголок, первая на решётке нижней кромкой, вторая к ней сверху');}
     if(S.airSl)add('grill_air_slider','Задвижка поддува',Math.round(AIR_T*10),2,'air',airGeo,`отгибы по концам ${us(AIR_TH)} — слой BEND`);
     if(S.hook)add('grill_air_hook','Скоба задвижки',Math.round(AH_T*10),4,'hook',airHookGeo,`плоская, ставится ребром, приварить к боковине по ребру ${us(AH_HEEL)}`);}
   if(k){add('stove_side_back','Боковина печи задняя',5,1,'sK0',()=>shapeGeo(stoveWallShape(true)),S.chim?'с отверстием трубы 60 × 60':'');

@@ -88,3 +88,38 @@ test('перегородка по умолчанию: есть в составе
   run(c,'S.div=false');
   assert.deepEqual(has(),{dxf:false,cut:false});
 });
+
+// #102: ручка колосника — четыре пластины 30 × 80 × 5 из листа, не покупной уголок
+test('ручка колосника: строка «Пластины ручки колосника» 30 × 80 × 5, 4 шт, 0,094 кг; уголка нет; итог = сумма строк; без колосника строки нет', ()=>{
+  const c=loadMangal({mode:'grill'});
+  assert.deepEqual(run(c,'[CG_HA,CG_HL,CG_HT]'),[3,8,.5]);
+  const rows=run(c,'massRows().rows');
+  assert.ok(!rows.some(r=>/Ручка колосника — уголок|30×30×3/.test(r.n)&&/Ручка колосника/.test(r.n)),'уголок ручки остался');
+  const pl=rows.filter(r=>/^Пластины ручки колосника/.test(r.n));
+  assert.equal(pl.length,1);
+  assert.equal(pl[0].s,'30 × 80 × 5');assert.equal(pl[0].q,4);
+  assert.ok(Math.abs(pl[0].m-0.094)<0.001,'масса '+pl[0].m);
+  const {tot}=run(c,'massRows()');
+  assert.ok(Math.abs(rows.reduce((a,r)=>a+r.m*r.q,0)-tot)<1e-6,'итог = сумма строк');
+  run(c,'S.cgr=false');
+  assert.ok(!run(c,'massRows().rows').some(r=>/ручк[иа] колосника/i.test(r.n)));
+  assert.ok(!run(c,'laserParts().some(p=>p.file==="grill_grate_handle")'));
+});
+
+test('ручка колосника: пластины не привязаны к «Колосник на листе» и не идут в «Из заготовок»', ()=>{
+  const c=loadMangal({mode:'grill'});
+  assert.equal(run(c,'NEST_CGR({pt:"cgrH"})'),false);
+  const r=run(c,`(N=>{const t=N.groups[0].types.find(t=>t.p.pt==='cgrH');return {q:t.q,kind:t.kind,mm:t.p.mm};})(nestJob({cgr:false}))`);
+  assert.deepEqual(r,{q:4,kind:'gil',mm:5});
+});
+
+test('ручка колосника: печь — пластин нет; «оба» — один раз; у пластин есть гравировка', ()=>{
+  const st=loadMangal({mode:'stove'});
+  assert.ok(!run(st,'laserParts().some(p=>p.pt==="cgrH")'));
+  assert.ok(!run(st,'massRows().rows.some(r=>/^Пластины ручки/.test(r.n))'));
+  const both=loadMangal({mode:'both'});
+  assert.equal(run(both,'massRows().rows.filter(r=>/^Пластины ручки/.test(r.n)).length'),1);
+  assert.equal(run(both,'laserParts().filter(p=>p.pt==="cgrH").length'),1);
+  const g=loadMangal({mode:'grill'});
+  assert.ok(run(g,`(N=>N.groups[0].types.find(t=>t.p.pt==='cgrH').eng.length)(nestJob())`)>0,'нет штрихов номера');
+});

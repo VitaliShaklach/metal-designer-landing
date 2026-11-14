@@ -212,3 +212,12 @@ test('ключ задания: размеры на модели его не ме
   run(c,'S.wheels=false');
   assert.notEqual(k(),k0);
 });
+
+// #102: карта колосника — строка пластин ручки; масса карты = строки таблицы
+test('карта колосника: строки — перфолисты и пластины ручки; масса = сумма строк', ()=>{
+  const c=open(),u=data(c).find(u=>u.id==='cgr'),rows=run(c,'massRows().rows');
+  assert.ok(u.rows.some(n=>/^Пластины ручки колосника/.test(n)),'нет строки пластин');
+  assert.ok(!u.rows.some(n=>/^Ручка колосника/.test(n)));
+  const sum=u.rows.reduce((a,n)=>{const r=rows.find(r=>r.n===n);return a+r.m*r.q/u.q;},0);
+  assert.ok(Math.abs(u.kg-sum)<1e-6,`карта ${u.kg}, строки ${sum}`);
+});

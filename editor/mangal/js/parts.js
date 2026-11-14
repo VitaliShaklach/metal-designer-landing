@@ -17,6 +17,7 @@ const PARTS=[
     ['cgr','Колосниковая решётка (обе половины)',{cgr:true,cgrPlate1:true,cgrPlate2:true}],
     ['cgr1','Колосник 1 — левая половина',{cgr:true,cgrPlate1:true}],
     ['cgr2','Колосник 2 — правая половина (у ручки)',{cgr:true,cgrPlate2:true}],
+    ['cgrH','Пластины ручки колосника',{cgr:true,cgrPlate1:true,cgrPlate2:true}],
     ['cgrAng','Уголки под колосник 30×30×4',{cgr:true,cgrAng:true}],
     ['side0A','Боковина задняя с уголком колосника',{cgr:true,cgrAng:true}],
     ['gAng','Уголки 30×30',{gAng:true}],
@@ -59,7 +60,7 @@ const PARTS=[
     ['nuts','Барашки',{rain:true,nut:true}],
     ['sheet','Лист',{rain:true,sheet:true}]]},
 ];
-const PDF_PART={coal:'grill',side0:'grill',side1:'grill',gBot:'grill',gEnd:'grill',logo:'grill',gEnd0:'grill',air:'grill',hook:'grill',div:'grill',gAng:'grill',cgr:'grill',cgr1:'grill',cgr2:'grill',cgrAng:'grill',cgrAngB:'grill',cgrAngF:'grill',gGrate:'grill',g2:'grill',skew:'grill',handle:'grill',
+const PDF_PART={coal:'grill',side0:'grill',side1:'grill',gBot:'grill',gEnd:'grill',logo:'grill',gEnd0:'grill',air:'grill',hook:'grill',div:'grill',gAng:'grill',cgr:'grill',cgr1:'grill',cgr2:'grill',cgrH:'grill',cgrAng:'grill',cgrAngB:'grill',cgrAngF:'grill',gGrate:'grill',g2:'grill',skew:'grill',handle:'grill',
   sK0:'stove',sK1:'stove',wall:'stove',sHandle:'stove',sBot:'stove',tie:'stove',plate:'stove',rings:'stove',kazan:'stove',fb:'stove',damper:'stove',obe:'stove',chim:'stove',chimX:'stove',
   lintel:'stove',door:'stove',angles:'stove',grate:'stove',shib:'stove',guides:'stove',wood:'stove',
   man:'env',legs:'legs',legTw:'legs',pads:'legs',feet:'legs',wheels:'wheels',tubes:'roof',bars:'roof',bolts:'roof',wsh1:'roof',wsh2:'roof',nuts:'roof',sheet:'roof'};
@@ -70,7 +71,7 @@ const partOk=id=>{let seen=false;for(const e of PARTS){const d=e.d.find(x=>x[0]=
 const partName=id=>{for(const e of PARTS){const d=e.d.find(x=>x[0]===id);if(d)return d[1];}return id;};
 // выбранные детали: null — показывать всё
 // составные детали: что входит (теги на 3D, детали в размерах и раскрое)
-const PART_SET={cgr:['cgr','cgr1','cgr2'],cgrAng:['cgrAng','cgrAngB','cgrAngF'],side0A:['side0A','side0','cgrAngB','cgrAng']};
+const PART_SET={cgr:['cgr','cgr1','cgr2','cgrH'],cgrAng:['cgrAng','cgrAngB','cgrAngF'],side0A:['side0A','side0','cgrAngB','cgrAng']};
 const expand=id=>PART_SET[id]||[id];
 function selParts(){if(!S.sel.el)return null;const e=elOf(S.sel.el);return new Set(S.sel.part?expand(S.sel.part):e.d.flatMap(x=>expand(x[0])));}
 // попадает ли размер/строка раскроя в выбор: el — элемент (или список), pt — деталь (или список)

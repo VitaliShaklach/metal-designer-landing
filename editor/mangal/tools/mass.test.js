@@ -54,8 +54,8 @@ for(const f of CASES){
   });
 }
 
-test('по умолчанию: мангал 62,9 кг, печь около 87,3 кг (без плиты)', ()=>{
-  assert.equal(Math.round(run(loadMangal({mode:'grill'}),'massRows().tot')*10)/10,62.9);
+test('по умолчанию: мангал 63,1 кг, печь около 87,3 кг (без плиты)', ()=>{
+  assert.equal(Math.round(run(loadMangal({mode:'grill'}),'massRows().tot')*10)/10,63.1);
   const st=run(loadMangal({mode:'stove'}),'massRows().tot');
   assert.ok(Math.abs(st-87.3)<=.1,'печь '+st);
 });

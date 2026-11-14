@@ -26,7 +26,7 @@ test('мангал: задвижки и скобы не рубятся, коло
     kinds:N.groups.flatMap(G=>gilRects(N,G).map(r=>r.kind)),q:N.groups[0].types.filter(t=>gilOn(t,N)).reduce((a,t)=>a+t.q,0)}))(nestJob())`);
   for(const n of ['Задвижка поддува','Скоба задвижки','Колосник мангала 1 (левая половина)'])assert.ok(!r.laid.includes(n),'на схеме '+n);
   for(const n of ['Дно жаровни','Боковина жаровни задняя','Боковина жаровни передняя','Торец жаровни правый','Площадка под колесо'])assert.ok(r.laid.includes(n),'не рубим '+n);
-  assert.deepEqual(r.off,[['Колосник мангала 1 (левая половина)','снят «Колосник на листе»'],['Колосник мангала 2 (правая, у ручки)','снят «Колосник на листе»'],['Задвижка поддува','уже 50 мм'],['Скоба задвижки','уже 50 мм']]);
+  assert.deepEqual(r.off,[['Колосник мангала 1 (левая половина)','снят «Колосник на листе»'],['Колосник мангала 2 (правая, у ручки)','снят «Колосник на листе»'],['Пластина ручки колосника','уже 50 мм'],['Задвижка поддува','уже 50 мм'],['Скоба задвижки','уже 50 мм']]);
   assert.ok(r.kinds.length>0&&r.kinds.every(k=>k==='gil'||k==='zag'),r.kinds.join(','));
   assert.doesNotMatch(r.html,/type="checkbox"|gchk|Рубим</,'галочки «рубим» остались');
   assert.doesNotMatch(r.html,/Не на схеме/);
@@ -39,7 +39,7 @@ test('мангал: задвижки и скобы не рубятся, коло
   assert.match(off,/Задвижка поддува(?:(?!<\/tr>)[\s\S])*уже 50 мм/);
   assert.match(off,/Колосник мангала 1 \(левая половина\)(?:(?!<\/tr>)[\s\S])*снят «Колосник на листе»/);
   assert.match(off,/data-act="part"/);
-  assert.match(r.html,/<p class="nfoot">8 деталей не на схеме — ниже<\/p>/);
+  assert.match(r.html,/<p class="nfoot">12 деталей не на схеме — ниже<\/p>/);
   assert.ok(r.html.indexOf('class="nfoot"')<r.html.indexOf('class="nestsv'),'сноска под схемой');
   // «Итого» основной таблицы — сумма её строк
   assert.match(main,new RegExp('На гильотину 5 мм: '+r.q+' шт'));
@@ -156,4 +156,14 @@ test('ключ «Гильотины» меняется от подрезки, л
   const d=loadMangal({mode:'grill'});page(d,{'md-gilsel2':{grill_bottom:false},'md-gilsel':{grill_bottom:'laser'},'md-ngil':true});
   assert.equal(run(d,'gilKey(nestJob())'),base);
   assert.equal(run(d,'nestJob().key'),run(c,'nestJob().key'));
+});
+
+// #102: пластина ручки колосника — 30 мм уже порога, в «Не рубится»
+test('пластины ручки колосника не рубятся: блок «Не рубится», причина «уже 50 мм»', ()=>{
+  const c=loadMangal({mode:'grill'});page(c);
+  for(const cgr of [false,true]){
+    const r=run(c,`(N=>({laid:${LAID}(N),off:offRows(N,N.groups[0],'gil').filter(o=>o.ty.p.pt==='cgrH').map(o=>[o.ty.p.name,o.why])}))(nestJob({cgr:${cgr}}))`);
+    assert.ok(!r.laid.includes('Пластина ручки колосника'));
+    assert.deepEqual(r.off,[['Пластина ручки колосника','уже 50 мм']]);
+  }
 });
