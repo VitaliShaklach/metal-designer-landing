@@ -657,6 +657,16 @@ test('mangal: «С листа» — схема, таблица, итоги и «
   expect(r.errors).toEqual([]);
 });
 
+// #105: раскладка «С листа» перебирает стратегии — лист мангала по умолчанию (1250 × 2500) занят короче эталона 1010 мм (зазор 5, снят до правки, см. dense.test.js)
+test('mangal: раскладка «С листа» плотнее эталона — занятая длина листа меньше 1010 мм', async ({page}) => {
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await mangalCut(page);
+  const len = await page.evaluate(() => LIST.cur.res[0].sheets[0].len);
+  expect(len).toBeLessThan(1010);
+  expect(len).toBeGreaterThan(500);
+  expect(r.errors).toEqual([]);
+});
+
 // #104: гравировка номера видна на детали: «С листа» — штрихи, без текстового номера; галочка снята — номера текстом; «Гильотина» штрихов не показывает
 test('mangal: гравировка на схеме «С листа» — штрихи; галочка снята — текст; «Гильотина» без штрихов', async ({page}) => {
   test.slow();

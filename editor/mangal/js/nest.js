@@ -14,12 +14,23 @@ function polyDist(P){return p=>{let d=Infinity;P.forEach((a,i)=>{d=Math.min(d,pt
 // ---------- раскладка рамок (MaxRects, как на лендинге) ----------
 // Свободные прямоугольники листа W × H: рамка детали занимает w + зазор, поэтому рабочее поле шире на зазор (край margin — с каждой стороны)
 const nestFresh=(W,H,gap,margin)=>[{x:margin,y:margin,w:W-2*margin+gap,h:H-2*margin+gap}];
-// куда положить рамку w × h: место, где её правый край ближе всего к началу листа, затем ниже; поворот на 90° — если так ближе
-function nestSpot(free,w,h,gap){let best=null;
+// куда положить рамку w × h; поворот на 90° — если так лучше. rule — чем сравниваются места (кандидаты — свободные куски, куда рамка влезает):
+// 0 — правый край рамки ближе к началу листа, затем ниже; 1 — меньше остаток по короткой стороне куска, затем по длинной (BSSF);
+// 2 — меньше площадь куска, затем меньше остаток по короткой стороне (BAF). Равенство — как в правиле 0 (ближе к началу листа, ниже)
+function nestSpot(free,w,h,gap,rule=0){let best=null,bk=null;
+  const near=(c,d)=>c.x+c.w<d.x+d.w-1e-6||(Math.abs(c.x+c.w-d.x-d.w)<1e-6&&c.y<d.y);
   for(const [bw,bh,rot] of [[w,h,false],[h,w,true]]){const W2=bw+gap,H2=bh+gap;
     for(const f of free){if(W2>f.w+1e-6||H2>f.h+1e-6)continue;const c={x:f.x,y:f.y,w:bw,h:bh,rot};
-      if(!best||c.x+c.w<best.x+best.w-1e-6||(Math.abs(c.x+c.w-best.x-best.w)<1e-6&&c.y<best.y))best=c;}}
+      const lw=f.w-W2,lh=f.h-H2,k=rule===1?[Math.min(lw,lh),Math.max(lw,lh)]:rule===2?[f.w*f.h,Math.min(lw,lh)]:null;
+      let better=!best;
+      if(!better&&k){for(let i=0;i<k.length;i++)if(Math.abs(k[i]-bk[i])>1e-6){better=k[i]<bk[i];break;}
+        if(!better&&k.every((v,i)=>Math.abs(v-bk[i])<1e-6))better=near(c,best);}
+      else if(!better)better=near(c,best);
+      if(better){best=c;bk=k;}}}
   return best;}
+// порядок укладки деталей (рамки w × h, по убыванию): 0 — по большей стороне рамки, затем по площади; 1 — по площади рамки; 2 — по периметру рамки
+const nestOrder=(parts,sort=0)=>parts.slice().sort(sort===1?(a,b)=>b.w*b.h-a.w*a.h||Math.max(b.w,b.h)-Math.max(a.w,a.h)
+  :sort===2?(a,b)=>(b.w+b.h)-(a.w+a.h)||b.w*b.h-a.w*a.h:(a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)||b.w*b.h-a.w*a.h);
 // занять место: свободные прямоугольники, которые задевает рамка, режутся на куски вокруг неё; вложенные — выбрасываются
 function nestOccupy(free,r,gap){const R={x:r.x,y:r.y,w:r.w+gap,h:r.h+gap},out=[];
   for(const f of free){if(R.x>=f.x+f.w||R.x+R.w<=f.x||R.y>=f.y+f.h||R.y+R.h<=f.y){out.push(f);continue;}
@@ -29,24 +40,32 @@ function nestOccupy(free,r,gap){const R={x:r.x,y:r.y,w:r.w+gap,h:r.h+gap},out=[]
     if(R.y+R.h<f.y+f.h)out.push({x:f.x,y:R.y+R.h,w:f.w,h:f.y+f.h-R.y-R.h});}
   const inside=(a,b)=>a.x>=b.x&&a.y>=b.y&&a.x+a.w<=b.x+b.w&&a.y+a.h<=b.y+b.h;
   return out.filter((a,i)=>!out.some((b,j)=>j!==i&&inside(a,b)&&(!inside(b,a)||j<i)));}
-// items — {id,no,pts}: каждая штука отдельно; W — длинная сторона листа. Порядок — по большей стороне рамки, затем по площади, по убыванию;
-// деталь — на первый лист, где есть место, иначе новый лист; не влезла и в пустой — в too. yield {done,of} на каждую деталь (страница не замирает).
+// items — {id,no,pts}: каждая штука отдельно. Перебирается NEST_TRIES — пары (порядок укладки nestOrder, правило места nestSpot), каждая считается до конца
+// (nestPass); берётся лучшая по сумме len листов, при равенстве — по меньшему числу листов, при равенстве — первая (пара 0/0 — прежняя раскладка, хуже неё не выйдет).
+// В каждом проходе деталь — на первый лист, где есть место, иначе новый лист; не влезла и в пустой — в too. yield {done,of} на каждую деталь, счётчик сквозной по всем парам.
 // tr — поворот и сдвиг контура на лист: T(q) = [c·q0 − s·q1 + x, s·q0 + c·q1 + y]; повёрнутая на 90° (c=0, s=1) — T(q) = [−q1 + x, q0 + y].
 // len — правый край раскладки от начала листа (с краем), used — доля металла листа, dense — доля металла в занятой полосе
-function* nestGen(items,W,H,gap,margin){
-  const parts=items.map(o=>{const xs=o.pts.map(p=>p[0]),ys=o.pts.map(p=>p[1]),x0=Math.min(...xs),y0=Math.min(...ys),x1=Math.max(...xs),y1=Math.max(...ys);
-    return {id:o.id,no:o.no,pts:o.pts,area:Math.abs(area2(o.pts)),x0,y0,x1,y1,w:x1-x0,h:y1-y0};})
-    .sort((a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)||b.w*b.h-a.w*a.h);
+const NEST_TRIES=[0,1,2].flatMap(sort=>[0,1,2].map(rule=>[sort,rule]));
+function* nestPass(parts,W,H,gap,margin,rule,base,of){
   const sheets=[],too=[];
-  for(let i=0;i<parts.length;i++){const part=parts[i];yield {done:i,of:parts.length};
+  for(let i=0;i<parts.length;i++){const part=parts[i];yield {done:base+i,of};
     // место ищется один раз: на первом листе, где есть; нет — на новом листе; нет и там — деталь больше листа
-    let S=null,spot=null;for(const s of sheets)if((spot=nestSpot(s.free,part.w,part.h,gap))){S=s;break;}
-    if(!S){const free=nestFresh(W,H,gap,margin);spot=nestSpot(free,part.w,part.h,gap);
+    let S=null,spot=null;for(const s of sheets)if((spot=nestSpot(s.free,part.w,part.h,gap,rule))){S=s;break;}
+    if(!S){const free=nestFresh(W,H,gap,margin);spot=nestSpot(free,part.w,part.h,gap,rule);
       if(!spot){too.push({id:part.id,no:part.no});continue;}S={items:[],free,len:0};sheets.push(S);}
     S.free=nestOccupy(S.free,spot,gap);
     const tr=spot.rot?{f:false,c:0,s:1,x:spot.x+part.y1,y:spot.y-part.x0}:{f:false,c:1,s:0,x:spot.x-part.x0,y:spot.y-part.y0},
       pts=part.pts.map(q=>[tr.c*q[0]-tr.s*q[1]+tr.x,tr.s*q[0]+tr.c*q[1]+tr.y]),bb=[spot.x,spot.y,spot.x+spot.w,spot.y+spot.h];
     S.items.push({id:part.id,no:part.no,flip:false,tr,area:part.area,pts,bb});S.len=Math.max(S.len,bb[2]);}
+  return {sheets,too};}
+function* nestGen(items,W,H,gap,margin){
+  const parts=items.map(o=>{const xs=o.pts.map(p=>p[0]),ys=o.pts.map(p=>p[1]),x0=Math.min(...xs),y0=Math.min(...ys),x1=Math.max(...xs),y1=Math.max(...ys);
+    return {id:o.id,no:o.no,pts:o.pts,area:Math.abs(area2(o.pts)),x0,y0,x1,y1,w:x1-x0,h:y1-y0};});
+  const of=parts.length*NEST_TRIES.length;let best=null,bl=0;
+  for(let k=0;k<NEST_TRIES.length;k++){const [sort,rule]=NEST_TRIES[k];
+    const r=yield* nestPass(nestOrder(parts,sort),W,H,gap,margin,rule,k*parts.length,of),len=r.sheets.reduce((a,s)=>a+s.len,0);
+    if(!best||len<bl-1e-6||(Math.abs(len-bl)<1e-6&&r.sheets.length<best.sheets.length)){best=r;bl=len;}}
+  const {sheets,too}=best;
   sheets.forEach(s=>{const a=s.items.reduce((q,o)=>q+o.area,0);s.used=a/(W*H);s.dense=a/((s.len-margin)*(H-2*margin)||1);delete s.free;});
   return {sheets,too,W,H,gap,used:sheets.length?sheets.reduce((a,s)=>a+s.used,0)/sheets.length:0};}
 // «Угол листа» (corner: lb | lt | rb | rt, пересмотр 14.11 (2), блок Б): положения рамок деталей отражаются по горизонтали (r) и/или вертикали (t).
