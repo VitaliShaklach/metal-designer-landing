@@ -22,34 +22,53 @@ test('правило гильотины: уже 50 мм и толще 8 мм —
 
 test('мангал: задвижки и скобы не рубятся, колосник снят; остальное на схеме; галочек и памяти md-gilsel2 нет', ()=>{
   const c=loadMangal({mode:'grill'});page(c,{'md-gilsel2':{grill_bottom:false,grill_air_slider:true}});   // старая память — не читается
-  const r=run(c,`(N=>({on:${ON}(N),laid:${LAID}(N),no:noCut(N,N.groups[0]),html:gilHtml(N,${RES}(N)),
-    kinds:N.groups.flatMap(G=>gilRects(N,G).map(r=>r.kind))}))(nestJob())`);
+  const r=run(c,`(N=>({on:${ON}(N),laid:${LAID}(N),off:offRows(N,N.groups[0],'gil').map(o=>[o.ty.p.name,o.why]),html:gilHtml(N,${RES}(N)),
+    kinds:N.groups.flatMap(G=>gilRects(N,G).map(r=>r.kind)),q:N.groups[0].types.filter(t=>gilOn(t,N)).reduce((a,t)=>a+t.q,0)}))(nestJob())`);
   for(const n of ['Задвижка поддува','Скоба задвижки','Колосник мангала 1 (левая половина)'])assert.ok(!r.laid.includes(n),'на схеме '+n);
   for(const n of ['Дно жаровни','Боковина жаровни задняя','Боковина жаровни передняя','Торец жаровни правый','Площадка под колесо'])assert.ok(r.laid.includes(n),'не рубим '+n);
-  assert.equal(r.no,'Не рубится: Колосник мангала 1 (левая половина) — снят «Колосник на листе», Колосник мангала 2 (правая, у ручки) — снят «Колосник на листе», Задвижка поддува × 2 — уже 50 мм, Скоба задвижки × 4 — уже 50 мм');
+  assert.deepEqual(r.off,[['Колосник мангала 1 (левая половина)','снят «Колосник на листе»'],['Колосник мангала 2 (правая, у ручки)','снят «Колосник на листе»'],['Задвижка поддува','уже 50 мм'],['Скоба задвижки','уже 50 мм']]);
   assert.ok(r.kinds.length>0&&r.kinds.every(k=>k==='gil'||k==='zag'),r.kinds.join(','));
   assert.doesNotMatch(r.html,/type="checkbox"|gchk|Рубим</,'галочки «рубим» остались');
   assert.doesNotMatch(r.html,/Не на схеме/);
-  // строки, что не рубятся, — в таблице серые, с причиной
-  assert.match(r.html,/<tr class="off[^"]*">(?:(?!<\/tr>).)*Задвижка поддува(?:(?!<\/tr>).)*не рубится — уже 50 мм/);
-  // «Не рубится» — над схемой
-  assert.ok(r.html.indexOf('Не рубится:')<r.html.indexOf('class="nestsv'),'строка «Не рубится» под схемой');
+  assert.doesNotMatch(r.html,/Не рубится:/,'длинная строка «Не рубится: …» осталась');
+  const [main,off]=r.html.split('<section class="noff"');
+  const gt=main.slice(main.indexOf('class="ntbl gtbl"'));
+  for(const n of ['Задвижка','Скоба','Колосник'])assert.doesNotMatch(gt,new RegExp(n),n+' в основной таблице');
+  assert.ok(off,'нет блока «Не рубится»');
+  assert.match(off,/<h4>Не рубится<\/h4>/);
+  assert.match(off,/Задвижка поддува(?:(?!<\/tr>)[\s\S])*уже 50 мм/);
+  assert.match(off,/Колосник мангала 1 \(левая половина\)(?:(?!<\/tr>)[\s\S])*снят «Колосник на листе»/);
+  assert.match(off,/data-act="part"/);
+  assert.match(r.html,/<p class="nfoot">8 деталей не на схеме — ниже<\/p>/);
+  assert.ok(r.html.indexOf('class="nfoot"')<r.html.indexOf('class="nestsv'),'сноска под схемой');
+  // «Итого» основной таблицы — сумма её строк
+  assert.match(main,new RegExp('На гильотину 5 мм: '+r.q+' шт'));
+});
+
+test('кнопка DXF детали в «Не рубится»: задвижка качает grill_air_slider_5mm_x2.dxf', ()=>{
+  const c=loadMangal({mode:'grill'});page(c);
+  const r=run(c,`(N=>{const G=N.groups[0],t=G.types.findIndex(x=>x.p.name==='Задвижка поддува');return {t,f:gilOne(N,${RES}(N),{act:'part',g:0,t})}})(nestJob())`);
+  assert.ok(r.t>=0);
+  assert.equal(r.f[0],'grill_air_slider_5mm_x2.dxf');
+  assert.match(r.f[1],/ENTITIES/);
 });
 
 test('печь: колосник 15 мм не рубится — на листе 15 мм ничего, причина «толще 8 мм»', ()=>{
   const c=loadMangal({mode:'stove'});page(c);
-  const r=run(c,`(N=>({mm:N.groups.map(G=>G.mm),n15:gilRects(N,N.groups.find(G=>G.mm===15)).length,no:N.groups.map(G=>noCut(N,G)),html:gilHtml(N,${RES}(N))}))(nestJob())`);
+  const r=run(c,`(N=>({mm:N.groups.map(G=>G.mm),n15:gilRects(N,N.groups.find(G=>G.mm===15)).length,off:N.groups.map(G=>offRows(N,G,'gil').map(o=>[o.ty.p.name,o.why])),html:gilHtml(N,${RES}(N))}))(nestJob())`);
   assert.deepEqual(r.mm,[5,3,15]);
   assert.equal(r.n15,0);
-  assert.deepEqual(r.no,['','','Не рубится: Колосник печи — толще 8 мм']);
+  assert.deepEqual(r.off,[[],[],[['Колосник печи','толще 8 мм']]]);
   assert.equal((r.html.match(/Ничего не рубим/g)||[]).length,1);
+  const blk=r.html.split('<section class="nblock')[3];
+  assert.match(blk,/Ничего не рубим/);assert.match(blk,/class="noff"/);assert.match(blk,/Колосник печи/);assert.match(blk,/толще 8 мм/);assert.doesNotMatch(blk,/Не рубится:/);
 });
 
 test('колосник мангала — «Колосник на листе»: включён — оба на схеме, выключен — нет', ()=>{
   const c=loadMangal({mode:'grill'});page(c);
   assert.equal(run(c,`${LAID}(nestJob({cgr:true}))`).filter(n=>/Колосник/.test(n)).length,2);
   assert.equal(run(c,`${LAID}(nestJob())`).filter(n=>/Колосник/.test(n)).length,0);
-  assert.doesNotMatch(run(c,`(N=>noCut(N,N.groups[0]))(nestJob({cgr:true}))`),/Колосник/);
+  assert.ok(!run(c,`(N=>offRows(N,N.groups[0],'gil').map(o=>o.ty.p.name))(nestJob({cgr:true}))`).some(n=>/Колосник/.test(n)));
 });
 
 test('край прижима: по умолчанию слева, память md-gilside — «r» справа, мусор — слева', ()=>{

@@ -35,25 +35,33 @@ test('галочку поставили: колосник на листе, вы�
   assert.equal(run(d,'nestOpts().cgr'),true);
 });
 
-// таблица листа 5 мм: строки «№ — деталь — DXF» и итог по листу
+// таблица листа 5 мм: строки «№ — деталь — DXF» и итог по листу; ниже — блок «Не на листе» (#92)
 const TABLE=`(N=>{const G=N.groups[0],g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);
-  const h=nestHtml(N,[v.value]),sec=h.split('<section')[1],rows=[...sec.matchAll(/<tr( class="on")?><td class="n r">(\\d+)<\\/td><td>([^<]*)[\\s\\S]*?<\\/tr>/g)].map(m=>({no:+m[2],name:m[3],dxf:/data-act="part"/.test(m[0])}));
+  const h=nestHtml(N,[v.value]),parts=h.split('<section'),sec=parts[1],offSec=parts[2]||'',
+  offRows=[...offSec.matchAll(/<tr><td class="n r">(\\d+)<\\/td><td>([^<]*)[\\s\\S]*?<\\/tr>/g)].map(m=>({no:+m[1],name:m[2],dxf:/data-act="part"/.test(m[0]),why:/снят «Колосник на листе»/.test(m[0])})),
+  note=h.match(/<p class="nfoot">([^<]*)<\\/p>/),rows=[...sec.matchAll(/<tr( class="on")?><td class="n r">(\\d+)<\\/td><td>([^<]*)[\\s\\S]*?<\\/tr>/g)].map(m=>({no:+m[2],name:m[3],dxf:/data-act="part"/.test(m[0])}));
   const tot=sec.match(/<tr class="tot">[\\s\\S]*?<td class="n r">([^<]*)<\\/td><td class="n r">([^<]*)<\\/td>/);
   const on=G.types.filter(t=>N.cgr||!NEST_CGR(t.p)),cut=on.reduce((a,t)=>a+t.m.cut*t.q,0),pierce=on.reduce((a,t)=>a+t.m.pierce*t.q,0),q=on.reduce((a,t)=>a+t.q,0);
-  return {rows,grate:G.types.filter(t=>NEST_CGR(t.p)).map(t=>t.no),tot:[tot[1],tot[2]],want:[fmt(cut/1000,2),String(pierce)],tq:+sec.match(/Итого по листу 5 мм: (\\d+) шт/)[1],q,
+  return {rows,offRows,offSec,note:note&&note[1],noteBeforeFig:note?h.indexOf('<p class="nfoot">')<h.indexOf('<figure'):null,grate:G.types.filter(t=>NEST_CGR(t.p)).map(t=>t.no),tot:[tot[1],tot[2]],want:[fmt(cut/1000,2),String(pierce)],tq:+sec.match(/Итого по листу 5 мм: (\\d+) шт/)[1],q,
     onSheet:v.value.sheets.flatMap(s=>s.items).filter(it=>NEST_CGR(G.items[it.id].ty.p)).length};})`;
 
-test('галочка снята: строка колосника и его DXF в таблице, на листе и в «Итого» его нет', ()=>{
+test('галочка снята: колосника нет в основной таблице, он в блоке «Не на листе» с причиной и DXF; итог = сумма строк', ()=>{
   const c=loadMangal({mode:'grill'});
   const r=run(c,TABLE+'(nestJob({cgr:false}))');
   assert.equal(r.grate.length,2);
-  r.grate.forEach(no=>{const row=r.rows.find(o=>o.no===no);assert.ok(row,'нет строки колосника '+no);assert.ok(row.dxf,'нет DXF колосника '+no);});
+  r.grate.forEach(no=>{assert.ok(!r.rows.some(o=>o.no===no),'колосник '+no+' в основной таблице');
+    const row=r.offRows.find(o=>o.no===no);assert.ok(row,'нет строки колосника '+no+' в блоке');assert.ok(row.dxf,'нет DXF колосника '+no);assert.ok(row.why,'нет причины '+no);});
+  assert.match(r.offSec,/class="noff"/);assert.match(r.offSec,/<h4>Не на листе<\/h4>/);assert.match(r.offSec,/otbl/);
   assert.equal(r.onSheet,0);
   assert.deepEqual(r.tot,r.want);
   assert.equal(r.tq,r.q);
-  // и с галочкой — колосник в цифрах (итог больше)
+  assert.equal(r.note,'2 детали не на листе — ниже');
+  assert.ok(r.noteBeforeFig,'сноска под схемой');
+  // и с галочкой — колосник в основной таблице и в цифрах, блока нет
   const s=run(c,TABLE+'(nestJob({cgr:true}))');
   assert.equal(s.onSheet,2);
+  assert.equal(s.offRows.length,0);assert.doesNotMatch(s.offSec,/noff/);assert.equal(s.note,null);
+  s.grate.forEach(no=>assert.ok(s.rows.some(o=>o.no===no),'нет колосника '+no));
   assert.deepEqual(s.tot,s.want);
   assert.ok(s.tq===r.tq+2,'шт: '+s.tq+' против '+r.tq);
 });

@@ -320,15 +320,19 @@ test('mangal: колосник по умолчанию не на листе, с�
   await expect(page.locator('#nCgrBox')).toBeVisible();
   await expect(page.locator('#nCgr')).not.toBeChecked();
   await mangalCut(page);
-  const grate = page.locator('#nestBox .ntbl tr', {hasText: 'Колосник мангала'});
+  await expect(page.locator('#nestBox .ntbl:not(.otbl) tr', {hasText: 'Колосник мангала'})).toHaveCount(0);   // в основной таблице колосника нет
+  const grate = page.locator('#nestBox .otbl tr', {hasText: 'Колосник мангала'});
   await expect(grate).toHaveCount(2);
   await expect(grate.locator('button[data-act=part]')).toHaveCount(2);
-  await expect(grate.first()).toContainText('не на листе');
+  await expect(grate.first()).toContainText('снят «Колосник на листе»');
+  await expect(page.locator('#nestBox .noff h4')).toHaveText('Не на листе');
+  await expect(page.locator('#nestBox .nfoot')).toHaveText('2 детали не на листе — ниже');
   await expect(page.locator('#nestBox svg title', {hasText: 'Колосник мангала'})).toHaveCount(0);
   await page.locator('#nCgr').check();
   await mangalNoCut(page);
   await mangalCut(page);
   await expect(page.locator('#nestBox svg title', {hasText: 'Колосник мангала'})).toHaveCount(2);
+  await expect(page.locator('#nestBox .noff')).toHaveCount(0);
   await page.reload();
   await expect(page.locator('#nCgr')).toBeChecked();
   expect(r.errors).toEqual([]);
@@ -458,6 +462,13 @@ test('mangal: внутренние вкладки — на телефоне ст
     if (v === 'zag') await zagCut(page);
     const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
     expect(sw, v).toBeLessThanOrEqual(iw);
+    // блок «Не на листе» / «Не рубится» (#92): сам листается внутри своей таблицы, страницу не растягивает
+    if (v !== 'zag') {
+      const tb = page.locator(`#${v === 'gil' ? 'gilBox' : 'nestBox'} .noff .tbl`).first();
+      await expect(tb).toBeVisible();
+      const [cw, bw] = await tb.evaluate(e => [e.getBoundingClientRect().width, document.body.clientWidth]);
+      expect(cw, v).toBeLessThanOrEqual(bw);
+    }
   }
   expect(r.errors).toEqual([]);
 });
@@ -492,17 +503,21 @@ test('mangal: «Гильотина» — по «Рассчитать», без �
   const tot = page.locator('#gilBox .ntot').first();
   for (const t of ['Лист', 'Заготовки', 'Резы']) await expect(tot).toContainText(t);
   await expect(tot).toContainText('1 лист 1250 × 2500');
-  // задвижки и скобы (уже 50 мм) и колосник (снят) — не на схеме, в «Не рубится» с причиной и серыми строками
+  // задвижки и скобы (уже 50 мм) и колосник (снят) — не на схеме и не в основной таблице; в блоке «Не рубится» с причиной и DXF
   for (const n of ['Задвижка поддува', 'Скоба задвижки', 'Колосник мангала 1']) {
-    await expect(gilRow(page, n)).toHaveClass(/off/);
+    await expect(page.locator('#gilBox .gtbl tr', {hasText: n})).toHaveCount(0);
     await expect(page.locator('#gilBox svg.gilsv title', {hasText: n})).toHaveCount(0);
   }
-  await expect(gilRow(page, 'Задвижка поддува')).toContainText('не рубится — уже 50 мм');
-  const off = page.locator('#gilBox .goff');
-  await expect(off).toContainText('Не рубится: ');
-  await expect(off).toContainText('Задвижка поддува × 2 — уже 50 мм');
-  await expect(off).toContainText('снят «Колосник на листе»');
-  expect(await off.evaluate(e => !!(e.compareDocumentPosition(document.querySelector('#gilBox svg.gilsv')) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);   // над схемой
+  const offRow = n => page.locator('#gilBox .otbl tr', {hasText: n});
+  await expect(offRow('Задвижка поддува')).toContainText('уже 50 мм');
+  await expect(offRow('Колосник мангала 1')).toContainText('снят «Колосник на листе»');
+  await expect(page.locator('#gilBox .noff h4')).toHaveText('Не рубится');
+  const note = page.locator('#gilBox .nfoot');
+  await expect(note).toHaveText('8 деталей не на схеме — ниже');
+  await expect(page.locator('#gilBox')).not.toContainText('Не рубится: ');
+  expect(await note.evaluate(e => !!(e.compareDocumentPosition(document.querySelector('#gilBox svg.gilsv')) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);   // над схемой
+  const [ds] = await Promise.all([page.waitForEvent('download'), offRow('Задвижка поддува').locator('button[data-act=part]').click()]);
+  expect(ds.suggestedFilename()).toBe('grill_air_slider_5mm_x2.dxf');
   await expect(page.locator('#gilBox svg.gilsv title', {hasText: 'Дно жаровни'})).toHaveCount(1);   // память md-gilsel2 не читается
   await expect(page.locator('#gilBox')).not.toContainText('Не на схеме');
   // полосы — от левого края листа (подрезка 10)
@@ -554,8 +569,9 @@ test('mangal: «Гильотина» в печи — колосник 15 мм н
   await expect(page.locator('#gilBox .nblock h3')).toHaveText(['Лист 5 мм', 'Лист 3 мм', 'Лист 15 мм']);
   const b15 = page.locator('#gilBox .nblock').nth(2);
   await expect(b15.locator('.gnone')).toHaveText('Ничего не рубим');
-  await expect(b15.locator('.goff')).toHaveText('Не рубится: Колосник печи — толще 8 мм');
-  await expect(gilRow(page, 'Колосник печи')).toContainText('не рубится — толще 8 мм');
+  await expect(b15.locator('.noff h4')).toHaveText('Не рубится');
+  await expect(b15.locator('.otbl tr', {hasText: 'Колосник печи'})).toContainText('толще 8 мм');
+  await expect(b15.locator('.gtbl')).toHaveCount(0);
   const [d] = await Promise.all([page.waitForEvent('download'), page.locator('#gilAll').click()]);
   expect(d.suggestedFilename()).toBe('pech_600x440x500_5-3-15mm_gilotina.zip');
   // правка модели: схема убрана, «Рассчитать» снова активна; подрезка кромки — тоже

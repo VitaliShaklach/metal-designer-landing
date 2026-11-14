@@ -289,9 +289,14 @@ table.gtbl td:nth-child(3){width:1%}
 table.gtbl td:nth-child(n+4){width:1%;white-space:nowrap}   /* кол-во, заготовка, вид — по содержимому, остальное — имени детали */
 table.gtbl td:nth-child(2){min-width:180px}
 table.gtbl tr.on td{background:var(--accent-soft)}
-table.gtbl tr.off td{opacity:.5}
 .gnone{margin:0;font:600 14px var(--f-mono);color:var(--muted)}
-.goff{margin:0;font:13px/1.4 var(--f-mono);color:var(--muted)}
+/* «Не на листе» / «Не рубится» (#92): сноска над схемой и блок под основной таблицей */
+.nfoot{margin:0;font:13px/1.4 var(--f-mono);color:var(--muted)}
+.noff{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.noff h4{margin:0;font:600 13px var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+table.otbl{min-width:520px}
+table.otbl td:nth-child(2){min-width:160px}
+table.otbl td:nth-child(n+4):not(:nth-child(5)){width:1%;white-space:nowrap}
 /* схема гильотины: серый — готовая деталь, светло-оранжевый — заготовка, дальше на лазер */
 .nestbar [hidden]{display:none}
 /* «Рассчитать» (editor/common/calc.js): главная кнопка вкладки; неактивна, пока идёт расчёт или результат свежий. Скачать — только с результатом */
