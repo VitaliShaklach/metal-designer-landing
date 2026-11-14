@@ -353,3 +353,12 @@ svg.gilsv .gp.on text{font-weight:700}
 .ntot{margin:0;display:flex;flex-wrap:wrap;gap:4px 18px;font:13px var(--f-mono);color:var(--muted)}
 .ntot b{color:var(--ink);font-weight:600}
 td.dl .dxfmsg{display:block;font-size:11px;white-space:normal;overflow-wrap:anywhere;width:130px;margin-left:auto;text-align:right}
+
+/* лист крупно (#62): клик по схеме листа или гильотины — на весь экран; «+» «−» и колесо — масштаб, тянуть — двигать, Esc — закрыть (как в рыси) */
+svg.nestsv{cursor:zoom-in}
+.zoom{position:fixed;inset:0;z-index:1000;background:#1c2023;display:flex;flex-direction:column}.zoom[hidden]{display:none}
+.zoombar{display:flex;gap:8px;align-items:center;padding:8px 12px;color:#fff;font-size:14px}.zoombar #zoomTtl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zoombar button{min-width:36px;height:34px;padding:0 10px;border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;font:inherit;cursor:pointer;border-radius:4px}.zoombar #zoomK{min-width:48px;text-align:center}
+.zoombox{flex:1;overflow:auto;cursor:grab;touch-action:none;padding:2px}.zoombox.drag{cursor:grabbing}
+.zoombox svg.nestsv{display:block;width:100%;max-width:none;height:auto;cursor:inherit}
+body.noscroll{overflow:hidden}

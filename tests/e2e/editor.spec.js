@@ -823,3 +823,63 @@ test('mangal: «Раскрой и масса» — только металл, и
   await expect(page.locator('#notesBox')).toContainText('Не приваривать: плита снимается');
   expect(r.errors).toEqual([]);
 });
+
+// ---------- мангал: лист крупно — клик по схеме листа и гильотины (#62) ----------
+
+// Клик по схеме открывает её на весь экран; «+» и «−» меняют масштаб, «Весь лист» возвращает, тянуть — двигать, Esc закрывает
+async function zoomCheck(page, svgSel) {
+  const zoom = page.locator('#zoom');
+  await expect(zoom).toBeHidden();
+  await page.locator(svgSel).first().click({position: {x: 40, y: 40}});
+  await expect(zoom).toBeVisible();
+  const box = await zoom.boundingBox(), vp = page.viewportSize();
+  expect(Math.round(box.width)).toBe(vp.width);   // на весь экран
+  expect(Math.round(box.height)).toBe(vp.height);
+  await expect(page.locator('#zoomBox svg')).toHaveCount(1);
+  await expect(page.locator('#zoomTtl')).not.toHaveText('');
+  const k0 = parseInt(await page.locator('#zoomK').textContent());
+  await page.locator('#zoomIn').click();
+  const k1 = parseInt(await page.locator('#zoomK').textContent());
+  expect(k1).toBeGreaterThan(k0);
+  await page.locator('#zoomOut').click();
+  await page.locator('#zoomOut').click();
+  expect(parseInt(await page.locator('#zoomK').textContent())).toBeLessThan(k1);
+  // масштаб действительно меняет размер схемы (а не только число)
+  await page.locator('#zoomFit').click();
+  const w1 = (await page.locator('#zoomBox svg').boundingBox()).width;
+  await page.locator('#zoomIn').click();
+  await page.locator('#zoomIn').click();
+  expect((await page.locator('#zoomBox svg').boundingBox()).width).toBeGreaterThan(w1 * 2);
+  // тянуть — двигает схему
+  const zb = await page.locator('#zoomBox').boundingBox(), s0 = await page.locator('#zoomBox').evaluate(e => e.scrollLeft);
+  await page.mouse.move(zb.x + zb.width * 0.7, zb.y + zb.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(zb.x + zb.width * 0.3, zb.y + zb.height * 0.5, {steps: 4});
+  await page.mouse.up();
+  expect(await page.locator('#zoomBox').evaluate(e => e.scrollLeft)).toBeGreaterThan(s0);
+  await page.keyboard.press('Escape');
+  await expect(zoom).toBeHidden();
+  await expect(page.locator('#zoomBox svg')).toHaveCount(0);
+  await expect(page.locator('body')).not.toHaveClass(/noscroll/);
+}
+
+test('mangal: клик по схеме листа открывает её крупно, «+» «−», Esc', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await mangalCut(page);
+  await zoomCheck(page, '#nestBox svg.nestsv');
+  expect(r.errors).toEqual([]);
+});
+
+test('mangal: клик по схеме гильотины открывает её крупно, «✕» закрывает', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await openSub(page, 'gil');
+  await gilCut(page);
+  await zoomCheck(page, '#gilBox svg.gilsv');
+  await page.locator('#gilBox svg.gilsv').first().click({position: {x: 40, y: 40}});
+  await expect(page.locator('#zoom')).toBeVisible();
+  await page.locator('#zoomX').click();
+  await expect(page.locator('#zoom')).toBeHidden();
+  expect(r.errors).toEqual([]);
+});

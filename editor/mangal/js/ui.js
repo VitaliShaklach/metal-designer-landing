@@ -304,3 +304,22 @@ function notesHtml(){const g=gOn(),k=sOn(),both=S.mode==='both',lg=logoSite();
   return `<div><h3>Как устроено — ${({both:'печь + мангал',grill:'мангал',stove:'печь'})[S.mode]}</h3><ul>${how.filter(Boolean).join('')}</ul></div>`+
     `<div><h3>На что обратить внимание</h3><ol class="q">${att.filter(Boolean).map(x=>`<li>${x}</li>`).join('')}</ol></div>`+
     `<div class="asm"><h3>Сборка по деталям</h3><ul>${asm.map(r=>`<li><b>${r.n}</b> — ${r.asm}</li>`).join('')}</ul></div>`;}
+
+/* ---------- лист крупно (#62): клик по схеме листа или гильотины — на весь экран; колесо или + − — масштаб, тянуть — двигать, Esc — закрыть (из рыси) ---------- */
+const ZM={k:1};
+function zoomSet(k,cx,cy){const box=document.getElementById('zoomBox'),s=box.querySelector('svg');if(!s)return;const r=box.getBoundingClientRect(),px=cx??r.width/2,py=cy??r.height/2,fx=(box.scrollLeft+px)/s.clientWidth,fy=(box.scrollTop+py)/s.clientHeight;
+  ZM.k=Math.max(1,Math.min(12,k));s.style.width=(ZM.k*(r.width||innerWidth)-4)+'px';document.getElementById('zoomK').textContent=Math.round(ZM.k*100)+'%';box.scrollLeft=fx*s.clientWidth-px;box.scrollTop=fy*s.clientHeight-py;}
+// fx, fy — куда кликнули (доля ширины и высоты листа): это место — в середине экрана
+function zoomOpen(svg,title,fx=.5,fy=.5){const z=document.getElementById('zoom'),box=document.getElementById('zoomBox');document.getElementById('zoomTtl').textContent=title||'';
+  const c=svg.cloneNode(true);c.removeAttribute('width');c.removeAttribute('height');box.replaceChildren(c);z.hidden=false;document.body.classList.add('noscroll');ZM.k=1;zoomSet(1);
+  const r=box.getBoundingClientRect();zoomSet(3,fx*c.clientWidth-box.scrollLeft,fy*c.clientHeight-box.scrollTop);box.scrollLeft=fx*c.clientWidth-r.width/2;box.scrollTop=fy*c.clientHeight-r.height/2;}
+function zoomClose(){document.getElementById('zoom').hidden=true;document.getElementById('zoomBox').replaceChildren();document.body.classList.remove('noscroll');}
+['nestBox','gilBox'].forEach(id=>document.getElementById(id).addEventListener('click',e=>{const s=e.target.closest('svg.nestsv');if(!s)return;const f=s.closest('figure'),r=s.getBoundingClientRect();
+  zoomOpen(s,f&&f.querySelector('figcaption')?.textContent,(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);}));
+document.getElementById('zoomIn').addEventListener('click',()=>zoomSet(ZM.k*1.5));document.getElementById('zoomOut').addEventListener('click',()=>zoomSet(ZM.k/1.5));
+document.getElementById('zoomFit').addEventListener('click',()=>zoomSet(1));document.getElementById('zoomX').addEventListener('click',zoomClose);
+addEventListener('keydown',e=>{if(e.key==='Escape'&&!document.getElementById('zoom').hidden)zoomClose();});
+document.getElementById('zoomBox').addEventListener('wheel',e=>{e.preventDefault();const r=document.getElementById('zoomBox').getBoundingClientRect();zoomSet(ZM.k*(e.deltaY<0?1.2:1/1.2),e.clientX-r.left,e.clientY-r.top);},{passive:false});
+(()=>{const box=document.getElementById('zoomBox');let d=null;box.addEventListener('pointerdown',e=>{d={x:e.clientX,y:e.clientY,l:box.scrollLeft,t:box.scrollTop};box.setPointerCapture(e.pointerId);box.classList.add('drag');});
+  box.addEventListener('pointermove',e=>{if(!d)return;box.scrollLeft=d.l-(e.clientX-d.x);box.scrollTop=d.t-(e.clientY-d.y);});
+  ['pointerup','pointercancel'].forEach(t=>box.addEventListener(t,()=>{d=null;box.classList.remove('drag');}));})();
