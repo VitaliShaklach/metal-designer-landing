@@ -55,6 +55,16 @@ NODE_OPTIONS=--use-system-ca npx playwright test    # страница: desktop 
 
 Новая версия рыси (Виталий доделал её в `C:\dev\metal-designer`): `NODE_OPTIONS=--use-system-ca npm run lynx -- 6` — номер версии из `plates-lynx6.js`; раскрой считается минутами. Потом посмотреть картинки в `lynx/` глазами (не пустые, рысь целиком, без панелей редактора) и закоммитить `lynx/`. `--rework <id>,<id>…` — фигуры для картинок «Переработка»: первая — `rework.jpg`, следующие — `rework-2.jpg`… (по умолчанию `lynx,lynx3`: исходная гранёная и рысь 3).
 
+## Мастерская
+
+Программа на компе Виталия для чистки фигуры и (дальше по плану) публикации новой фигуры на сайт. План: `docs/superpowers/plans/2026-11-10-figure-studio.md`, спека: `docs/superpowers/specs/2026-11-09-figure-studio-design.md`. На публичный сайт не влияет: публичная страница про мастерскую не знает.
+
+- Запуск: `npm run studio` (или `node studio/server.js [--port N] [--work DIR] [--no-open]`). Сервер слушает только `127.0.0.1:8765` и открывает браузер на странице рыси с панелью. Команды `/api/*` принимает только от своей страницы: `Origin`, `Host` и токен `X-Studio-Token` (новый на каждый запуск), иначе 403.
+- Что где: `studio/server.js` (сервер), `studio/lib/` (`engine.js` стенд для Node, `workdir.js` рабочая папка, `names.js` названия, `refbuild.js` эталон), `studio/js/` (Проверка и починка: общие скрипты для Node и страницы), `studio/ui/` (панель, её вкладывает сервер), `studio/tests/` (тесты).
+- Рабочие папки (в git не попадают): `studio/work/<slug>/` — фигуры (`figure.json`, `undo.json`, `ref/`, `versions/`), `studio/work/settings.json` и `state.json`; `studio/.wt/` — рабочие копии веток (задачи 7 и 9); `studio/tests/.work/` — рабочая папка тестов.
+- Автосохранение: правка в странице уходит в `figure.json` не позже чем через 500 мс. Запись атомарная (`.tmp` → `rename`); битый файл не пропадает, а переименовывается в `figure.broken-<время>.json`.
+- Тесты: `npm run test:studio` (Node), `NODE_OPTIONS=--use-system-ca npm run test:studio:e2e` (браузер, свой сервер на :8766).
+
 ## Как сайт публикуется
 
 GitHub Pages собирает сайт из ветки `master`, из корня репозитория. После каждого `git push` он пересобирается примерно за минуту и открывается по адресу https://vitalishaklach.github.io/metal-designer-landing/. Репозиторий публичный: всё, что попадает в `master`, видят все. В `master` — только по команде Виталия.

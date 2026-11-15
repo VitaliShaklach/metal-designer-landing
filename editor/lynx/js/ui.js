@@ -1,5 +1,8 @@
 /* ---------- Панель, таблицы, расчёт ---------- */
 const $=id=>document.getElementById(id);
+// крючки для мастерской (studio/ui/panel.js): changed — после каждой смены фигуры (правка, отмена, возврат, перетаскивание точки), paint — раскраска граней (задача 6)
+const HOOKS={changed:[],paint:null};
+const fireChanged=()=>HOOKS.changed.forEach(f=>{try{f();}catch(e){console.error(e);}});
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 // числа по-русски; форматтер на каждое число заново — 0,4 мс, а таблица зовёт его сотни раз: держим по одному на число знаков
 const FMT={},fmt=(x,d=0)=>(FMT[d]||(FMT[d]=new Intl.NumberFormat('ru-RU',{minimumFractionDigits:d,maximumFractionDigits:d}))).format(Number(x));
@@ -178,7 +181,7 @@ function sumTable(){const T=CUR.T,[sl,sw]=sheetWL(),warn=[];
 
 /* ---------- загрузка фигур и файлов ---------- */
 function setBase(m,o={}){ST.base=m;SIMP={key:'',m:null};ST.sel=-1;ST.selB=-1;ST.name=o.name||ST.name;$('mName').value=ST.name;
-  ST.faces=o.faces||(isDense()?250:m.F.length);if(o.dims)ST.dims=o.dims;else dimsFromH(o.H||600);ST.sv=ST.sp=-1;UNDO.length=REDO.length=0;ST.edit=false;$('cEdit').checked=false;if(m.P)setPolyDims();}
+  ST.faces=o.faces||(isDense()?250:m.F.length);if(o.dims)ST.dims=o.dims;else dimsFromH(o.H||600);ST.sv=ST.sp=-1;UNDO.length=REDO.length=0;ST.edit=false;$('cEdit').checked=false;if(m.P)setPolyDims();fireChanged();}
 // Доберманам 4–6 сначала нужен models.js (figureReady); выбрали другую фигуру, пока грузился, — его onload ничего не строит
 let FIG_WANT='';
 function loadFigure(id){FIG_WANT=id;if(!figureReady(id,()=>{if(FIG_WANT===id)loadFigure(id);},()=>{if(FIG_WANT===id){loading(false);$('figSel').value=ST.fig||'';msg('Фигура не загрузилась — проверьте интернет и выберите её ещё раз');}})){loading(true,'Загружаю фигуру…');return;}
@@ -211,7 +214,7 @@ $('fileIn').addEventListener('change',e=>{const f=e.target.files[0];if(f)openFil
 $('bSave').addEventListener('click',save);
 $('mName').addEventListener('input',e=>{ST.name=e.target.value;$('ttl').textContent=ST.name||'Фигура';label3D();});
 ['H','W','D'].forEach(k=>$('d'+k).addEventListener('change',e=>{const v=Math.max(50,+e.target.value||0);
-  if(ST.prop){const r=v/ST.dims[k];['H','W','D'].forEach(q=>ST.dims[q]=Math.round(ST.dims[q]*r));}ST.dims[k]=v;if(isPoly()){pushUndo();setPolyDims();}recalc(true);}));
+  if(ST.prop){const r=v/ST.dims[k];['H','W','D'].forEach(q=>ST.dims[q]=Math.round(ST.dims[q]*r));}ST.dims[k]=v;if(isPoly()){pushUndo();setPolyDims();fireChanged();}recalc(true);}));
 $('cProp').addEventListener('change',e=>{ST.prop=e.target.checked;});
 $('bReset').addEventListener('click',()=>{if(isPoly()){syncDims();msg('Модель из граней — пропорции уже её собственные');return;}dimsFromH(ST.dims.H);recalc(true);});
 $('fRng').addEventListener('input',e=>{ST.faces=+e.target.value;$('fVal').textContent=ST.faces;recalc(false,true);});
@@ -220,7 +223,7 @@ $('minW').addEventListener('change',e=>{ST.minW=Math.max(0,+e.target.value||0);r
 $('cSmall').addEventListener('change',e=>{ST.small=e.target.checked;renderAll();});
 $('cNums').addEventListener('change',e=>{ST.nums=e.target.checked;renderAll();});
 document.querySelectorAll('.rot [data-r]').forEach(b=>b.addEventListener('click',()=>{const ax=b.dataset.r,H=ST.dims.H;
-  const RV=ST.base.V.map(([x,y,z])=>ax==='x'?[x,-z,y]:ax==='y'?[z,y,-x]:[-y,x,z]);if(isPoly()){pushUndo();ST.base=polyBase(RV,ST.base.P,ST.base.S);syncDims();setPolyDims();}else{ST.base={V:RV,F:ST.base.F};SIMP={key:'',m:null};dimsFromH(H);}later(()=>{compute();renderAll(true);});}));
+  const RV=ST.base.V.map(([x,y,z])=>ax==='x'?[x,-z,y]:ax==='y'?[z,y,-x]:[-y,x,z]);if(isPoly()){pushUndo();ST.base=polyBase(RV,ST.base.P,ST.base.S);syncDims();setPolyDims();fireChanged();}else{ST.base={V:RV,F:ST.base.F};SIMP={key:'',m:null};dimsFromH(H);}later(()=>{compute();renderAll(true);});}));
 $('sT').addEventListener('change',e=>{const t=+e.target.value;ST.gap=gapAfterT(ST.gap,weldOf(),ST.t,t);ST.t=t;$('sGap').value=ST.gap;recalc();});
 $('sWeld').addEventListener('change',e=>{ST.weld=e.target.value;ST.gap=weldGap(ST.weld,ST.t);$('sGap').value=ST.gap;recalc();});
 $('sMat').addEventListener('change',e=>{ST.mat=e.target.value;recalc();});
@@ -309,7 +312,7 @@ $('cBend').addEventListener('change',e=>{ST.bend=e.target.checked;ST.allParts=fa
 const UNDO=[],REDO=[];
 function snapE(){return JSON.stringify({V:ST.base.V,P:ST.base.P,S:ST.base.S||[]});}
 function pushUndo(){if(!isPoly())return;UNDO.push(snapE());if(UNDO.length>60)UNDO.shift();REDO.length=0;}
-function applyE(e,keepSel){ST.base=polyBase(e.V,e.P,e.S);syncDims();if(!keepSel){ST.sp=-1;ST.sp2=-1;ST.sv=-1;ST.sel=-1;ST.seam=null;}compute();renderAll();}
+function applyE(e,keepSel){ST.base=polyBase(e.V,e.P,e.S);syncDims();if(!keepSel){ST.sp=-1;ST.sp2=-1;ST.sv=-1;ST.sel=-1;ST.seam=null;}compute();renderAll();fireChanged();}
 function undo(){if(!UNDO.length)return;REDO.push(snapE());applyE(JSON.parse(UNDO.pop()));}
 function redo(){if(!REDO.length)return;UNDO.push(snapE());applyE(JSON.parse(REDO.pop()));}
 // перейти в редактор: любая модель становится набором граней-деталей в мм
@@ -371,7 +374,7 @@ $('cTrace').addEventListener('change',e=>{ST.trace=e.target.checked;if(ST.trace&
       raf=requestAnimationFrame(()=>{raf=0;if(!drag)return;const e2={V:ST.base.V.map(q=>q.slice()),P:ST.base.P,S:ST.base.S||[]};moveVert(e2,drag.v,dragPoint(e,ST.base.V[drag.v])||p,ST.sym);applyE(e2,true);});return;}
     if(!CUR||e.buttons){tag.hidden=true;return;}const t=pickTri(e);if(t<0){tag.hidden=true;return;}const p=CUR.R.parts[CUR.R.partOf[t]],r=stage.getBoundingClientRect();
     tag.textContent=`№ ${p.no} · ${Math.round(p.L)} × ${Math.round(p.W)} мм`;tag.style.left=(e.clientX-r.left)+'px';tag.style.top=(e.clientY-r.top)+'px';tag.hidden=false;});
-  cv.addEventListener('pointerup',e=>{if(drag){const d=drag;drag=null;ST.drag=false;controls.enabled=true;if(d.moved){UNDO.push(d.snap);REDO.length=0;renderAll();}down=null;return;}
+  cv.addEventListener('pointerup',e=>{if(drag){const d=drag;drag=null;ST.drag=false;controls.enabled=true;if(d.moved){UNDO.push(d.snap);REDO.length=0;renderAll();fireChanged();}down=null;return;}
     if(!down||!CUR)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>5||e.button!==0)return;
     const t=pickTri(e),pi=t>=0?CUR.R.partOf[t]:-1;
     if(ST.edit&&isPoly()){const fp=t>=0?ST.base.T[t]:-1;

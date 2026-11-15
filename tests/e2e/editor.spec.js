@@ -422,3 +422,13 @@ test('home: на телефоне без горизонтальной прокр
   const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   expect(sw).toBeLessThanOrEqual(iw);
 });
+
+test('lynx: публичная страница не знает про мастерскую — панели нет, запросов на 8765 и 8766 нет', async ({page}) => {
+  const urls = [];
+  page.on('request', q => urls.push(q.url()));
+  await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  await expect(page.locator('#studioPanel')).toHaveCount(0);
+  expect(await page.evaluate(() => typeof STUDIO)).toBe('undefined');
+  expect(urls.filter(u => /:876[56]\b|\/api\//.test(u))).toEqual([]);
+});

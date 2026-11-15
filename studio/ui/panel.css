@@ -1,0 +1,11 @@
+/* панель мастерской: поверх страницы, слева внизу; цвета — от переменных страницы рыси */
+#studioPanel{position:fixed;left:12px;bottom:12px;z-index:60;width:250px;max-width:calc(100vw - 24px);background:var(--panel,#F8F9F7);color:var(--ink,#1B2124);border:1px solid var(--line,#C6CCCA);border-radius:8px;font:13px/1.4 var(--f-body,system-ui,sans-serif);box-shadow:0 4px 18px rgba(0,0,0,.18)}
+#stHead{display:block;width:100%;text-align:left;padding:8px 12px;background:var(--accent,#C0501C);color:#fff;border:0;border-radius:7px 7px 0 0;font:600 13px var(--f-display,sans-serif);letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+#stBody{padding:10px 12px;display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto}
+#stBody[hidden],#stPubList[hidden]{display:none}
+.stT{font:600 11px var(--f-mono,monospace);letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#5B666B)}
+.stFig,.stPubItem,#stPub{display:block;width:100%;text-align:left;padding:6px 8px;border:1px solid var(--line,#C6CCCA);border-radius:6px;background:var(--soft,#E2E6E3);color:inherit;font:inherit;cursor:pointer}
+.stFig.on{border-color:var(--accent,#C0501C);background:var(--accent-soft,#F3DED2)}
+#stPubList{display:flex;flex-direction:column;gap:4px;padding-left:10px}
+.stEmpty{color:var(--muted,#5B666B)}
+#stMsg{min-height:1.4em;color:var(--muted,#5B666B)}#stMsg.bad{color:#c0261c}
