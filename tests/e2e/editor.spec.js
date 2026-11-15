@@ -91,11 +91,41 @@ test('lynx: открывается без ошибок и без сторонн�
   expect(urls.filter(u => /doberman|bull|js\/trace-|models\.js/i.test(u))).toEqual([]);
 });
 
-test('lynx: в списке фигур одна «Рысь»', async ({page}) => {
+test('lynx: в списке фигур строка на каждую фигуру, по умолчанию открыта последняя', async ({page}) => {
   await openEditor(page, '/editor/lynx/');
   const opts = page.locator('#figSel option');
-  await expect(opts).toHaveCount(1);
-  await expect(opts).toHaveText('Рысь');
+  const n = await page.evaluate(() => Object.keys(FIGURES).length);
+  await expect(opts).toHaveCount(n);
+  await expect(opts.first()).toHaveText('Рысь');
+  const last = await opts.last().getAttribute('value');
+  await expect(page.locator('#figSel')).toHaveValue(last);
+  await expect(page.locator('#mName')).toHaveValue(await opts.last().textContent());
+});
+
+// фигура мастерской «Рысь 2» (копия рыси 14 с другим id): страница отдаётся с добавленной строкой, как после публикации
+async function withFig1(page) {
+  const fs = require('fs'), path = require('path');
+  const js = fs.readFileSync(path.join(__dirname, '..', '..', 'editor', 'lynx', 'js', 'plates-lynx14.js'), 'utf8')
+    .replace(/lynx14/g, 'fig1').replace("name:'Рысь'", "name:'Рысь 2'");
+  await page.route('**/editor/lynx/js/plates-fig1.js*', r => r.fulfill({contentType: 'text/javascript', body: js}));
+  await page.route('**/editor/lynx/', async r => {
+    const res = await r.fetch(), h = (await res.text())
+      .replace('<script src="js/edit.js', '<script src="js/plates-fig1.js?v=t"></script>\n<script src="js/edit.js')
+      .replace('</select>', '<option value="fig1">Рысь 2</option></select>');
+    await r.fulfill({response: res, body: h});
+  });
+}
+test('lynx: с добавленной фигурой fig1 открывается она, даже если в памяти браузера art-fig=lynx14 (ревью, п. 1)', async ({page}) => {
+  await withFig1(page);
+  await page.addInitScript(() => { try { localStorage.setItem('art-fig', 'lynx14'); } catch (e) {} });
+  await openEditor(page, '/editor/lynx/');
+  await expect(page.locator('#figSel')).toHaveValue('fig1');
+  await expect(page.locator('#mName')).toHaveValue('Рысь 2');
+});
+test('lynx: #f=lynx14 открывает рысь 14 и при добавленной фигуре', async ({page}) => {
+  await withFig1(page);
+  await openEditor(page, '/editor/lynx/#f=lynx14');
+  await expect(page.locator('#figSel')).toHaveValue('lynx14');
   await expect(page.locator('#mName')).toHaveValue('Рысь');
 });
 

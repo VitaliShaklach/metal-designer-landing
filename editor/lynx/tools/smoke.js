@@ -327,7 +327,7 @@ ok(run("nestGap('laser')===5&&nestGap('plasma')===7&&ngapAfterCut(5,false,'plasm
   ok(/select,textarea\{font-size:16px!important\}/.test(t)&&/\.chk input[^{]*\{width:24px;height:24px/.test(t)&&/\.tip\{[^}]*width:32px;height:32px/.test(t)&&/#shGo,#cdGo\{min-height:44px/.test(t)&&M6&&!/\.tabbar\{flex-wrap:wrap/.test(CSS),
     "телефон/iPad: поля 16 px, галочки 24, «?» 32×32, «Перейти к листу/карте» 44 px, вкладки — сетка 3+2");}
 {const sel=/<select id="figSel">([\s\S]*?)<\/select>/.exec(HT)[1],O=[...sel.matchAll(/<option value="([^"]*)"[^>]*>([^<]*)</g)].map(m=>({v:m[1],t:m[2]}));
-  ok(O.length===1&&O[0].v==='lynx14'&&O[0].t==='Рысь'&&run("Object.keys(FIGURES).join()")==='lynx14',"список «Фигура»: одна «Рысь», других фигур в коде нет");}
+  ok(O.length===run("Object.keys(FIGURES).length")&&O.every(o=>run(`!!FIGURES[${JSON.stringify(o.v)}]`))&&O[0].v==='lynx14'&&O[0].t==='Рысь'&&run("Object.keys(FIGURES).join()")===O.map(o=>o.v).join(),"список «Фигура»: строка на каждую фигуру в коде, первая — «Рысь», доберманов и быка нет");}
 {const tc={};vm.createContext(tc);const src=fs.readFileSync(P+'tips.js','utf8');vm.runInContext(src.slice(0,src.indexOf('\n(()=>'))+'\nthis.TIPS=TIPS;',tc);const TP=tc.TIPS;
   ok(!/Доберман|быка/.test(Object.values(TP).join(' ')),"подсказки: про доберманов и быка ни слова");
   ok(/плазма — 7 мм/.test(TP.sNGap)&&/руками/.test(TP.sNGap),"подсказка «Между деталями на листе»: плазма 7 мм, свой зазор не сбивается");}
