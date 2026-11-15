@@ -330,6 +330,8 @@ ok(run("nestGap('laser')===5&&nestGap('plasma')===7&&ngapAfterCut(5,false,'plasm
   ok(O.length===run("Object.keys(FIGURES).length")&&O.every(o=>run(`!!FIGURES[${JSON.stringify(o.v)}]`))&&O[0].v==='lynx14'&&O[0].t==='Рысь'&&run("Object.keys(FIGURES).join()")===O.map(o=>o.v).join(),"список «Фигура»: строка на каждую фигуру в коде, первая — «Рысь», доберманов и быка нет");}
 {const tc={};vm.createContext(tc);const src=fs.readFileSync(P+'tips.js','utf8');vm.runInContext(src.slice(0,src.indexOf('\n(()=>'))+'\nthis.TIPS=TIPS;',tc);const TP=tc.TIPS;
   ok(!/Доберман|быка/.test(Object.values(TP).join(' ')),"подсказки: про доберманов и быка ни слова");
+  ok(!/op_extrude|op_inset|op_bump|op_pit|id="edD"/.test(HT)&&['op_split','op_del','op_merge','op_cut','bFlat','bTri','bUndo','bRedo','bBlank','bOpen','bSave'].every(id=>HT.includes('id="'+id+'"')),"правка: нет «Выдавить/Вдавить/Бугор/Впадина» и поля «На сколько, мм», остальные кнопки на месте");
+  ok(['extrude','inset','bump','pit','edD','op_extrude','op_inset','op_bump','op_pit'].every(k=>!(k in TP))&&['op_split','op_del','op_merge','op_cut','edOps'].every(k=>k in TP),"подсказки: ключей четырёх операций и «На сколько» нет");
   ok(/плазма — 7 мм/.test(TP.sNGap)&&/руками/.test(TP.sNGap),"подсказка «Между деталями на листе»: плазма 7 мм, свой зазор не сбивается");}
 ok(UI.includes('wl=FIGURES[ST.fig]?.noBack?0:addBacking(R,M3,FIGURES[ST.fig]?.backIf)'),'фигура с noBack: открытые края — не прорези, подложек глаз нет');
 // v0.23.0 backIf: фигура сама выбирает дыры под подложку — центр дыры в долях габарита (0…1)
@@ -373,4 +375,11 @@ run(`EI={n:0,min:1e9,bad:[],miss:0};FIGS.forEach(id=>{const C=PG(id),inB=new Set
   C.R.parts.forEach((p,pi)=>{if(inB.has(pi))return;const c=cutContour(p,2,.5,true);if(!c.bad)chk(p.no,engraveSegs(p.no,c.pts),c.pts,NM(id)+' №'+p.no);});});`);
 console.log('     гравировка номеров Д7–Д11: номеров '+run('EI.n')+', ближе всего к кромке реза '+run('EI.min.toFixed(2)')+' мм; за кромкой или ближе 0,5 мм ['+run('EI.bad.slice(0,6)')+']');
 ok(run('EI.n')>500&&run('EI.bad.length')===0&&run('EI.miss')===0,'гравировка номера у всех деталей Д7–Д11 (в заготовках — у каждой, и отдельных) целиком внутри контура реза, не ближе 0,5 мм к кромке (было: Г5 у Д9–Д11 — за кромкой до 2,1 мм)');
+// свет по грани: у всех треугольников одной грани рыси 14 нормаль одна, единичная, в ту же сторону, что нормаль самого треугольника
+{const r=run(`(()=>{const m=modelPoly('lynx14'),M3={V:m.V,F:m.F,T:m.T},N=faceNormals(M3);let worst=0,len=0,back=1,n=0;const first=new Map();
+  m.F.forEach((f,i)=>{const a=m.V[f[0]],b=m.V[f[1]],c=m.V[f[2]],u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],w=[c[0]-a[0],c[1]-a[1],c[2]-a[2]],t=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]],l=Math.hypot(...t);
+    const nn=[N[i*9],N[i*9+1],N[i*9+2]];len=Math.max(len,Math.abs(Math.hypot(...nn)-1));for(let k=1;k<3;k++)for(let j=0;j<3;j++)worst=Math.max(worst,Math.abs(N[i*9+k*3+j]-nn[j]));
+    if(l>1e-9)back=Math.min(back,(t[0]*nn[0]+t[1]*nn[1]+t[2]*nn[2])/l);const p=m.T[i];if(first.has(p)){const q=first.get(p);for(let j=0;j<3;j++)worst=Math.max(worst,Math.abs(N[i*9+j]-q[j]));}else first.set(p,nn);n++;});
+  const free=faceNormals({V:m.V,F:m.F}),f0=m.F[0],a=m.V[f0[0]],b=m.V[f0[1]],c=m.V[f0[2]];return {worst,len,back,n,faces:first.size,free:free.length===m.F.length*9};})()`);
+  ok(r.worst<1e-6&&r.len<1e-6&&r.back>0&&r.faces>1000&&r.n>r.faces&&r.free,"свет по грани: у рыси 14 нормали треугольников одной грани совпадают до 1e-6, длина 1, смотрят как нормаль треугольника ("+r.n+" треугольников, "+r.faces+" граней)");}
 console.log(bad?'ОШИБОК: '+bad:'всё ок'+(warned?' (предупреждений: '+warned+')':''));process.exit(bad?1:0);

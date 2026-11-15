@@ -462,3 +462,23 @@ test('lynx: публичная страница не знает про маст�
   expect(await page.evaluate(() => typeof STUDIO)).toBe('undefined');
   expect(urls.filter(u => /:876[56]\b|\/api\//.test(u))).toEqual([]);
 });
+
+test('lynx: в режиме правки нет «Выдавить/Вдавить/Бугор/Впадина» и поля «На сколько»; разрез, «Отменить», «Вернуть» работают на кубе', async ({page}) => {
+  const r = await openEditor(page, '/editor/lynx/');
+  await lynxReady(page);
+  await page.evaluate(() => $('bBlank').click());   // куб-заготовка
+  await page.waitForFunction(() => ST.base && ST.base.P && ST.base.P.length === 6 && !$('loading').offsetParent);
+  await page.evaluate(() => { $('cEdit').checked = true; $('cEdit').dispatchEvent(new Event('change')); });
+  await expect(page.locator('#op_split')).toHaveCount(1);
+  for (const id of ['op_extrude', 'op_inset', 'op_bump', 'op_pit', 'edD']) await expect(page.locator('#' + id)).toHaveCount(0);
+  const n = () => page.evaluate(() => ST.base.P.length);
+  await page.evaluate(() => { ST.sp = 0; $('op_split').click(); });
+  expect(await n()).toBe(7);
+  await page.evaluate(() => $('bUndo').click());
+  expect(await n()).toBe(6);
+  await page.evaluate(() => $('bRedo').click());
+  expect(await n()).toBe(7);
+  const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  expect(sw).toBeLessThanOrEqual(iw);
+  expect(r.errors).toEqual([]);
+});

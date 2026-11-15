@@ -22,9 +22,11 @@ function build3D(M3,R,o){if(!ok)return;req3D();while(root.children.length){const
   const tx=o.tex,wh=new THREE.Color(1,1,1),tint=c=>tx?tmp.copy(wh).lerp(c,.6):tmp.copy(c);
   F.forEach((f,fi)=>{const pi=R.partOf[fi],h=((pi*2654435761)>>>0)/4294967296;if(tx)tmp.copy(wh);else tmp.copy(c0).lerp(c1,h);if(o.small&&o.small.has(pi))tint(red);if(o.warn&&o.warn.has(fi))tint(amb);if(o.blue&&o.blue.has(fi))tint(blu);if(o.pierce&&o.pierce.has(fi))tint(vio);if(o.grp&&o.grp.has(pi)&&pi!==o.sel)tint(amb);if(o.hi?o.hi.has(fi):pi===o.sel)tint(sel);
     f.forEach((v,k)=>{pos.set(V[v],fi*9+k*3);col.set([tmp.r,tmp.g,tmp.b],fi*9+k*3);});});
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('color',new THREE.BufferAttribute(col,3));g.computeVertexNormals();
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('color',new THREE.BufferAttribute(col,3));
+  const byFace=!!(M3.T&&M3.T.length===F.length);   // граней-многоугольников: свет по грани, а не по треугольнику — на неплоской грани нет веера теней
+  if(byFace)g.setAttribute('normal',new THREE.BufferAttribute(faceNormals(M3),3));else g.computeVertexNormals();
   let map=null;if(tx){g.setAttribute('uv',new THREE.BufferAttribute(tx.uv,2));if(!tx.tex){tx.tex=new THREE.DataTexture(tx.data,tx.W,tx.H,THREE.RGBAFormat);tx.tex.magFilter=tx.tex.minFilter=THREE.LinearFilter;tx.tex.generateMipmaps=false;tx.tex.needsUpdate=true;}map=tx.tex;}
-  const mesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,map,metalness:tx?0:.45,roughness:tx?.85:.6,side:THREE.DoubleSide,flatShading:true,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}));mesh.userData.pick=true;root.add(mesh);
+  const mesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,map,metalness:tx?0:.45,roughness:tx?.85:.6,side:THREE.DoubleSide,flatShading:!byFace,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}));mesh.userData.pick=true;root.add(mesh);
   // подложки за прорезями — тёмные, утоплены внутрь
   if(o.backs&&o.backs.length){const bp=[];o.backs.forEach(P=>{const idx=P.map((_,i)=>i);earClip(P,idx).forEach(t=>t.forEach(i=>bp.push(...P[i])));});
     const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.Float32BufferAttribute(bp,3));bg.computeVertexNormals();root.add(new THREE.Mesh(bg,new THREE.MeshStandardMaterial({color:0x1c1e20,metalness:.3,roughness:.8,side:THREE.DoubleSide})));}

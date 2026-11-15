@@ -217,6 +217,13 @@ function orientPolys(V,polys,center){const ek=(a,b)=>a<b?a+'_'+b:b+'_'+a,E=new M
     if(vote<0)comp.forEach(pi=>out[pi].reverse());});
   return out;}
 function polyMesh(V,polys){const F=[];polys.forEach(P=>earClip(V,P).forEach(t=>F.push(t)));return {V,F};}
+// нормали для света по грани: у всех треугольников грани (M3.T — номер грани у треугольника) одна нормаль — сумма нормалей её треугольников
+// по площади, единичная; без T или у вырожденной грани — нормаль самого треугольника. Float32Array(F.length*9): по три одинаковых на треугольник
+function faceNormals(M3){const {V,F,T}=M3,tn=F.map(f=>{const a=V[f[0]],b=V[f[1]],c=V[f[2]],u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],w=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
+    return [u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]];}),sum=new Map();
+  if(T&&T.length===F.length)tn.forEach((n,i)=>{const s=sum.get(T[i])||[0,0,0];s[0]+=n[0];s[1]+=n[1];s[2]+=n[2];sum.set(T[i],s);});
+  const out=new Float32Array(F.length*9),unit=n=>{const l=Math.hypot(n[0],n[1],n[2]);return l>1e-12?[n[0]/l,n[1]/l,n[2]/l]:null;};
+  F.forEach((_,i)=>{const n=(T&&T.length===F.length&&unit(sum.get(T[i])))||unit(tn[i])||[0,1,0];for(let k=0;k<3;k++)out.set(n,i*9+k*3);});return out;}
 
 /* ---------- слить почти плоские грани (как Limited Dissolve в Blender) ----------
    Соседние треугольники, которые отходят от общей плоскости меньше чем на deg° и tolMm мм, — одна грань-многоугольник.

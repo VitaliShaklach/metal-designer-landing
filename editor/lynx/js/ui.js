@@ -331,11 +331,11 @@ $('cEdit').addEventListener('change',e=>{ST.edit=e.target.checked;if(ST.edit&&CU
 $('cSym').addEventListener('change',e=>{ST.sym=e.target.checked;});
 $('edSel').addEventListener('change',e=>{if(ST.sv<0||!['vX','vY','vZ'].includes(e.target.id))return;pushUndo();const e2={V:ST.base.V.map(p=>p.slice()),P:ST.base.P};
   moveVert(e2,ST.sv,[+$('vX').value,+$('vY').value,+$('vZ').value],ST.sym);applyE(e2,true);});
-$('edOps').addEventListener('click',e=>{const b=e.target.closest('button[data-op]');if(!b)return;if(ST.sp<0){msg('Сначала кликните грань на модели');return;}if(b.dataset.op==='merge'&&b.classList.contains('off')){msg('Для «Убрать шов» кликните грань, потом Shift+клик по соседней');return;}const d=Math.max(1,+$('edD').value||0),op=b.dataset.op;
+$('edOps').addEventListener('click',e=>{const b=e.target.closest('button[data-op]');if(!b)return;if(ST.sp<0){msg('Сначала кликните грань на модели');return;}if(b.dataset.op==='merge'&&b.classList.contains('off')){msg('Для «Убрать шов» кликните грань, потом Shift+клик по соседней');return;}const op=b.dataset.op;
   if(op==='cut'){ST.seam=ST.seam?null:[];ST.sv=-1;renderAll();return;}
   if(op==='merge'){const r=mergePolys(E(),ST.sp,ST.sp2,ST.sym);if(!r){msg('Эти грани не слить: нет общего шва или он из нескольких отрезков');return;}pushUndo();applyE(r);msg('Шов убран, грани выровнены');return;}
-  pushUndo();
-  const r={extrude:()=>extrude(E(),ST.sp,d,ST.sym),inset:()=>extrude(E(),ST.sp,-d,ST.sym),bump:()=>poke(E(),ST.sp,d,ST.sym),pit:()=>poke(E(),ST.sp,-d,ST.sym),split:()=>splitPoly(E(),ST.sp,ST.sym),del:()=>delPoly(E(),ST.sp,ST.sym)}[op]();applyE(r);});
+  const fn={split:()=>splitPoly(E(),ST.sp,ST.sym),del:()=>delPoly(E(),ST.sp,ST.sym)}[op];if(!fn)return;   // кнопки, которых больше нет, из старой страницы в кеше — ничего не делают
+  pushUndo();applyE(fn());});
 $('bFlat').addEventListener('click',()=>{if($('bFlat').classList.contains('off'))return;pushUndo();applyE(flattenAll(E(),ST.sym),true);});
 $('bTri').addEventListener('click',()=>{if($('bTri').classList.contains('off'))return;pushUndo();applyE(triangulateBad(E(),1.5));});
 $('bUndo').addEventListener('click',undo);$('bRedo').addEventListener('click',redo);
