@@ -171,3 +171,16 @@ test('пластины ручки колосника не рубятся: бло
     assert.deepEqual(r.off,[['Пластина ручки колосника','уже 50 мм']]);
   }
 });
+
+// #106: в ряд идёт заготовка не выше ряда; заготовки ряда помечены номером it.row; подрезка сверху — сквозной рез
+test('мангал по умолчанию, лист 1500 × 3000: в одном ряду две заготовки разной высоты (больше 1 мм); все резы сквозные на всех заданиях во всех четырёх углах', () => {
+  const c=loadMangal({mode:'grill'});page(c);
+  const rows=run(c,`(N=>${RES}(N)[0].sheets.flatMap(s=>{if(!s.items.every(i=>Number.isInteger(i.row)))return [];const m={};s.items.forEach(i=>{(m[i.row]=m[i.row]||[]).push(i.h);});return Object.values(m).map(h=>Math.max(...h)-Math.min(...h));}))(nestJob({W:3000,H:1500,sk:'3000x1500'}))`);
+  assert.ok(rows.some(d=>d>1),'ряда с заготовками разной высоты нет: '+rows.join(','));
+  for(const [mode,cgr] of [['grill',false],['grill',true],['stove',false],['both',true]]){
+    const cc=loadMangal({mode});page(cc);
+    const r=run(cc,`(()=>{const out=[];for(const corner of ['lb','lt','rb','rt'])for(const [W,H] of [[3000,1500],[2500,1250],[2000,1000]]){
+      const N=nestJob({cgr:${cgr},W,H,sk:W+'x'+H,corner});N.groups.forEach(G=>gilScheme(N,G).sheets.forEach(s=>out.push([corner+' '+W+'x'+H,s.ok])));}return out;})()`);
+    assert.ok(r.length>0);
+    for(const [k,ok] of r)assert.ok(ok,`${mode} cgr=${cgr} ${k}: есть не сквозной рез`);}
+});

@@ -167,33 +167,34 @@ const gilRows=(N,G)=>G.types.filter(ty=>gilOn(ty,N)).map(ty=>({no:ty.no,name:ty.
 
 /* ---------- схема гильотины: прямоугольники заготовок на листе, только сквозные резы ----------
    Гильотина режет от края до края, ширины реза нет — зазор между заготовками 0, от края листа — подрезка кромки (поле, edge).
-   Раскладка полосами, 3 стадии: лист поперёк на полосы (1), полоса — на ряды (2), ряд — на заготовки одной высоты, остаток ряда — отход (3).
+   Раскладка полосами, 3 стадии: лист поперёк на полосы (1), полоса — на ряды (2), ряд — на заготовки не выше ряда (подрезка сверху — сквозной рез; перебор берёт и вариант «строго той же высоты»), остаток ряда — отход (3).
    Полосы только поперёк листа (пересмотр 14.11): лист заводят торцом и по упору рубят полосу на всю ширину листа, потом её — на детали;
    в полосе ряды снизу вверх. Перебор: 4 сортировки × 4 правила поворота на 90°; не влезло на лист — следующий лист.
    Лучший вариант — меньше листов, при равенстве — меньше отрублено по длине (сумма по листам: с другой стороны — целый остаток), затем меньше занятый прямоугольник.
    Полосы — от края листа выбранного угла («Угол листа»: ↙ по умолчанию), ряды в полосе — от края по вертикали; вся схема отражается по рамкам заготовок. */
 const GIL_MIN_W=50;   // мм: деталь, у которой меньшая сторона уже 50, гильотина не рубит: узкую полосу 5 мм ведёт винтом или саблей (задвижки 800 × 30, скобы 12 × 30)
 const GIL_MAX_MM=8;   // мм: лист толще гильотина не рубит — колосник печи 15 мм гильотина цеха не берёт
-function gilTry(rects,W,H,E,dir,sort,pol){const v=dir==='v',LS=(v?W:H)-2*E,LW=(v?H:W)-2*E,e=1e-6,fits=([a,b])=>a<=LS+e&&b<=LW+e;
+function gilTry(rects,W,H,E,dir,sort,pol,low){const v=dir==='v',LS=(v?W:H)-2*E,LW=(v?H:W)-2*E,e=1e-6,fits=([a,b])=>a<=LS+e&&b<=LW+e;
   // ориентация — [поперёк полосы, вдоль полосы]; pol 0 — длинной стороной поперёк, 1 — вдоль, 2 и 3 — как выгоднее (новая полоса: 2 — уже, 3 — шире)
   const ors=r=>{const p=Math.max(r.w,r.h),q=Math.min(r.w,r.h),A=p===q?[[p,q]]:[[p,q],[q,p]];return (pol===1?A.reverse():A).filter(fits);};
   const R=rects.map((r,i)=>({r,i,o:ors(r)})),too=R.filter(x=>!x.o.length).map(x=>x.r),key=x=>{const [a,b]=x.o[0];return [[a,b],[b,a],[a*b,a],[Math.max(a,b),a]][sort];};
   const L=R.filter(x=>x.o.length).sort((x,y)=>{const a=key(x),b=key(y);return b[0]-a[0]||b[1]-a[1]||x.i-y.i;}),sheets=[];
   const pick=(c,f)=>c.reduce((m,x)=>!m||f(x)<f(m)?x:m,null),first=c=>{for(const o of L0)for(const x of c)if(x.o===o)return x;return null;};let L0=null;
   const fit=(sh,x)=>{L0=x.o;let c=[];
-    sh.strips.forEach(st=>st.lv.forEach(lv=>x.o.forEach(o=>{if(Math.abs(lv.h-o[1])<e&&lv.used+o[0]<=st.w+e)c.push({st,lv,o});})));   // 1: ряд той же высоты
-    let b=pick(c,y=>y.st.w-y.lv.used-y.o[0]);if(b)return b;
+    sh.strips.forEach(st=>st.lv.forEach(lv=>x.o.forEach(o=>{if((low?o[1]<=lv.h+e:Math.abs(lv.h-o[1])<e)&&lv.used+o[0]<=st.w+e)c.push({st,lv,o});})));   // 1: ряд той же высоты; low — и ниже ряда (подрезка сверху, рез сквозной)
+    let b=pick(c,y=>(y.lv.h-y.o[1])*1e6+y.st.w-y.lv.used-y.o[0]);if(b)return b;   // меньше остаток по высоте ряда, затем по ширине
     c=[];sh.strips.forEach(st=>x.o.forEach(o=>{if(st.len+o[1]<=LW+e&&o[0]<=st.w+e)c.push({st,o});}));   // 2: новый ряд в полосе
     b=pol<2?first(c.sort((p,q)=>(p.st.w-p.o[0])-(q.st.w-q.o[0]))):pick(c,y=>(y.st.w-y.o[0])*y.o[1]);if(b)return b;
     c=x.o.filter(o=>sh.len+o[0]<=LS+e).map(o=>({o}));   // 3: новая полоса
     return pol<2?c[0]||null:pick(c,y=>pol===2?y.o[0]:-y.o[0]);};
+  let rowId=0;
   for(const x of L){let sh=null,f=null;for(const s of sheets){f=fit(s,x);if(f){sh=s;break;}}
     if(!f){sh={strips:[],len:0,items:[]};sheets.push(sh);f=fit(sh,x);}
     let {st,lv,o}=f;const [a,b]=o;
     if(!st){st={pos:sh.len,w:a,len:0,lv:[]};sh.strips.push(st);sh.len+=a;}
-    if(!lv){lv={y:st.len,h:b,used:0};st.lv.push(lv);st.len+=b;}
+    if(!lv){lv={y:st.len,h:b,used:0,id:rowId++};st.lv.push(lv);st.len+=b;}
     const s0=st.pos+lv.used,t0=lv.y;lv.used+=a;
-    sh.items.push(v?{x:E+s0,y:E+t0,w:a,h:b,r:x.r}:{x:E+t0,y:E+s0,w:b,h:a,r:x.r});}
+    sh.items.push(v?{x:E+s0,y:E+t0,w:a,h:b,r:x.r,row:lv.id}:{x:E+t0,y:E+s0,w:b,h:a,r:x.r,row:lv.id});}
   const box=sheets.reduce((s,sh)=>s+Math.max(...sh.items.map(i=>i.x+i.w))*Math.max(...sh.items.map(i=>i.y+i.h)),0);
   return {sheets:sheets.map(sh=>({items:sh.items})),too,box};}
 // резы гильотины по схеме: в прямоугольнике ищем сквозные резы (от края до края, не через заготовку) по краям заготовок; режем по всем резам того
@@ -207,9 +208,12 @@ function gilCuts(A,x0,y0,x1,y1){const e=1e-6,In=A.filter(r=>r.x<x1-e&&r.x+r.w>x0
   for(let i=0;i<b.length-1;i++){const s=vx?gilCuts(In,b[i],y0,b[i+1],y1):gilCuts(In,x0,b[i],x1,b[i+1]);cuts+=s.cuts;ok=ok&&s.ok;}
   return {cuts,ok};}
 function gilPack(rects,W,H,edge,corner='lb'){let best=null;const e=1e-6,len=r=>r.sheets.reduce((s,sh)=>s+Math.max(...sh.items.map(i=>i.x+i.w)),0);
-  for(let sort=0;sort<4;sort++)for(let pol=0;pol<4;pol++){const r=gilTry(rects,W,H,edge,'v',sort,pol);r.len=len(r);
-    if(!best||r.too.length<best.too.length||r.too.length===best.too.length&&(r.sheets.length<best.sheets.length||r.sheets.length===best.sheets.length&&
-      (r.len<best.len-e||Math.abs(r.len-best.len)<e&&r.box<best.box-e)))best=r;}
+  // перебор: 4 сортировки × 4 правила поворота × ряд строго той же высоты (как раньше) или и ниже ряда (low); схема с не сквозным резом отбрасывается — берётся лучшая из сквозных
+  for(const low of [false,true])for(let sort=0;sort<4;sort++)for(let pol=0;pol<4;pol++){const r=gilTry(rects,W,H,edge,'v',sort,pol,low);r.len=len(r);
+    r.ok=r.sheets.every(sh=>gilCuts(sh.items,0,0,W,H).ok);
+    const better=!best||(r.ok!==best.ok?r.ok:r.too.length<best.too.length||r.too.length===best.too.length&&(r.sheets.length<best.sheets.length||r.sheets.length===best.sheets.length&&
+      (r.len<best.len-e||Math.abs(r.len-best.len)<e&&r.box<best.box-e)));
+    if(better)best=r;}
   const [mx,my]=nestFlip(corner);
   best.sheets.forEach(sh=>{const a=sh.items.reduce((s,i)=>s+i.w*i.h,0),bw=Math.max(...sh.items.map(i=>i.x+i.w)),bh=Math.max(...sh.items.map(i=>i.y+i.h)),bx=bw*bh,c=gilCuts(sh.items,0,0,W,H);   // занято — от ↙, до отражения
     if(mx||my)sh.items.forEach(i=>{if(mx)i.x=W-i.x-i.w;if(my)i.y=H-i.y-i.h;});   // в выбранный угол: отражаются рамки заготовок

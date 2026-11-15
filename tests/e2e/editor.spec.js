@@ -853,6 +853,26 @@ test('mangal: «Гильотина» — по «Рассчитать», без �
   expect(r.errors).toEqual([]);
 });
 
+// #106: в ряд идёт заготовка ниже ряда — на мангале по умолчанию, лист 1500 × 3000, в одном ряду две заготовки разной высоты; резов не больше 35 (было 28, +25 %), число резов видно
+test('mangal: «Гильотина» плотнее — лист 1500 × 3000: в ряду заготовки разной высоты, резы видны в подписи листа', async ({page}) => {
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await page.locator('#nSheet').selectOption('1500x3000');
+  await openSub(page, 'gil');
+  await gilCut(page);
+  const cuts = +(/резов (\d+)/.exec(await page.locator('#gilBox figcaption').first().textContent())[1]);
+  expect(cuts).toBeGreaterThan(0);
+  expect(cuts).toBeLessThanOrEqual(35);
+  await expect(page.locator('#gilBox .ntot').first()).toContainText('Резы');
+  // рамки заготовок на схеме: рядом (впритык по x) стоят две с общим низом и разной высотой (>1 мм)
+  const mixed = await page.locator('#gilBox svg.gilsv').first().evaluate(s => {
+    const r = [...s.querySelectorAll('.gp rect')].map(e => ['x', 'y', 'width', 'height'].map(k => +e.getAttribute(k)));
+    return r.some(a => r.some(b => a !== b && Math.abs(a[0] + a[2] - b[0]) < 0.6 && Math.abs((a[1] + a[3]) - (b[1] + b[3])) < 0.6 && Math.abs(a[3] - b[3]) > 1));
+  });
+  expect(mixed).toBe(true);
+  expect(r.errors).toEqual([]);
+});
+
 test('mangal: «Угол листа» — гильотина и «С листа» в выбранном углу, выбор запоминается; колосник — общий', async ({page}) => {
   test.slow();
   const r = await openEditor(page, '/editor/mangal/#cut');
