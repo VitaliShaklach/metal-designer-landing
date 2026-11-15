@@ -118,6 +118,18 @@ test('оставить так: место правила 1 в keep (± 3 мм) �
   assert.equal(only(check(E,{keep:[{rule:2,at}]}),1).length,1);
   assert.ok(run('keepMatch')({rule:1,at:[0,0,0]},{rule:1,at:[0,0,4]},1)&&!run('keepMatch')({rule:1,at:[0,0,0]},{rule:1,at:[0,0,4]},2));
 });
+test('оставить так — по одной (Q35): место убирает одну строку, ближайшую; соседние строки того же правила в 5 мм остаются', () => {
+  const {sampleCube,SAMPLE_SCALE}=require('./helpers.js'),E=sampleCube(),o={scale:SAMPLE_SCALE};
+  const r2=only(check(E,o),2);assert.equal(r2.length,6);   // по три коротких ребра у угла, в 2 мм сайта друг от друга
+  const k=r2[0].at.map(x=>x+.1),left=only(check(E,Object.assign({keep:[{rule:2,at:k}]},o)),2);
+  assert.equal(left.length,5);assert.ok(!left.some(i=>i.at.every((x,j)=>x===r2[0].at[j])),'ушла именно ближайшая');
+  // два места рядом — две строки; одно и то же место дважды — тоже две (вторая запись берёт следующую ближайшую)
+  assert.equal(only(check(E,Object.assign({keep:[{rule:2,at:r2[0].at},{rule:2,at:k}]},o)),2).length,4);
+  // keepHits: какие строки закрыты местами keep; сведения не закрываются
+  const iss=[{rule:3,at:[0,0,0]},{rule:3,at:[0,0,2]},{rule:3,at:[0,0,9]},{rule:11,at:[0,0,0],info:true}];
+  assert.deepEqual([...run('keepHits')(iss,[{rule:3,at:[0,0,1.5]}],1)].map(i=>i.at[2]),[2]);
+  assert.deepEqual([...run('keepHits')(iss,[{rule:11,at:[0,0,0]},{rule:3,at:[0,0,30]}],1)],[]);
+});
 
 test('строже в области: неплоскость 0,7 мм — без области строки нет, «Здесь криво» рядом — есть, вдали — нет', () => {
   const {E}=raised(2.8),c=[0,400,130];

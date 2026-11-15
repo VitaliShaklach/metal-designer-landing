@@ -13,10 +13,10 @@ test.beforeEach(()=>{fs.rmSync(WORK,{recursive:true,force:true});fs.mkdirSync(pa
 test.afterAll(()=>{fs.rmSync(WORK,{recursive:true,force:true});fs.mkdirSync(WORK,{recursive:true});});
 
 // открыть мастерскую на образце и вкладку «Проверка»; ждать, пока список посчитается
-async function open(page){await page.goto('/editor/lynx/');await expect(page.locator('#stNow')).toHaveText('Открыта: Образец',{timeout:30000});
-  await page.locator('.stTab[data-tab=check]').click();await expect(page.locator('#ckSum')).toHaveText('Ошибок: 10',{timeout:30000});}
+async function open(page,n=10){await page.goto('/editor/lynx/');await expect(page.locator('#stNow')).toHaveText('Открыта: Образец',{timeout:30000});
+  await page.locator('.stTab[data-tab=check]').click();await expect(page.locator('#ckSum')).toHaveText('Ошибок: '+n,{timeout:30000});}
 const grp=(page,n)=>page.locator(`.ckGroup[data-rule="${n}"]`);
-const openGroup=async(page,n)=>{await grp(page,n).locator('.ckGH').click();await expect(grp(page,n).locator('.ckRow, .ckInfo').first()).toBeVisible();};
+const openGroup=async(page,n)=>{await grp(page,n).locator('.ckGH').click();await expect(grp(page,n).locator('.ckRow, .ckInfo, .ckKept').first()).toBeVisible();};
 const cam=page=>page.evaluate(()=>window.__studio.cam());
 const painted=page=>page.evaluate(()=>window.__studio.painted());
 // цвет каждой грани в 3D: номер грани → [r, g, b] 0…255
@@ -128,4 +128,82 @@ test('после правки строки старого списка не на
   await grp(page,2).locator('.ckRow').first().click({force:true});await expect(page.locator('.ckAct')).toHaveCount(0);   // клик по старому списку ничего не делает
   await page.evaluate(()=>{window.__hold=false;window.__held.splice(0).forEach(f=>f());});
   await expect(grp(page,7)).toHaveCount(1,{timeout:15000});await expect(grp(page,2).locator('.ckRow').first()).toBeEnabled();
+});
+
+// ---- по одной (Q25, Q31) и «Оставить так» (Q35) ----
+// строки правила 2 образца: по три ребра у каждого из двух верхних углов (x > 0 и x < 0); рёбра одного угла — в 2 мм сайта друг от друга, углы — в 300 мм
+const onRow=(page,n)=>grp(page,n).locator('.ckRow').evaluateAll(b=>b.findIndex(x=>x.classList.contains('on')));
+const side=page=>page.evaluate(()=>Math.sign(window.__studio.picked()[0]));   // у какого угла выбранная строка
+test('«Следующая» — к ближайшей ошибке того же правила, «Предыдущая» — назад; на последней «Следующая» выключена', async ({page}) => {
+  await open(page);await openGroup(page,2);
+  const next=page.locator('.ckAct .ckGoNext'),back=page.locator('.ckAct .ckGoPrev');
+  await grp(page,2).locator('.ckRow').first().click();
+  await expect(next).toHaveText('Следующая');await expect(back).toHaveText('Предыдущая');
+  await expect(back).toBeDisabled();await expect(next).toBeEnabled();await expect(page.locator('#ckNav')).toBeHidden();
+  await page.waitForTimeout(800);const c0=await cam(page),p0=await painted(page);
+  const seq=[0],sides=[await side(page)];
+  await next.click();seq.push(await onRow(page,2));sides.push(await side(page));
+  expect(sides[1]).toBe(sides[0]);   // ближайшая на модели — у того же угла
+  await expect.poll(async()=>moved(await cam(page),c0),{timeout:5000}).toBeGreaterThan(1);
+  expect(await painted(page)).not.toEqual(p0);await expect(page.locator('.ckRow.on')).toHaveCount(1);
+  // «Предыдущая» возвращает, «Следующая» ведёт туда же, где была
+  await back.click();expect(await onRow(page,2)).toBe(0);await expect(back).toBeDisabled();
+  await next.click();expect(await onRow(page,2)).toBe(seq[1]);
+  // по всем шести без повторов: сначала свой угол целиком, потом другой
+  for(let k=0;k<4;k++){await next.click();seq.push(await onRow(page,2));sides.push(await side(page));}
+  expect([...seq].sort()).toEqual([0,1,2,3,4,5]);expect(sides.map(x=>x*sides[0])).toEqual([1,1,1,-1,-1,-1]);
+  // на последней: «Следующая» выключена, клик ничего не ломает
+  await expect(next).toBeDisabled();await expect(next).toHaveAttribute('title','Это последняя ошибка правила 2');
+  await next.click({force:true});expect(await onRow(page,2)).toBe(seq[5]);await expect(page.locator('.ckRow.on')).toHaveCount(1);
+  await back.click();expect(await onRow(page,2)).toBe(seq[4]);await back.click();expect(await onRow(page,2)).toBe(seq[3]);
+  await expect(page.locator('.ckRow.on')).toHaveCount(1);await expect(grp(page,2).locator('.ckRow.on')).toHaveCount(1);   // другие правила проход не берёт
+});
+test('после «Сделать» вид тот же, выбор никуда не прыгает; «Следующая» ведёт от этого места', async ({page}) => {
+  await open(page);await openGroup(page,2);
+  await grp(page,2).locator('.ckRow').first().click();const s0=await side(page);
+  await page.locator('.ckFix').click();await expect(page.locator('.ckDo')).toBeVisible({timeout:15000});
+  await page.waitForTimeout(800);const c0=await cam(page);
+  await page.locator('.ckDo').click();
+  await expect(grp(page,2).locator('.ckN')).toHaveText('2',{timeout:15000});   // починка зеркальная: осталось по ребру у каждого угла
+  const nav=page.locator('#ckNav');
+  await expect(nav.locator('.ckGoNext')).toBeEnabled();await expect(nav.locator('.ckGoPrev')).toBeDisabled();
+  await expect(page.locator('.ckRow.on')).toHaveCount(0);
+  await page.waitForTimeout(800);expect(moved(await cam(page),c0)).toBeLessThan(1e-6);   // программа сама не перешла
+  await nav.locator('.ckGoNext').click();
+  const r1=await onRow(page,2);expect(r1).toBeGreaterThanOrEqual(0);expect(await side(page)).toBe(s0);   // ближайшая к починенному месту — у того же угла
+  await expect(nav).toBeHidden();await expect(page.locator('.ckAct .ckGoNext')).toBeEnabled();
+  await expect.poll(async()=>moved(await cam(page),c0),{timeout:5000}).toBeGreaterThan(1);
+  await page.locator('.ckAct .ckGoNext').click();expect(await onRow(page,2)).toBe(1-r1);expect(await side(page)).toBe(-s0);await expect(page.locator('.ckAct .ckGoNext')).toBeDisabled();
+  await page.locator('.ckAct .ckGoPrev').click();expect(await onRow(page,2)).toBe(r1);
+});
+test('«Оставить так»: строка ушла, запись в figure.json, после перезагрузки не вернулась', async ({page}) => {
+  await open(page);await openGroup(page,10);
+  await grp(page,10).locator('.ckRow').click();
+  await expect(page.locator('.ckAct .ckKeep')).toHaveText('Оставить так');
+  await page.locator('.ckKeep').click();
+  await expect(page.locator('#ckSum')).toHaveText('Ошибок: 9',{timeout:15000});await expect(grp(page,10)).toHaveCount(0);
+  await expect(grp(page,'keep').locator('.ckGT')).toHaveText('Оставлено так');await expect(grp(page,'keep').locator('.ckN')).toHaveText('1');
+  await expect(grp(page,1).locator('.ckN')).toHaveText('1');await expect(grp(page,2).locator('.ckN')).toHaveText('6');   // остальное на месте
+  await expect.poll(()=>read().keep.length,{timeout:3000}).toBe(1);
+  const k=read().keep[0];expect(k.rule).toBe(10);expect(k.text).toBe('точки не зеркальны на 6 мм');
+  [-75,-1.5,130].forEach((x,i)=>expect(k.at[i]).toBeCloseTo(x,4));
+  await expect(page.locator('#stNow')).toHaveText('Открыта: Образец · сохранено',{timeout:3000});
+  await open(page,9);
+  await expect(grp(page,10)).toHaveCount(0);await expect(grp(page,'keep').locator('.ckN')).toHaveText('1');
+  await openGroup(page,'keep');await expect(grp(page,'keep').locator('.ckKT')).toHaveText('10. точки не зеркальны на 6 мм');
+});
+test('«Вернуть» в группе «Оставлено так» возвращает строку в список; место без описания — названием правила', async ({page}) => {
+  const f=sampleFigure();f.keep=[{rule:10,at:[-75,-1.5,130],text:'точки не зеркальны на 6 мм'},{rule:1,at:[0,-.75,65]}];
+  fs.writeFileSync(path.join(WORK,SLUG,'figure.json'),JSON.stringify(f));
+  await open(page,8);await openGroup(page,'keep');
+  await expect(grp(page,'keep').locator('.ckN')).toHaveText('2');
+  await expect(grp(page,'keep').locator('.ckKT')).toHaveText(['10. точки не зеркальны на 6 мм','1. Грань плоская']);
+  await expect(grp(page,'keep').locator('.ckUnkeep').first()).toHaveText('Вернуть');
+  await grp(page,'keep').locator('.ckUnkeep').first().click();
+  await expect(page.locator('#ckSum')).toHaveText('Ошибок: 9',{timeout:15000});await expect(grp(page,10).locator('.ckN')).toHaveText('1');
+  await expect(grp(page,'keep').locator('.ckN')).toHaveText('1');
+  await expect.poll(()=>read().keep,{timeout:3000}).toEqual([{rule:1,at:[0,-.75,65]}]);
+  await grp(page,'keep').locator('.ckUnkeep').click();
+  await expect(page.locator('#ckSum')).toHaveText('Ошибок: 10',{timeout:15000});await expect(grp(page,'keep')).toHaveCount(0);
+  await expect.poll(()=>read().keep,{timeout:3000}).toEqual([]);
 });

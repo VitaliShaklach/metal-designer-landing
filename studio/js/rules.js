@@ -3,7 +3,7 @@
    Геометрия E={V,P,S} — в мм модели. Пороги th и val строк — в мм сайта (мм модели × scale, scale = H / высота модели) или в градусах.
    checkFigure(E,o) → Issue[]: {rule, at, faces, verts, val, text, fix, info, sub}; at — мм модели (туда летит камера);
    sub — вид строки внутри правила для починки (studio/js/fix.js): 'extra' (5, лишняя точка), 'nomirror', 'noface' (10), 'inside-out' (13), иначе null.
-   o: {th, scale, kind:'stand'|'wall', slots: контуры прорезей (номера точек), keep: [{rule, at}], t: толщина листа (мм),
+   o: {th, scale, kind:'stand'|'wall', slots: контуры прорезей (номера точек), keep: [{rule, at, text}] — места «Оставить так» (keepHits: каждое — одна строка), t: толщина листа (мм),
        region: {c: точка в мм модели, r: радиус в мм сайта} — «Здесь криво»: только этот шар и пороги вдвое строже,
        skip: номера правил, которые не считать (12 — долгое: детали и гибка; 15 считается вместе с ним),
        ref: эталон — refIndex(…) из studio/js/ref.js (или сам {V, F, trace}); base: фигура {V, P}, какой её открыли}.
@@ -37,6 +37,11 @@ const fmtN=(x,d=2)=>String(+x.toFixed(d)).replace('.',',');
 // «Здесь криво»: пороги вдвое строже — «не больше» делим на 2, «не меньше» умножаем на 2
 function thStrict(th){return Object.assign({},th,{planar:th.planar/2,ref:th.ref/2,sym:th.sym/2,edge:th.edge*2,near:th.near*2,width:th.width*2,ang:th.ang*2,seam:th.seam*2,lineLo:180-(180-th.lineLo)*2});}
 function keepMatch(issue,keep,scale){return issue.rule===keep.rule&&V3.len(V3.sub(issue.at,keep.at))*scale<5;}
+// «Оставить так» по одной (решение Q35): каждое место keep закрывает одну строку — ближайшую из подходящих (keepMatch), ещё не закрытую.
+// Допуск 5 мм — чтобы место пережило правки рядом; соседние строки того же правила (у рыси — короткие рёбра одного угла) не пропадают.
+function keepHits(issues,keep,scale){const hit=new Set();
+  (keep||[]).forEach(k=>{let best=null,bd=Infinity;issues.forEach(i=>{if(i.info||hit.has(i)||!keepMatch(i,k,scale))return;const d=V3.len(V3.sub(i.at,k.at));if(d<bd){bd=d;best=i;}});if(best)hit.add(best);});
+  return hit;}
 function ruleCounts(issues){const r={};issues.forEach(i=>{if(!i.info)r[i.rule]=(r[i.rule]||0)+1;});return r;}
 
 // clean.js (makeClean) — один на все вызовы; g — имена движка, которые он берёт
@@ -136,5 +141,5 @@ function checkFigure(E,o){o=o||{};const sc=o.scale||1,base=Object.assign({},TH_D
     o.slots.forEach(L=>{if(L.length<3)return;const w=W(V,L)*sc;if(w<t)add(16,polyC(V,L),[...new Set(L.flatMap(i=>VF[i]))],L.slice(),w,`прорезь ${fmtN(w,1)} мм — уже листа ${fmtN(t,1)} мм`);});}
   let r=out;
   if(o.region){const c=o.region.c,R=o.region.r/sc,near=p=>V3.len(V3.sub(p,c))<=R;r=r.filter(i=>near(i.at)||i.verts.some(v=>near(V[v])));}
-  if(o.keep&&o.keep.length)r=r.filter(i=>!o.keep.some(k=>keepMatch(i,k,sc)));
+  if(o.keep&&o.keep.length){const hit=keepHits(r,o.keep,sc);r=r.filter(i=>!hit.has(i));}
   return r.sort((a,b)=>a.rule-b.rule||(RULE_LOW.has(a.rule)?a.val-b.val:b.val-a.val));}

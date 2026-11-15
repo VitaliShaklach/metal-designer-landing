@@ -61,7 +61,7 @@ function autoClean(E,o){o=o||{};const sc=o.scale||1,maxRounds=o.maxRounds||20,sk
   let iss=full(cur);const before=ruleCounts(iss);
   // «Оставить так»: точки этих мест, а у правил про грань или деталь (AUTO_KFACE) — ещё и сами грани
   const KV=new Set(),KF=new Set();
-  if(o.keep&&o.keep.length)checkFigure(cur,Object.assign({},oo,{keep:null})).forEach(i=>{if(i.info||!o.keep.some(k=>keepMatch(i,k,sc)))return;
+  if(o.keep&&o.keep.length)keepHits(checkFigure(cur,Object.assign({},oo,{keep:null})),o.keep,sc).forEach(i=>{
     i.verts.forEach(v=>KV.add(v));if(AUTO_KFACE.has(i.rule))i.faces.forEach(f=>KF.add(autoFaceKey(cur.P[f])));});
   // шов на линии эталона? (по месту шва: фигура между правками другая, место то же)
   const LINE=new Map(),onLine=(X,a,b)=>{const A=X.V[a],B=X.V[b],k=(a<b?[A,B]:[B,A]).map(p=>p.map(x=>x.toFixed(3)).join()).join(';');let v=LINE.get(k);

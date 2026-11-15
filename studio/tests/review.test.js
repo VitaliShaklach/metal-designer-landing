@@ -67,3 +67,19 @@ test('прорези по местам: перенумерация и сдвиг
   const M=copy(E);loop.slice(0,3).forEach(v=>{M.V[v][1]+=.7;});
   assert.equal(run('reviewSlots')(M,pts,1).slots.length,1);assert.equal(run('reviewSlots')(M,pts,2).slots.length,0);
 });
+test('«Следующая» (Q31): ближайшая на модели строка того же правила, которой ещё не было; все были — null', () => {
+  const at=x=>[x,0,0],I=(rule,x,info)=>({rule,at:at(x),text:'т'+rule+'@'+x,info:!!info});
+  const iss=[I(2,30),I(2,0),I(3,1),I(2,10),I(2,31),I(11,2,true)];
+  const next=(a,seen,sc=1)=>{const r=run('reviewNext')(iss,2,at(a),seen.map(at),sc);return r&&r.at[0];};
+  assert.equal(next(0,[0]),10);              // не строка правила 3 (она ближе) и не сведение
+  assert.equal(next(10,[0,10]),30);          // от текущей, а не от первой
+  assert.equal(next(30,[0,10,30]),31);
+  assert.equal(next(31,[0,10,30,31]),null);  // последняя — дальше некуда
+  assert.equal(next(0,[]),0);                // сама строка ещё не была — она и ближайшая
+  // «та же строка» — ближе 1 мм сайта: при scale 2 строка в 0,4 мм модели уже была, в 0,6 мм — нет
+  assert.equal(next(0,[0,9.6],2),30);assert.equal(next(0,[0,9.4],2),10);assert.equal(next(0,[0,9.4],1),30);
+  assert.equal(run('reviewNext')(null,2,at(0),[],1),null);
+  // строка на прежнем месте (для «Предыдущая»): то же правило, ближе 1 мм сайта; нет — null
+  const find=(a,sc=1,rule=2)=>{const r=run('reviewFind')(iss,rule,at(a),sc);return r&&r.at[0];};
+  assert.equal(find(10.4),10);assert.equal(find(10.4,3),null);assert.equal(find(1,1,2),null);assert.equal(find(1,1,3),1);assert.equal(find(2,1,11),null);
+});

@@ -46,6 +46,15 @@
 .ckInfo{padding:5px 8px;color:var(--muted,#5B666B);overflow-wrap:anywhere}
 .ckAct{display:flex;flex-direction:column;gap:6px;padding:8px;border-bottom:1px solid var(--line,#C6CCCA);background:var(--panel,#F8F9F7);overflow-wrap:anywhere}
 .ckBtns{display:flex;gap:6px}
-.ckFix,.ckDo,.ckNo,#ckUndo{padding:5px 10px;border:1px solid var(--line,#C6CCCA);border-radius:6px;background:var(--soft,#E2E6E3);color:inherit;font:inherit;cursor:pointer}
-.ckFix,.ckDo{border-color:var(--accent,#C0501C);background:var(--accent,#C0501C);color:#fff;font-weight:600}
+.ckFix,.ckDo,.ckNo,#ckUndo,.ckFix,.ckDo{border-color:var(--accent,#C0501C);background:var(--accent,#C0501C);color:#fff;font-weight:600}
 .ckWhy,.ckWorse{color:#c0261c}.ckWait{color:var(--muted,#5B666B)}
+/* по одной: «Предыдущая» / «Следующая»; «Оставить так» и группа «Оставлено так» */
+.ckKeep,.ckGoPrev,.ckGoNext,.ckUnkeep{padding:5px 10px;border:1px solid var(--line,#C6CCCA);border-radius:6px;background:var(--soft,#E2E6E3);color:inherit;font:inherit;cursor:pointer}
+.ckKeep{align-self:flex-start}
+.ckGoPrev,.ckGoNext{flex:1}
+.ckGoPrev:disabled,.ckGoNext:disabled{opacity:.45;cursor:default}
+#ckNav{display:flex;flex-direction:column;gap:6px;padding:6px 8px;border:1px solid var(--accent,#C0501C);border-radius:6px;overflow-wrap:anywhere}#ckNav[hidden]{display:none}
+.ckNavT{font-weight:600}
+.ckKept{display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid var(--line,#C6CCCA)}.ckKept:last-child{border-bottom:0}
+.ckKT{flex:1;min-width:0;overflow-wrap:anywhere}
+.ckUnkeep{flex:none;padding:3px 8px}

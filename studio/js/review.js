@@ -12,8 +12,13 @@
      на прежних местах (ближе 1 мм сайта). Не нашлась — прорези сейчас нет (её залатали или разорвали): в slots её нет, а в pts её
      прежние точки остаются — «Отменить» вернёт дыру, и она снова будет прорезью. pts и idx в ответе — той же длины, что на входе;
      idx — номера точек каждой прорези или null, если её сейчас нет. prev — прежние idx: контур из тех же точек — та же прорезь, где бы он
-     ни был (страница поменяла размер или повернула фигуру — точки сдвинулись все разом, номера те же). */
-const REVIEW_SKIP=[12];
+     ни был (страница поменяла размер или повернула фигуру — точки сдвинулись все разом, номера те же).
+   Проход по одной (решения Q25, Q31): места — issue.at, мм модели; «то же место» — ближе REVIEW_SAME мм сайта (строже keepMatch:
+     у рыси соседние короткие рёбра одного угла — разные строки; «Оставить так» тоже закрывает одну строку — keepHits).
+   reviewNext(issues, rule, at, seen, scale) → Issue | null — «Следующая»: ближайшая к at строка правила rule (не сведение),
+     места которой нет в seen ([at, …]); все уже были — null.
+   reviewFind(issues, rule, at, scale) → Issue | null — строка правила rule на месте at (для «Предыдущая»); её починили — null. */
+const REVIEW_SKIP=[12],REVIEW_SAME=1;
 function reviewCheck(E,o){o=o||{};return checkFigure(E,Object.assign({},o,{skip:REVIEW_SKIP.concat(o.skip||[])}));}
 const reviewAllSeams=E=>!!(E.S&&E.S.length)&&addAllSeams(E).S.length===E.S.length;
 function reviewFix(E,issue,o){o=o||{};const r=fixIssue(E,issue,Object.assign({},o,{seams:reviewAllSeams(E)}));
@@ -31,3 +36,8 @@ function reviewSlots(E,pts,scale,prev){const tol=1/(scale||1),loops=reviewLoops(
     if(best<0)loops.forEach((L,li)=>{if(used.has(li))return;let n=0;old.forEach(p=>{if(L.some(v=>V3.len(V3.sub(E.V[v],p))<=tol))n++;});if(n>bn){bn=n;best=li;}});
     if(best>=0&&bn*2>=old.length){used.add(best);slots.push(loops[best].slice());idx.push(loops[best].slice());out.push(loops[best].map(v=>E.V[v].slice()));}else{idx.push(null);out.push(old);}});
   return {slots,pts:out,idx};}
+function reviewNear(issues,rule,at,pick){let best=null,bd=Infinity;
+  (issues||[]).forEach(i=>{if(i.info||i.rule!==rule||!pick(i))return;const d=V3.len(V3.sub(i.at,at));if(d<bd){bd=d;best=i;}});return best;}
+const reviewSame=(i,at,scale)=>V3.len(V3.sub(i.at,at))*(scale||1)<REVIEW_SAME;
+function reviewNext(issues,rule,at,seen,scale){return reviewNear(issues,rule,at,i=>!(seen||[]).some(p=>reviewSame(i,p,scale)));}
+function reviewFind(issues,rule,at,scale){return reviewNear(issues,rule,at,i=>reviewSame(i,at,scale));}
