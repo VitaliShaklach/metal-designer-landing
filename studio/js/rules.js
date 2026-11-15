@@ -1,7 +1,8 @@
 /* ---------- Проверка: правила чистой фигуры (спека docs/superpowers/specs/2026-11-09-figure-studio-design.md, «Чистая фигура») ----------
    Обычный скрипт: в браузере — рядом с движком editor/lynx/js, в Node — в одном vm-контексте с ним (studio/lib/engine.js).
    Геометрия E={V,P,S} — в мм модели. Пороги th и val строк — в мм сайта (мм модели × scale, scale = H / высота модели) или в градусах.
-   checkFigure(E,o) → Issue[]: {rule, at, faces, verts, val, text, fix, info}; at — мм модели (туда летит камера).
+   checkFigure(E,o) → Issue[]: {rule, at, faces, verts, val, text, fix, info, sub}; at — мм модели (туда летит камера);
+   sub — вид строки внутри правила для починки (studio/js/fix.js): 'extra' (5, лишняя точка), 'nomirror', 'noface' (10), 'inside-out' (13), иначе null.
    o: {th, scale, kind:'stand'|'wall', slots: контуры прорезей (номера точек), keep: [{rule, at}], t: толщина листа (мм),
        region: {c: точка в мм модели, r: радиус в мм сайта} — «Здесь криво»: только этот шар и пороги вдвое строже,
        skip: номера правил, которые не считать (12 — долгое: детали и гибка; 15 считается вместе с ним),
@@ -49,7 +50,7 @@ function refOf(x){if(x.isRef)return x;let R=REF_CACHE.get(x);if(!R)REF_CACHE.set
 
 function checkFigure(E,o){o=o||{};const sc=o.scale||1,base=Object.assign({},TH_DEFAULT,o.th||{}),th=o.region?thStrict(base):base,skip=new Set(o.skip||[]);
   const V=E.V,P=E.P,out=[],REF=o.ref?refOf(o.ref):null;
-  const add=(rule,at,faces,verts,val,text,info=false)=>out.push({rule,at:at.slice(),faces,verts,val,text,fix:!info&&RULE_FIX.has(rule),info});
+  const add=(rule,at,faces,verts,val,text,info=false,sub=null)=>out.push({rule,at:at.slice(),faces,verts,val,text,fix:!info&&RULE_FIX.has(rule),info,sub});
   // рёбра: ключ → {a, b, f: грани, d: обход ребра в грани (a→b — 1, b→a — −1)}; грани у точки. Повтор точки в грани (a = b) — не ребро, это правило 14
   const ek=(a,b)=>a<b?a+'_'+b:b+'_'+a,ED=new Map(),VF=V.map(()=>[]);
   P.forEach((Q,fi)=>Q.forEach((a,k)=>{const b=Q[(k+1)%Q.length],key=ek(a,b);if(!VF[a].includes(fi))VF[a].push(fi);if(a===b)return;let e=ED.get(key);if(!e)ED.set(key,e={a:Math.min(a,b),b:Math.max(a,b),f:[],d:[]});e.f.push(fi);e.d.push(a<b?1:-1);}));
@@ -75,7 +76,7 @@ function checkFigure(E,o){o=o||{};const sc=o.scale||1,base=Object.assign({},TH_D
   // 5. нет точек почти на прямой: отход от прямой в какой-нибудь грани точки в (180 − lineHi; 180 − lineLo]; на прямой во всех гранях — лишняя точка
   if(!skip.has(5)){const ok=180-th.lineHi,lo=180-th.lineLo;V.forEach((p,v)=>{const fs=VF[v].filter(fi=>ANG[fi]);if(!fs.length)return;
     const dev=fs.map(fi=>Math.abs(180-ANG[fi][P[fi].indexOf(v)]));
-    if(dev.every(d=>d<=ok)){add(5,p,fs,[v],180-Math.max(...dev),'лишняя точка: на прямой во всех гранях');return;}
+    if(dev.every(d=>d<=ok)){add(5,p,fs,[v],180-Math.max(...dev),'лишняя точка: на прямой во всех гранях',false,'extra');return;}
     const hit=fs.filter((_,k)=>dev[k]>ok&&dev[k]<=lo);if(hit.length){const d=Math.min(...dev.filter(d=>d>ok&&d<=lo));add(5,p,hit,[v],180-d,`точка почти на прямой: ${fmtN(180-d,1)}°`);}});}
   // 6. нет узких деталей: детали как на сайте (buildParts 1,5° / 1,5 мм в мм сайта), ширина как у красной подсветки (minW < порог − 0,5)
   const Vs=V.map(p=>V3.mul(p,sc)),OK=P.map((_,fi)=>fi).filter(fi=>!DEG[fi]);let PM=null;
@@ -105,10 +106,10 @@ function checkFigure(E,o){o=o||{};const sc=o.scale||1,base=Object.assign({},TH_D
     V.forEach((p,i)=>{if(!VF[i].length)return;const q=[-p[0],p[1],p[2]],[x,y,z]=key(q);let bj=-1,bd=R;
       for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(let dz=-1;dz<=1;dz++)(G.get([x+dx,y+dy,z+dz].join())||[]).forEach(j=>{const d=V3.len(V3.sub(V[j],q));if(d<bd){bd=d;bj=j;}});
       const d=bd*sc;if(bj>=0&&d<=th.sym){MM[i]=bj;return;}const k=bj<0?'n'+i:ek(i,bj);if(pairs.has(k))return;pairs.add(k);
-      if(bj<0)add(10,p,VF[i].slice(),[i],10,'нет зеркальной точки ближе 10 мм');
+      if(bj<0)add(10,p,VF[i].slice(),[i],10,'нет зеркальной точки ближе 10 мм',false,'nomirror');
       else add(10,V3.mul(V3.add(p,[-V[bj][0],V[bj][1],V[bj][2]]),.5),[...new Set(VF[i].concat(VF[bj]))],bj===i?[i]:[i,bj],bj===i?d/2:d,bj===i?`точка у середины не на середине: ${fmtN(d/2)} мм`:`точки не зеркальны на ${fmtN(d)} мм`);});
     const FK=new Map(P.map((Q,fi)=>[[...Q].sort((a,b)=>a-b).join(),fi]));
-    P.forEach((Q,fi)=>{if(DEG[fi]||Q.some(i=>MM[i]<0))return;if(!FK.has(Q.map(i=>MM[i]).sort((a,b)=>a-b).join()))add(10,polyC(V,Q),[fi],Q.slice(),0,'у грани нет зеркальной');});}
+    P.forEach((Q,fi)=>{if(DEG[fi]||Q.some(i=>MM[i]<0))return;if(!FK.has(Q.map(i=>MM[i]).sort((a,b)=>a-b).join()))add(10,polyC(V,Q),[fi],Q.slice(),0,'у грани нет зеркальной',false,'noface');});}
   // 11. похожесть: грань дальше th.ref от эталона (точки грани и сетка внутри через 10 мм сайта); эталона нет — от открытой фигуры
   const R11=!skip.has(11)&&(REF||o.base&&refOf(o.base));
   if(R11&&R11.n){const R=R11,D=faceDev(E,R,sc);
@@ -127,7 +128,7 @@ function checkFigure(E,o){o=o||{};const sc=o.scale||1,base=Object.assign({},TH_D
     P.forEach((Q,fi)=>{if(!DEG[fi]&&bad[fi]>good[fi])add(13,polyC(V,Q),[fi],Q.slice(),bad[fi],'грань смотрит внутрь (против соседей)');});
     // вся фигура вывернута: Σ (площадь·нормаль)·(центр грани − центр фигуры) < 0 — у замкнутой это 6 объёмов со знаком
     const c=V3.mul(V.reduce((s,p)=>V3.add(s,p),[0,0,0]),1/(V.length||1)),vol=OK.reduce((s,fi)=>s+V3.dot(NV[fi],V3.sub(polyC(V,P[fi]),c)),0);
-    if(vol<0)add(13,c,OK.slice(),[],0,'фигура вывернута: все грани смотрят внутрь');}
+    if(vol<0)add(13,c,OK.slice(),[],0,'фигура вывернута: все грани смотрят внутрь',false,'inside-out');}
   // 14. нет вырожденных граней
   if(!skip.has(14))P.forEach((Q,fi)=>{if(DEG[fi]){const a=V3.len(NV[fi])/2*sc*sc;add(14,polyC(V,Q),[fi],Q.slice(),a,`вырожденная грань: площадь ${fmtN(a)} мм²`);}});
   // 16. прорезь не уже толщины листа
