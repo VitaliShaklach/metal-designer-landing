@@ -24,4 +24,16 @@ function writeOBJ(name,V,F,UV){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'s
   if(UV){UV.flat().forEach(t=>L.push('vt '+t.join(' ')));F.forEach((t,i)=>L.push('f '+t.map((v,k)=>(v+1)+'/'+(i*3+k+1)).join(' ')));}
   else F.forEach(t=>L.push('f '+t.map(v=>v+1).join(' ')));
   fs.writeFileSync(f,L.join('\n')+'\n');return f;}
-module.exports={engine,run,g,box,faceWhere,TOP,edgePoint,vi,makePNG,writeOBJ};
+// куб 300 × 600 × 260 с текстурой: верх — вся картинка (u — по x, v — по z), светлая полоса поперёк верха на z = 130; остальные грани — фон
+function stripeRef(){const x=150,H=600,D=260,V=[[-x,0,0],[x,0,0],[x,H,0],[-x,H,0],[-x,0,D],[x,0,D],[x,H,D],[-x,H,D]],F=[],UV=[];
+  const bg=[.005,.995],uvTop=v=>[(V[v][0]+x)/300,1-V[v][2]/D];
+  const q=(a,b,c,d,top)=>[[a,b,c],[a,c,d]].forEach(t=>{F.push(t);UV.push(t.map(v=>top?uvTop(v):bg));});
+  q(0,3,2,1);q(4,5,6,7);q(0,1,5,4);q(3,7,6,2,true);q(0,4,7,3);q(1,2,6,5);
+  const obj=writeOBJ('stripe.obj',V,F,UV),png=obj.replace(/\.obj$/,'.png');
+  fs.writeFileSync(png,makePNG(300,260,(px,py)=>py>=128&&py<132?[230,230,230]:[100,100,100]));
+  return run('refIndex')(require('../lib/refbuild.js').buildRef(obj,png,{half:'left',frame:'meshy'}));}
+// верх куба 300 × 600 × 260 разрезан поперёк на z = c: шов без излома
+function cutTop(c){const E=box(300,600,260),top=faceWhere(E,p=>p[1]===600);
+  const a=edgePoint(E,vi(E,[-150,600,0]),vi(E,[-150,600,260]),[-150,600,c]),b=edgePoint(E,vi(E,[150,600,0]),vi(E,[150,600,260]),[150,600,c]);
+  return run('cutPoly')(E,top,a,b,false);}
+module.exports={engine,run,g,box,faceWhere,TOP,edgePoint,vi,makePNG,writeOBJ,stripeRef,cutTop};

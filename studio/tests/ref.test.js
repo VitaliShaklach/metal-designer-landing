@@ -1,6 +1,6 @@
 // эталон (studio/js/ref.js, studio/lib/refbuild.js): похожесть, зеркало, линии текстуры, «эталона нет»: node --test studio/tests/ref.test.js
 const test=require('node:test'),assert=require('node:assert'),fs=require('fs');
-const {run,box,faceWhere,edgePoint,vi,makePNG,writeOBJ}=require('./helpers.js');
+const {run,box,faceWhere,edgePoint,vi,makePNG,writeOBJ,stripeRef,cutTop}=require('./helpers.js');
 const {buildRef}=require('../lib/refbuild.js');
 const check=(E,o={})=>run('checkFigure')(E,Object.assign({scale:1,kind:'stand',skip:[12]},o));
 const only=(iss,n)=>iss.filter(i=>i.rule===n&&!i.info);
@@ -41,18 +41,6 @@ test('зеркало: бугор справа, эталон по левой по
   for(let k=0;k<200;k++){const p=[Math.sin(k*1.7)*170,300+Math.cos(k*.9)*320,130+Math.sin(k*2.3)*150];assert.ok(Math.abs(d(p)-d([-p[0],p[1],p[2]]))<1e-9,'точка '+p);}
 });
 
-// куб 300 × 600 × 260 с текстурой: верх — вся картинка (u — по x, v — по z), светлая полоса поперёк верха на z = 130; остальные грани — фон
-function stripeRef(){const x=150,H=600,D=260,V=[[-x,0,0],[x,0,0],[x,H,0],[-x,H,0],[-x,0,D],[x,0,D],[x,H,D],[-x,H,D]],F=[],UV=[];
-  const bg=[.005,.995],uvTop=v=>[(V[v][0]+x)/300,1-V[v][2]/D];
-  const q=(a,b,c,d,top)=>[[a,b,c],[a,c,d]].forEach(t=>{F.push(t);UV.push(t.map(v=>top?uvTop(v):bg));});
-  q(0,3,2,1);q(4,5,6,7);q(0,1,5,4);q(3,7,6,2,true);q(0,4,7,3);q(1,2,6,5);
-  const obj=writeOBJ('stripe.obj',V,F,UV),png=obj.replace(/\.obj$/,'.png');
-  fs.writeFileSync(png,makePNG(300,260,(px,py)=>py>=128&&py<132?[230,230,230]:[100,100,100]));
-  return run('refIndex')(buildRef(obj,png,{half:'left',frame:'meshy'}));}
-// верх куба 300 × 600 × 260 разрезан поперёк на z = c: шов без излома
-function cutTop(c){const E=box(300,600,260),top=faceWhere(E,p=>p[1]===600);
-  const a=edgePoint(E,vi(E,[-150,600,0]),vi(E,[-150,600,260]),[-150,600,c]),b=edgePoint(E,vi(E,[150,600,0]),vi(E,[150,600,260]),[150,600,c]);
-  return run('cutPoly')(E,top,a,b,false);}
 test('линии: шов по светлой полосе текстуры не лишний, шов в 60 мм от неё — лишний', () => {
   const R=stripeRef();
   assert.ok(R.T&&R.T.seams>0,'на кальке есть точки линии');

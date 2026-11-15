@@ -63,7 +63,8 @@ NODE_OPTIONS=--use-system-ca npx playwright test    # страница: desktop 
 - Что где: `studio/server.js` (сервер), `studio/lib/` (`engine.js` стенд для Node, `workdir.js` рабочая папка, `names.js` названия, `refbuild.js` эталон), `studio/js/` (Проверка и починка: общие скрипты для Node и страницы), `studio/ui/` (панель, её вкладывает сервер), `studio/tests/` (тесты).
 - Рабочие папки (в git не попадают): `studio/work/<slug>/` — фигуры (`figure.json`, `undo.json`, `ref/`, `versions/`), `studio/work/settings.json` и `state.json`; `studio/.wt/` — рабочие копии веток (задачи 7 и 9); `studio/tests/.work/` — рабочая папка тестов.
 - Автосохранение: правка в странице уходит в `figure.json` не позже чем через 500 мс. Запись атомарная (`.tmp` → `rename`); битый файл не пропадает, а переименовывается в `figure.broken-<время>.json`.
-- Тесты: `npm run test:studio` (Node), `NODE_OPTIONS=--use-system-ca npm run test:studio:e2e` (браузер, свой сервер на :8766).
+- Автоматика из командной строки: `node studio/tools/auto.js lynx14 --ref <obj> --half left --name "Рысь 2" --out <файл.json>` чистит фигуру циклом `autoClean` (`studio/js/auto.js`), печатает «было → стало» и пишет черновик, который открывает кнопка «Открыть модель» на `editor/lynx/`. На рыси 14 идёт около 2,5 минут. Отчёт Проверки без чистки: `node studio/tools/report.js lynx14 [--ref <obj>]`.
+- Тесты: `npm run test:studio` (Node, около 4 минут: в них чистка рыси 14 с эталоном), `NODE_OPTIONS=--use-system-ca npm run test:studio:e2e` (браузер, свой сервер на :8766).
 
 ## Как сайт публикуется
 

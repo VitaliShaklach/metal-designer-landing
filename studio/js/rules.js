@@ -67,8 +67,8 @@ function checkFigure(E,o){o=o||{};const sc=o.scale||1,base=Object.assign({},TH_D
   if(!skip.has(2))ED.forEach(e=>{const L=V3.len(V3.sub(V[e.b],V[e.a]))*sc;if(L<th.edge)add(2,mid(e.a,e.b),e.f.slice(),[e.a,e.b],L,`ребро ${fmtN(L,1)} мм`);});
   // 3. нет близких точек без ребра между ними: сетка с ячейкой в порог, соседние ячейки
   if(!skip.has(3)){const cell=th.near/sc,G=new Map(),key=p=>p.map(x=>Math.floor(x/cell));
-    V.forEach((p,i)=>{const k=key(p).join();(G.get(k)||G.set(k,[]).get(k)).push(i);});
-    V.forEach((p,i)=>{const [x,y,z]=key(p);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(let dz=-1;dz<=1;dz++)(G.get([x+dx,y+dy,z+dz].join())||[]).forEach(j=>{
+    V.forEach((p,i)=>{if(!VF[i].length)return;const k=key(p).join();(G.get(k)||G.set(k,[]).get(k)).push(i);});   // точки без граней (убранные правками) — не в счёт
+    V.forEach((p,i)=>{if(!VF[i].length)return;const [x,y,z]=key(p);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(let dz=-1;dz<=1;dz++)(G.get([x+dx,y+dy,z+dz].join())||[]).forEach(j=>{
       if(j<=i||ED.has(ek(i,j))||!VF[i].length||!VF[j].length)return;const d=V3.len(V3.sub(V[j],p))*sc;
       if(d<th.near)add(3,mid(i,j),[...new Set(VF[i].concat(VF[j]))],[i,j],d,`точки в ${fmtN(d,1)} мм без ребра между ними`);});});}
   // 4. нет острых углов в грани: угол меньше порога (или узкая щель внутрь — больше 360° − порог)

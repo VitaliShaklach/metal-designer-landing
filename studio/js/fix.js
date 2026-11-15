@@ -9,6 +9,9 @@
    (compact в конце работы), поэтому o.slots и номера в строках Проверки остаются верными.
    Правка остаётся, только если: строки правила стало меньше, форма ушла от эталона не дальше th.ref (правило 11 держит),
    изменённые грани плоские, граней-«бантиков» нет. Края (прорези, стена) не трогаются.
+   o.seams — после правки швы S ставятся на все рёбра (addAllSeams): у новых рёбер (разрез грани) шов тоже есть, как у рыси 14.
+   o.pin — точки (Set номеров), которые выравнивание не двигает.
+   o.judge(E, T, issue, chg) → причина отказа или null — суд вместо «строки правила стало меньше»: его даёт цикл автоматики (studio/js/auto.js).
    addAllSeams(E) → E: швы S на всех рёбрах между гранями. */
 
 const FX_ALL=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17];
@@ -42,10 +45,11 @@ function fxMerge(T,f,g){const L=mergeTwo(T.P,f,g);if(!L)return false;T.P.splice(
 
 // выравнивание рядом с точками seed: свободны точки граней, где они есть (и зеркальные), остальные закреплены; решатель — clean.js solve
 function fxTidy(c,T,seed,ring=1){if(c.raw)return;   // вариант «как есть»: выравнивание тянет соседние грани к идеальной плоскости и уводит форму
-  const mm=mirrorMap(T.V),free=new Set(seed);
+  const mm=c.mm,free=new Set(seed);   // зеркало — как у исходной фигуры: номера точек те же, слитые точки в грани не входят
   for(let r=0;r<ring;r++){const cur=new Set(free);T.P.forEach(Q=>{if(Q.some(v=>cur.has(v)))Q.forEach(v=>free.add(v));});}
   [...free].forEach(v=>{if(mm[v]>=0)free.add(mm[v]);});
   c.open.forEach(v=>free.delete(v));   // края (глаза, стена, прорези) не двигаем
+  if(c.o.pin)c.o.pin.forEach(v=>free.delete(v));   // и точки, закреплённые циклом автоматики
   const fs=[];T.P.forEach((Q,i)=>{if(Q.some(v=>free.has(v)))fs.push(i);});
   const idx=new Map(),V=[];fs.forEach(i=>T.P[i].forEach(v=>{if(!idx.has(v)){idx.set(v,V.length);V.push(T.V[v].slice());}}));
   const sub={V,P:fs.map(i=>T.P[i].map(v=>idx.get(v))),S:[]},pins=new Map();
@@ -59,7 +63,7 @@ function fxCount(c,T,n){const o=c.o;return checkFigure(T,{scale:c.sc,kind:o.kind
 // суд над вариантом: {why} или {T, moved, dev}
 function fxJudge(c,T,rep,mv,opt){const E=c.E,sc=c.sc,th=c.th,n0=E.V.length,rule=c.issue.rule;
   if(T.P.some(Q=>new Set(Q).size!==Q.length))return {why:'грань перехлестнулась: точки совпали'};
-  fxPruneS(T);
+  fxPruneS(T);if(c.o.seams)T.S=addAllSeams(T).S;
   if(rule!==8&&fxOpenCount(T)>c.openN)return {why:'правка оставила бы дыру'};
   const used=new Set();T.P.forEach(Q=>Q.forEach(v=>used.add(v)));
   let moved=Math.max(0,...mv);used.forEach(i=>{if(i<n0)moved=Math.max(moved,fxD(T.V[i],E.V[i])*sc);});
@@ -71,11 +75,14 @@ function fxJudge(c,T,rep,mv,opt){const E=c.E,sc=c.sc,th=c.th,n0=E.V.length,rule=
   const was=c.issue.rule===1?0:Math.max(0,...E.P.filter(Q=>Q.some(v=>c.issue.verts.includes(v))).map(Q=>polyDev(E.V,Q)*sc)),tol=Math.max(th.planar,was)+1e-6;
   let bad=0;chg.forEach(i=>{bad=Math.max(bad,polyDev(T.V,T.P[i])*sc);});
   if(bad>tol)return {why:(opt.merge?'слить нельзя: грань станет неплоской на ':'грань станет неплоской на ')+fmtN(bad)+' мм'};
+  // свой суд (цикл автоматики, studio/js/auto.js): o.judge(E, T, строка, изменённые грани T) → причина отказа или null; он раньше похожести — она считается дольше.
+  // weak — причина «ничего не вышло»: в ответ идёт, только если у других вариантов причины по делу нет
+  if(c.o.judge){const w=c.o.judge(E,T,c.issue,chg);if(w)return {why:w,weak:/(осталась|не поменяла)$/.test(w)};}
   // правило 11: похожесть (у новой грани на месте дыры сравнивать не с чем — только с настоящим эталоном)
   let dev=0;
   if(!opt.noDev||c.o.ref){const R=c.R(),sub={V:T.V,P:chg.map(i=>T.P[i])};if(sub.P.length){const D=faceDev(sub,R,sc);dev=Math.max(0,...D);}
     if(dev>th.ref)return {why:'правка уведёт форму от '+(c.o.ref?'эталона':'открытой фигуры')+' на '+fmtN(dev)+' мм (допуск '+fmtN(th.ref)+' мм)'};}
-  if(fxCount(c,T,rule)>=c.before)return {why:'строка правила '+rule+' после правки осталась'};
+  if(!c.o.judge&&fxCount(c,T,rule)>=c.before)return {why:'строка правила '+rule+' после правки осталась',weak:true};
   return {T,moved,dev};}
 
 // запуск одного варианта: mk() → {T, rep, mv} или строка-причина
@@ -103,8 +110,11 @@ const FX={
         const m=Math.min(...C.map(x=>x.pd)),tie=C.filter(x=>x.pd<=m+1e-6);
         const best=tie.length===1?tie[0]:tie.map(x=>({x,d:Math.max(0,...faceDev({V:T.V,P:x.pc},R,sc))})).sort((p,q)=>p.d-q.d)[0].x;
         return best.pc.flatMap(P=>pieces(P,depth-1));};
-      const P=pieces(Q,3);if(P.length<2)return 'разрезать не на что';T.P.splice(f,1,...P.slice(0,1));T.P.push(...P.slice(1));return {T};};
-    return {list:[solve(1),split],ordered:true};},
+      const P=pieces(Q,3);if(P.length<2)return 'разрезать не на что';T.P.splice(f,1,...P.slice(0,1));T.P.push(...P.slice(1));
+      // зеркальная грань режется так же (куски — через зеркальные точки, обход обратный): иначе у кусков не было бы зеркальных граней (правило 10)
+      const m=mirrorPoly(E,f,c.mm);if(m>=0&&m!==f){const MP=P.map(R=>R.map(v=>c.mm[v]===-2?v:c.mm[v]).reverse());T.P.splice(m,1,MP[0]);T.P.push(...MP.slice(1));}
+      return {T};};
+    return {list:[solve(1),split],ordered:true,lastWhy:true};},   // lastWhy: разрез — запасной вариант, причина отказа — его
   // 2, 3. короткое ребро и ступенька: две точки — в одну
   2(c){const r=fxCollapse(c,c.issue.verts[0],c.issue.verts[1]);return typeof r==='string'?r:{list:r};},
   3(c){const r=fxCollapse(c,c.issue.verts[0],c.issue.verts[1]);return typeof r==='string'?r:{list:r};},
@@ -191,17 +201,21 @@ function fxMergeCands(c,faces){const E=c.E,out=[],inside=new Set(faces);
   if(!out.length)return 'соседей нет';
   return {list:out.slice(0,3).map(x=>()=>fxMergePair(c,x.f,x.g)),ordered:true,merge:true};}
 
+// зеркало, края и число открытых рёбер фигуры — один раз на фигуру. Только в цикле автоматики (o.judge): там фигуры — свои копии,
+// на месте их никто не правит; фигуру страницы правят на месте (тянут точку), для неё считается каждый раз
+const FX_OF=new WeakMap();
+function fxOf(E){let k=FX_OF.get(E);if(!k)FX_OF.set(E,k={mm:mirrorMap(E.V),open:openVerts(E),openN:fxOpenCount(E)});return k;}
 function fixIssue(E,issue,o){o=o||{};const sc=o.scale||1,th=Object.assign({},TH_DEFAULT,o.th||{});
   const fail=why=>({E,moved:0,dev:0,why});
   if(issue.info||!RULE_FIX.has(issue.rule))return fail('это правило автоматика не чинит');
-  const c={E,sc,th,o,issue,mm:mirrorMap(E.V),open:openVerts(E),R:null,before:0};
+  const K=o.judge?fxOf(E):{mm:mirrorMap(E.V),open:openVerts(E),openN:fxOpenCount(E)},c={E,sc,th,o,issue,mm:K.mm,open:K.open,R:null,before:0};
   c.R=()=>c.RR||(c.RR=refOf(o.ref||o.base||E));
   let plan;try{plan=FX[issue.rule](c);}catch(e){return fail('правка не вышла: '+e.message);}
   if(typeof plan==='string')return fail(plan);
-  c.before=fxCount(c,E,issue.rule);c.openN=fxOpenCount(E);
-  const opt={merge:!!plan.merge,noDev:!!plan.noDev};let best=null,why=null;
+  c.before=o.judge?0:fxCount(c,E,issue.rule);c.openN=K.openN;
+  const opt={merge:!!plan.merge,noDev:!!plan.noDev};let best=null,why=null,weak=true;
   // каждый вариант — сначала как есть (c.raw: без выравнивания), потом с выравниванием; берётся тот, где точки ушли меньше
-  out:for(const mk of plan.list)for(const raw of [true,false]){c.raw=raw;const r=fxRun(c,mk,opt);if(r.why){why=why||r.why;continue;}
+  out:for(const mk of plan.list)for(const raw of [true,false]){c.raw=raw;const r=fxRun(c,mk,opt);if(r.why){if(!why||weak&&!r.weak||plan.lastWhy&&!r.weak){why=r.why;weak=!!r.weak;}continue;}
     if(!best||r.moved<best.moved-1e-9)best=r;if(plan.ordered)break out;}
   c.raw=false;
   return best?{E:best.T,moved:best.moved,dev:best.dev,why:null}:fail(why||'не получилось');}

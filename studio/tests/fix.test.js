@@ -29,6 +29,14 @@ test('правило 1: угол поднят на 6 мм при th.ref 1 — г
   const E=raised(6),n0=E.P.length,o={th:{ref:1}},{r}=fix1(E,1,o);
   assert.equal(r.why,null);assert.equal(r.E.P.length,n0+1);assert.equal(only(check(r.E,o),1).length,0);assert.ok(r.dev<=1+1e-6);
 });
+test('правило 1: зеркальная грань режется так же — симметрия цела', () => {
+  // обе боковины неплоские зеркально: верхние передние углы отведены на 6 мм наружу (верх и перед остаются плоскими)
+  const E=box();E.V[vi(E,[150,400,260])]=[156,400,260];E.V[vi(E,[-150,400,260])]=[-156,400,260];
+  const o={th:{ref:1}},n0=E.P.length;assert.equal(only(check(E,o),1).length,2);assert.equal(only(check(E,o),10).length,0);
+  const {r}=fix1(E,1,o);
+  assert.equal(r.why,null);assert.equal(r.E.P.length,n0+2);assert.equal(only(check(r.E,o),1).length,0);assert.equal(only(check(r.E,o),10).length,0,'у кусков есть зеркальные грани');
+  assert.equal(only(check(r.E,o),13).length,0);
+});
 test('правило 2: срезанный угол 4 мм — рёбра стянуты, сдвиг не больше ребра, зеркальная пара стянута так же', () => {
   const E0=cutCorners(4),i=only(check(E0),2)[0],r=fix(E0,i);
   assert.equal(r.why,null);assert.equal(only(check(r.E),2).length,2);   // из 6 коротких рёбер: у каждого треугольника стянуто по одному, остальные стали одним ребром

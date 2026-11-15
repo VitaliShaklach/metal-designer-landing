@@ -12,6 +12,11 @@ function loadFigure(run,arg){
   const f=run(`FIGURES[${JSON.stringify(arg)}]||{}`);
   return {name:f.name||arg,E:run(`modelPoly(${JSON.stringify(arg)})`),H:f.H||1000,kind:f.kind||'stand',slots:f.slots,keep:f.keep,th:f.th};}
 
+// эталон по ключам командной строки: половина по умолчанию левая; рамка — lynx14 у рыси 14, иначе meshy; текстура — PNG рядом с OBJ. Без --ref — R: null
+function loadRef(run,arg,opt){const half=opt.half||'left',frame=opt.frame||(arg==='lynx14'?'lynx14':'meshy'),png=opt.ref&&/\.obj$/i.test(opt.ref)?opt.ref.replace(/\.obj$/i,'.png'):null;
+  return {half,frame,R:opt.ref?run('refIndex')(buildRef(opt.ref,png&&fs.existsSync(png)?png:null,{half,frame})):null};}
+const refLine=(R,ref,half,frame)=>`Эталон ${ref}: ${half==='left'?'левая':'правая'} половина и её зеркало, рамка ${frame}, ${R.T?'калька из текстуры':'без текстуры (линий нет)'}`;
+
 // замер спеки: те же величины, что в таблице «Зачем» (пары точек — все, и с ребром между ними; углы — без исключений правил)
 function measure(run,E,sc){const V3=run('V3'),polyDev=run('polyDev'),V=E.V,P=E.P,dev=P.map(Q=>polyDev(V,Q)*sc);
   const ED=new Map();P.forEach(Q=>Q.forEach((a,k)=>{const b=Q[(k+1)%Q.length],key=a<b?a+'_'+b:b+'_'+a;ED.set(key,(ED.get(key)||0)+1);}));
@@ -26,13 +31,18 @@ function measure(run,E,sc){const V3=run('V3'),polyDev=run('polyDev'),V=E.V,P=E.P
     straight:ang.filter(a=>a>172).length,near,open:[...ED.values()].filter(n=>n===1).length};}
 
 const fmt=(x,d=2)=>String(+x.toFixed(d)).replace('.',',');
+// похожесть по половине (её точки и грани; refHalf — из зеркальной пары грань этой стороны и грани поперёк середины)
+function similarity(run,E,R,sc,half='left'){const s=half==='right'?-1:1,used=new Set(E.P.flat()),pts=E.V.filter((p,i)=>used.has(i)&&s*p[0]<=0).map(p=>run('refDist')(R,p)*sc).sort((a,b)=>a-b),D=run('faceDev')(E,R,sc),hf=run('refHalf')(E,half);
+  return {median:pts[pts.length>>1],p90:pts[Math.min(pts.length-1,Math.floor(pts.length*.9))],far2:pts.filter(d=>d>2).length,points:pts.length,faces:hf.length,far:[.5,1,1.5,2].map(t=>hf.filter(i=>D[i]>t).length)};}
+function simLines(sim,half='left'){const side=half==='left'?'левой':'правой';
+  return [`Точки ${side} половины: медиана ${fmt(sim.median)} мм, 90 % — до ${fmt(sim.p90)} мм, дальше 2 мм — ${sim.far2} из ${sim.points}`,
+    `Грани ${side} половины дальше 0,5 / 1 / 1,5 / 2 мм: ${sim.far.join(' / ')} из ${sim.faces}`];}
 function report(arg,opt={}){const {run}=loadFigureEngine(),F=loadFigure(run,arg),sc=F.H/run('meshBox')(F.E.V).size[1];
-  const half=opt.half||'left',frame=opt.frame||(arg==='lynx14'?'lynx14':'meshy'),png=opt.ref&&/\.obj$/i.test(opt.ref)?opt.ref.replace(/\.obj$/i,'.png'):null;
-  const R=opt.ref?run('refIndex')(buildRef(opt.ref,png&&fs.existsSync(png)?png:null,{half,frame})):null;
+  const {R,half,frame}=loadRef(run,arg,opt);
   const t0=Date.now(),iss=run('checkFigure')(F.E,{scale:sc,kind:F.kind,slots:F.slots,keep:F.keep,th:F.th,ref:R}),dt=Date.now()-t0;
   const RULES=run('RULES'),LOW=run('RULE_LOW'),lines=[];
   lines.push(`Фигура «${F.name}»: высота на сайте ${F.H} мм, scale ${fmt(sc,4)}, ${F.kind==='wall'?'настенная':'стоящая'}; Проверка — ${dt} мс`);
-  if(R)lines.push(`Эталон ${opt.ref}: ${half==='left'?'левая':'правая'} половина и её зеркало, рамка ${frame}, ${R.T?'калька из текстуры':'без текстуры (линий нет)'}`);
+  if(R)lines.push(refLine(R,opt.ref,half,frame));
   lines.push('','Правило | Сколько | Худшее','---|---|---');
   RULES.forEach(r=>{const own=iss.filter(i=>i.rule===r.n&&!i.info),info=iss.filter(i=>i.rule===r.n&&i.info);
     if(r.n===11&&!R){lines.push(`${r.n}. ${r.title} | — | нет эталона (--ref)`);return;}
@@ -48,18 +58,12 @@ function report(arg,opt={}){const {run}=loadFigureEngine(),F=loadFigure(run,arg)
     `Точки почти на прямой (углов граней больше 172°): ${m.straight}`,
     `Пары точек ближе 8 мм: ${m.near}`,
     `Открытые рёбра: ${m.open}`);
-  // похожесть по половине (её точки и грани; refHalf — из зеркальной пары грань этой стороны и грани поперёк середины)
-  let sim=null;
-  if(R){const s=half==='right'?-1:1,pts=F.E.V.filter(p=>s*p[0]<=0).map(p=>run('refDist')(R,p)*sc).sort((a,b)=>a-b),D=run('faceDev')(F.E,R,sc),hf=run('refHalf')(F.E,half);
-    const side=half==='left'?'левой':'правой';
-    sim={median:pts[pts.length>>1],p90:pts[Math.min(pts.length-1,Math.floor(pts.length*.9))],far2:pts.filter(d=>d>2).length,points:pts.length,faces:hf.length,far:[.5,1,1.5,2].map(t=>hf.filter(i=>D[i]>t).length)};
-    lines.push('','Похожесть на эталон (мм сайта):',
-      `Точки ${side} половины: медиана ${fmt(sim.median)} мм, 90 % — до ${fmt(sim.p90)} мм, дальше 2 мм — ${sim.far2} из ${sim.points}`,
-      `Грани ${side} половины дальше 0,5 / 1 / 1,5 / 2 мм: ${sim.far.join(' / ')} из ${sim.faces}`);}
+  const sim=R?similarity(run,F.E,R,sc,half):null;
+  if(sim)lines.push('','Похожесть на эталон (мм сайта):',...simLines(sim,half));
   return {text:lines.join('\n'),issues:iss,measure:m,similarity:sim};}
 
 if(require.main===module){const a=process.argv.slice(2),opt={},pos=[];
   for(let i=0;i<a.length;i++){if(a[i]==='--ref')opt.ref=a[++i];else if(a[i]==='--half')opt.half=a[++i];else if(a[i]==='--frame')opt.frame=a[++i];else pos.push(a[i]);}
   if(!pos[0]){console.error('как: node studio/tools/report.js <lynx14 | файл.json> [--ref <obj>] [--half left|right] [--frame meshy|lynx14]');process.exit(2);}
   try{console.log(report(pos[0],opt).text);}catch(e){console.error(e.message);process.exit(1);}}
-module.exports={report,measure};
+module.exports={report,measure,loadFigure,loadRef,refLine,similarity,simLines,fmt};

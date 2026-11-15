@@ -62,17 +62,24 @@ function faceDev(E,R,scale){const V=E.V,P=E.P,h=10/scale,out=new Float64Array(P.
     out[fi]=Math.max(0,best)*scale;at.push(bp||(Q.length?V[Q[0]].slice():[0,0,0]));});
   out.pos=at;return out;}
 
+// расстояния от ребра A–B до нарисованной линии эталона (светлый шов кальки), мм модели: выборки через 5 мм сайта; линии рядом нет — Infinity
+function refLineD(R,A,B,scale){const T=R.T,D=3/scale,rc=Math.ceil(D/TR_CELL)+1,n=Math.max(1,Math.round(V3.len(V3.sub(B,A))*scale/5)),ln=[];
+  for(let k=0;k<n;k++){const q=refNear(R,V3.add(A,V3.mul(V3.sub(B,A),(k+.5)/n))).q,j=traceNear(T,q[0],q[1],q[2],rc,1);ln.push(j<0?Infinity:Math.hypot(T.P[j*3]-q[0],T.P[j*3+1]-q[1],T.P[j*3+2]-q[2]));}
+  return ln;}
 // почему шов между гранями с нормалями n1, n2 нужен: на эталоне излом ≥ seam° (нормали эталона по обе стороны шва в 1,5 и 3 мм сайта)
 // или нарисованная линия (калька: светлый шов или ржавчина ближе 3 мм сайта). es — общие рёбра [{a, b}]; по медиане выборок через 5 мм сайта
-function refSeam(R,V,es,n1,n2,scale,seam){const D=3/scale,nm=V3.norm(V3.add(n1,n2)),cr=[],ln=[],T=R.T,rc=T?Math.ceil(D/TR_CELL)+1:0,cosS=Math.cos(seam*Math.PI/180);
+function refSeam(R,V,es,n1,n2,scale,seam){const D=3/scale,nm=V3.norm(V3.add(n1,n2)),cr=[],ln=[],T=R.T,cosS=Math.cos(seam*Math.PI/180);
   es.forEach(e=>{const A=V[e.a],B=V[e.b],L=V3.len(V3.sub(B,A)),u=V3.mul(V3.sub(B,A),1/(L||1)),dir=V3.norm(V3.cross(u,nm)),n=Math.max(1,Math.round(L*scale/5));
     for(let k=0;k<n;k++){const m=V3.add(A,V3.mul(V3.sub(B,A),(k+.5)/n));
       let c=1;[D/2,D].forEach(d=>{const a=refNear(R,V3.add(m,V3.mul(dir,d))).t,b=refNear(R,V3.sub(m,V3.mul(dir,d))).t;
         if(a>=0&&b>=0)c=Math.min(c,Math.abs(R.N[a*3]*R.N[b*3]+R.N[a*3+1]*R.N[b*3+1]+R.N[a*3+2]*R.N[b*3+2]));});   // |cos|: обход треугольников Meshy бывает разный
-      cr.push(c);
-      if(T){const q=refNear(R,m).q,j=traceNear(T,q[0],q[1],q[2],rc,1);ln.push(j<0?Infinity:Math.hypot(T.P[j*3]-q[0],T.P[j*3+1]-q[1],T.P[j*3+2]-q[2]));}}});
+      cr.push(c);}
+    if(T)ln.push(...refLineD(R,A,B,scale));});
   const med=a=>a.slice().sort((x,y)=>x-y)[a.length>>1];
   return {crease:cr.length>0&&med(cr)<=cosS,line:ln.length>0&&med(ln)<=D};}
+
+// шов A–B лежит на нарисованной линии эталона: по медиане выборок калька ближе 3 мм сайта (как line у refSeam); кальки нет — false
+function refOnLine(R,A,B,scale){if(!R.T)return false;const ln=refLineD(R,A,B,scale).sort((x,y)=>x-y);return ln[ln.length>>1]<=3/scale;}
 
 // грани половины фигуры (для замера похожести по половине, как в спеке): из зеркальной пары — та, что ближе к своей стороне;
 // грань поперёк середины (сама себе зеркальная) — тоже; грань без пары (хвост рыси) — по своему центру.
