@@ -460,6 +460,7 @@ test('lynx: публичная страница не знает про маст�
   await lynxReady(page);
   await expect(page.locator('#studioPanel')).toHaveCount(0);
   expect(await page.evaluate(() => typeof STUDIO)).toBe('undefined');
+  expect(await page.evaluate(() => [HOOKS.paint, HOOKS.pick])).toEqual([null, null]);   // подсветка и клик Проверки — только в мастерской
   expect(urls.filter(u => /:876[56]\b|\/api\//.test(u))).toEqual([]);
 });
 

@@ -7,18 +7,24 @@
    По одной (решения Q25, Q31): у выбранной строки «Предыдущая» / «Следующая» — к ближайшей на модели ошибке того же правила, где ещё не были
    (reviewNext); после «Сделать» и «Оставить так» строки нет — те же кнопки стоят над списком (#ckNav), проход идёт от этого места.
    «Оставить так» (Q35, только по одной): место {rule, at, text} — в figure.keep (уходит на диск с автосохранением, checkFigure его больше
-   не показывает); группа «Оставлено так», у каждого места «Вернуть». */
+   не показывает); группа «Оставлено так», у каждого места «Вернуть».
+   «Показать неточности» (Q23, Q30): переключатель, по умолчанию выключен — все места списка на модели сразу, цветом своего правила, и легенда
+   «цвет — правило — сколько»; клик по строке легенды оставляет один тип, повторный — все. Грань в нескольких местах — цвет того, что выше в списке.
+   Клик по подсвеченной грани на модели (HOOKS.pick) выбирает строку этого места. С «Картой отклонений» вместе не работает (__studio.solo). */
 (function(){
   const SD=window.__studio;if(!SD||typeof STUDIO==='undefined'||typeof Worker==='undefined')return;
   const pane=SD.tab('check','Проверка');
   const el=(tag,attrs,text)=>{const e=document.createElement(tag);Object.assign(e,attrs||{});if(text!==undefined)e.textContent=text;return e;};
-  const sumEl=el('div',{id:'ckSum'}),doneEl=el('div',{id:'ckDone',hidden:true}),navEl=el('div',{id:'ckNav',hidden:true}),listEl=el('div',{id:'ckList'});pane.append(sumEl,doneEl,navEl,listEl);
-  const NO_COPY='Проверка работает с рабочей копией. Откройте её на вкладке «Фигуры»',VIOLET='#9b3fd6';
+  const sumEl=el('div',{id:'ckSum'}),doneEl=el('div',{id:'ckDone',hidden:true}),navEl=el('div',{id:'ckNav',hidden:true}),listEl=el('div',{id:'ckList'});
+  const showL=el('label',{id:'ckShowL',hidden:true}),showIn=el('input',{type:'checkbox',id:'ckShow'}),legEl=el('div',{id:'ckLeg',hidden:true});
+  showL.append(showIn,document.createTextNode('Показать неточности'));pane.append(sumEl,showL,legEl,doneEl,navEl,listEl);
+  const NO_COPY='Проверка работает с рабочей копией. Откройте её на вкладке «Фигуры»';
   const ruleOf=n=>RULES.find(r=>r.n===n)||{n,title:'Правило '+n,color:'#888888'};
   const keyOf=i=>autoKey(i)+'@'+i.at.map(x=>Math.round(x*10)).join('_')+'#'+(i.faces||[]).slice().sort((a,b)=>a-b).join('_');
   const mm=x=>fmtN(x,x<10?1:0);
   // цвет места: цвет правила; протыкание (правило 9) — фиолетовый, как на сайте
-  const colorOf=i=>i.rule===9&&/протыкает/.test(i.text)?VIOLET:ruleOf(i.rule).color;
+  const colorOf=i=>i.rule===9&&/протыкает/.test(i.text)?PIERCE_COLOR:ruleOf(i.rule).color;
+  const COLS=new Map(),colObj=h=>COLS.get(h)||COLS.set(h,new THREE.Color(h)).get(h);
 
   let W=null,wErr='',th=null;
   let gen=0,seq=0;            // gen — номер состояния фигуры (растёт с каждой правкой); seq — номера запросов
@@ -27,7 +33,10 @@
   let sel='',prev=null;       // выбранная строка (keyOf) и её «Исправить»: {id, wait} → {res}
   let done=null,applying=false; // что сделали последним «Сделать» (для «Отменить»)
   let slotPts=[],slotIdx=[];  // прорези: точки, какими они были (мм модели), и номера точек (null — прорези сейчас нет)
-  let paint=null,paintSig=''; // подкраска: {faces:Set, color:THREE.Color, base: фигура страницы, для которой она} — другая фигура (правка) её не берёт
+  let paint=null;             // подкраска выбранного места: {faces:Set, color:THREE.Color, base: фигура страницы, для которой она, sig} — другая фигура (правка) её не берёт
+  let show=false,only=null;   // «Показать неточности» и нажатая строка легенды (номер правила; null — все)
+  let over=null;              // её подкраска: {map: грань → THREE.Color, who: грань → место (строка), base, sig}; null — выключена или список не для этой фигуры
+  let drawn='',drawnBase=null; // какую подкраску 3D уже показывает и для какой фигуры страницы
   const openG=new Set();      // раскрытые группы
   let walk=null;              // проход по одной: {rule, at — где сейчас, seen — где уже были, back / fwd — для «Предыдущая» и возврата «Следующей»} (места — мм модели)
 
@@ -37,10 +46,35 @@
   const fresh=()=>!!issues&&igen===gen;
 
   // ---- подкраска и камера ----
-  const facesOf=i=>{if(i.faces&&i.faces.length)return i.faces;const vs=new Set(i.verts||[]),r=[];ST.base.P.forEach((Q,f)=>{if(Q.some(v=>vs.has(v)))r.push(f);});return r;};
-  HOOKS.paint=pi=>paint&&paint.base===ST.base&&paint.faces.has(pi)?paint.color:null;
-  function setPaint(i,quiet){const fs=i?facesOf(i):[],sig=i?colorOf(i)+':'+fs.join(','):'';if(sig===paintSig)return;
-    paintSig=sig;paint=i?{faces:new Set(fs),color:new THREE.Color(colorOf(i)),base:ST.base}:null;if(!quiet)renderAll();}
+  // грани места: свои или все грани у его точек (точка → грани — один раз на фигуру страницы; место → грани — один раз на строку)
+  let VF=null;const FC=new WeakMap();
+  const vfOf=()=>{if(!VF||VF.P!==ST.base.P){const m=new Map();ST.base.P.forEach((Q,f)=>Q.forEach(v=>{(m.get(v)||m.set(v,[]).get(v)).push(f);}));VF={P:ST.base.P,m};}return VF.m;};
+  const facesOf=i=>{if(i.faces&&i.faces.length)return i.faces;const c=FC.get(i);if(c&&c.P===ST.base.P)return c.r;
+    const m=vfOf(),r=[...new Set((i.verts||[]).flatMap(v=>m.get(v)||[]))].sort((a,b)=>a-b);FC.set(i,{P:ST.base.P,r});return r;};
+  // выбранное место — поверх «Показать неточности»
+  HOOKS.paint=pi=>{if(paint&&paint.base===ST.base&&paint.faces.has(pi))return paint.color;return over&&over.base===ST.base&&over.map.get(pi)||null;};
+  // 3D перерисовывается, только если подкраска поменялась (или фигура страницы другая, а красить есть что)
+  function repaint(quiet){const sig=(paint?paint.sig:'')+'|'+(over?over.sig:'');if(sig===drawn&&(sig==='|'||drawnBase===ST.base))return;
+    drawn=sig;drawnBase=ST.base;if(!quiet)renderAll();}
+  // при «Показать неточности» выбранное место светлее остальных мест своего правила — иначе его среди них не видно
+  const WHITE=new THREE.Color(1,1,1);
+  function setPaint(i,quiet){const fs=i?facesOf(i):[],h=i?colorOf(i):'';
+    paint=i?{faces:new Set(fs),color:show?colObj(h).clone().lerp(WHITE,.5):colObj(h),base:ST.base,sig:h+(show?'+':'')+':'+fs.join(',')}:null;repaint(quiet);}
+  // строки ошибок так, как они идут в списке: по правилам, внутри правила — по порядку
+  function errGroups(){const by=new Map();(issues||[]).forEach(i=>{if(!i.info)(by.get(i.rule)||by.set(i.rule,[]).get(i.rule)).push(i);});
+    return [...by.keys()].sort((a,b)=>a-b).map(n=>[n,by.get(n)]);}
+  // «Показать неточности»: грань берёт цвет первого в списке места, где она есть (только для посчитанного списка этой фигуры)
+  function buildOver(){over=null;if(!show||!fresh()||!SD.cur())return;const map=new Map(),who=new Map();
+    errGroups().forEach(([n,rows])=>{if(only!==null&&n!==only)return;rows.forEach(i=>{const c=colObj(colorOf(i));facesOf(i).forEach(f=>{if(!map.has(f)){map.set(f,c);who.set(f,i);}});});});
+    over={map,who,base:ST.base,sig:[...map].map(([f,c])=>f+':'+c.getHexString()).join(',')};}
+  const claim=SD.solo('issues',()=>{if(show)setShow(false);});   // включились — «Карта отклонений» и другие такие переключатели выключаются
+  function setShow(v){show=!!v;showIn.checked=show;only=null;if(show)claim();buildOver();setPaint(selIssue());draw();}
+  function setOnly(n){only=only===n?null:n;buildOver();repaint();draw();}
+  showIn.addEventListener('change',()=>setShow(showIn.checked));
+  // клик по подсвеченной грани — строка её места (камера не летит: место и так перед глазами); в режиме правки грань выбирает и редактор
+  // Пока список пересчитывается («Оставить так»), подсветка прежняя — клик по ней ничего не выбирает, но и детали страница не выбирает
+  HOOKS.pick=f=>{if(!show||!over||over.base!==ST.base)return false;const i=over.who.get(f);if(!i)return false;
+    if(fresh()){if(SD.showTab)SD.showTab('check');select(i,true);}return !ST.edit;};
   // камера — к месту, со стороны его граней; расстояние — по размеру места, но не дальше, чем сейчас
   function fly(i){const c=SD.cur();if(!c)return;const V=ST.base.V,at=SD.toPage([i.at])[0],t=new THREE.Vector3(at[0],at[1],at[2]);
     let n=[0,0,0];facesOf(i).forEach(f=>{const q=polyNorm(V,ST.base.P[f]);n=V3.add(n,q);});
@@ -56,11 +90,13 @@
   function onMsg(m){
     if(m.type==='check'){if(m.id!==inflight)return;inflight=0;
       if(again||m.gen!==gen||!SD.cur()){again=false;return recheck();}
-      issues=m.issues;igen=m.gen;wErr='';const i=selIssue();if(!i){sel='';prev=null;}setPaint(i);return draw();}
+      issues=m.issues;igen=m.gen;wErr='';const i=selIssue();if(!i){sel='';prev=null;}
+      if(only!==null&&!issues.some(x=>!x.info&&x.rule===only))only=null;   // этого типа больше нет — легенда снова на все
+      buildOver();setPaint(i);return draw();}
     if(m.type==='fix'){if(!prev||prev.id!==m.id||m.gen!==gen)return;prev={res:m};return draw();}
     if(m.type==='error'){
       if(m.of==='fix'){if(prev&&prev.id===m.id){prev={res:{why:'правка не вышла: '+m.error,worse:[]}};draw();}return;}
-      if(m.of==='check'&&m.id===inflight){inflight=0;issues=null;wErr=m.error;if(again){again=false;return recheck();}}
+      if(m.of==='check'&&m.id===inflight){inflight=0;issues=null;wErr=m.error;buildOver();repaint();if(again){again=false;return recheck();}}
       draw();}}
 
   // прорези — по местам: после любой правки находим их заново и пишем номера точек в фигуру (уйдут на диск с автосохранением)
@@ -68,20 +104,20 @@
 
   HOOKS.changed.push(()=>{gen++;prev=null;if(!applying)done=null;if(ST.drag||!SD.cur())return draw();
     const E=modelE();trackSlots(E);recheck(E);});
-  SD.watch(()=>{const c=SD.cur();gen++;sel='';prev=null;done=null;issues=null;wErr='';walk=null;
+  SD.watch(()=>{const c=SD.cur();gen++;sel='';prev=null;done=null;issues=null;wErr='';walk=null;show=false;only=null;over=null;showIn.checked=false;
     if(c){const f=c.figure;slotIdx=(f.slots||[]).map(L=>L.slice());slotPts=slotIdx.map(L=>L.map(v=>f.V[v]).filter(Boolean).map(p=>p.slice()));
       if(W)W.postMessage({type:'figure',ref:c.ref,base:c.base});setPaint(null);}
     else{slotPts=[];slotIdx=[];setPaint(null,true);}   // копия закрылась: страница сейчас сама перерисует другую фигуру
     recheck();});
 
   // ---- действия ----
-  function go(i){sel=keyOf(i);prev=null;openG.add(String(i.rule));setPaint(i);fly(i);draw();
+  function go(i,still){sel=keyOf(i);prev=null;openG.add(String(i.rule));setPaint(i);if(!still)fly(i);draw();
     const r=listEl.querySelector('.ckRow.on');if(r&&r.scrollIntoView)r.scrollIntoView({block:'nearest'});}
   // клик по строке: то же правило — шаг прохода (его можно вернуть «Предыдущей»), другое — новый проход
   const beenAt=(i,k)=>walk.seen.some(q=>reviewSame(i,q,k));
-  function select(i){if(!fresh())return;const k=SD.cur().k;
+  function select(i,still){if(!fresh())return;const k=SD.cur().k;
     if(walk&&walk.rule===i.rule){if(!reviewSame(i,walk.at,k)){walk.back.push(walk.at);walk.fwd=[];}}else walk={rule:i.rule,seen:[],back:[],fwd:[]};
-    walk.at=i.at;if(!beenAt(i,k))walk.seen.push(i.at);go(i);}
+    walk.at=i.at;if(!beenAt(i,k))walk.seen.push(i.at);go(i,still);}
   // куда ведут кнопки: «Следующая» — сначала туда, откуда вернулись «Предыдущей», иначе ближайшая, где ещё не были; «Предыдущая» — назад по шагам
   // (починенные места пропускаются)
   function target(dir){if(!walk||!fresh())return null;const k=SD.cur().k,st=dir<0?walk.back:walk.fwd;
@@ -125,15 +161,23 @@
     h.append(sw,el('span',{className:'ckGT'},title),el('span',{className:'ckN'},String(rows.length)));h.setAttribute('aria-expanded',String(on));
     h.addEventListener('click',()=>{if(on)openG.delete(id);else openG.add(id);draw();});g.append(h);
     if(on){const box=el('div',{className:'ckRows'});rows.forEach(i=>box.append(render(i)));g.append(box);}return g;}
+  // легенда: строка на правило — цвет (у правила 9 — и протыкание), правило, сколько; нажата — на модели только этот тип.
+  // Список старой фигуры — легенда не нажимается, пока не пришёл новый
+  function legend(G){legEl.textContent='';legEl.hidden=!(show&&G.length);if(legEl.hidden)return;
+    G.forEach(([n,rows])=>{const r=ruleOf(n),b=el('button',{type:'button',className:'ckLg'+(only===n?' on':only!==null?' off':''),disabled:!fresh()});b.dataset.rule=String(n);b.setAttribute('aria-pressed',String(only===n));
+      [...new Set(rows.map(colorOf))].forEach(c=>{const sw=el('span',{className:'ckSw'});sw.style.background=c;b.append(sw);});
+      b.append(el('span',{className:'ckLgT'},n+'. '+r.title),el('span',{className:'ckLgN'},String(rows.length)));
+      b.title=only===n?'Показать все типы':'Показать на модели только этот тип';b.addEventListener('click',()=>setOnly(n));legEl.append(b);});}
   function draw(){const c=SD.cur();listEl.textContent='';doneEl.textContent='';doneEl.hidden=!(done&&c);navEl.textContent='';navEl.hidden=true;sumEl.classList.toggle('bad',!!wErr);
+    showL.hidden=!c||!!wErr;if(showL.hidden||!issues)legend([]);
     if(wErr){sumEl.textContent='Проверка не посчиталась: '+wErr;return;}
     if(!c){sumEl.textContent=NO_COPY;return;}
     if(done){const u=el('button',{type:'button',id:'ckUndo'},'Отменить');u.addEventListener('click',()=>{done=null;undo();});doneEl.append(el('span',{},'Сделано: '+done.text+'. '),u);}
     if(!issues){sumEl.textContent='Считаю…';return;}
-    const errs=issues.filter(i=>!i.info),infos=issues.filter(i=>i.info),by=new Map();errs.forEach(i=>{(by.get(i.rule)||by.set(i.rule,[]).get(i.rule)).push(i);});
+    const G=errGroups(),errs=issues.filter(i=>!i.info),infos=issues.filter(i=>i.info);legend(G);
     sumEl.textContent=(errs.length?'Ошибок: '+errs.length:'Ошибок нет')+(inflight?' · считаю…':'');
-    [...by.keys()].sort((a,b)=>a-b).forEach(n=>{const r=ruleOf(n);
-      listEl.append(group(String(n),n+'. '+r.title,r.color,by.get(n),i=>{const on=keyOf(i)===sel,it=el('div',{className:'ckItem'}),b=el('button',{type:'button',className:'ckRow'+(on?' on':''),disabled:!fresh()},i.text);   // список старой фигуры не нажимается, пока не пришёл новый
+    G.forEach(([n,rows])=>{const r=ruleOf(n);
+      listEl.append(group(String(n),n+'. '+r.title,r.color,rows,i=>{const on=keyOf(i)===sel,it=el('div',{className:'ckItem'}),b=el('button',{type:'button',className:'ckRow'+(on?' on':''),disabled:!fresh()},i.text);   // список старой фигуры не нажимается, пока не пришёл новый
         b.addEventListener('click',()=>select(i));it.append(b);if(on&&fresh())it.append(actBox(i));return it;}));});
     const K=c.figure.keep||[];
     if(K.length)listEl.append(group('keep','Оставлено так','',K.map((k,n)=>({k,n})),({k,n})=>{const r=el('div',{className:'ckKept'});
@@ -144,10 +188,11 @@
   // для тестов и других вкладок: где камера, какие грани подкрашены
   SD.cam=()=>[...camera.position.toArray(),...controls.target.toArray()];
   SD.painted=()=>paint?[...paint.faces].sort((a,b)=>a-b):[];
+  SD.marked=()=>over&&over.base===ST.base?[...over.map.keys()].sort((a,b)=>a-b):[];   // грани «Показать неточности»
   SD.picked=()=>{const i=selIssue();return i&&SD.cur()?SD.toPage([i.at])[0]:null;};   // место выбранной строки, мм сайта
 
   // ---- старт ----
-  try{W=new Worker('/studio/ui/check-worker.js');W.onmessage=e=>onMsg(e.data);W.onerror=e=>{wErr=e.message||'фоновый поток не запустился';inflight=0;draw();};
+  try{W=new Worker('/studio/ui/check-worker.js');W.onmessage=e=>onMsg(e.data);W.onerror=e=>{wErr=e.message||'фоновый поток не запустился';inflight=0;issues=null;buildOver();repaint();draw();};
     W.postMessage({type:'init',urls:STUDIO.engine});}catch(e){wErr=e.message;}
   draw();
   SD.api('settings',{}).then(r=>{th=r.th;const c=SD.cur();if(c&&W)W.postMessage({type:'figure',ref:c.ref,base:c.base});recheck();},e=>{wErr=e.message;draw();});

@@ -1,7 +1,8 @@
 /* ---------- Панель, таблицы, расчёт ---------- */
 const $=id=>document.getElementById(id);
-// крючки для мастерской (studio/ui/panel.js): changed — после каждой смены фигуры (правка, отмена, возврат, перетаскивание точки), paint — раскраска граней (задача 6)
-const HOOKS={changed:[],paint:null};
+// крючки для мастерской (studio/ui/panel.js): changed — после каждой смены фигуры (правка, отмена, возврат, перетаскивание точки), paint — раскраска граней (задача 6),
+// pick(номер грани) — клик по грани на 3D; вернул true — клик забран, деталь или грань страница не выбирает. На сайте оба пусты
+const HOOKS={changed:[],paint:null,pick:null};
 const fireChanged=()=>HOOKS.changed.forEach(f=>{try{f();}catch(e){console.error(e);}});
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 // числа по-русски; форматтер на каждое число заново — 0,4 мс, а таблица зовёт его сотни раз: держим по одному на число знаков
@@ -377,6 +378,7 @@ $('cTrace').addEventListener('change',e=>{ST.trace=e.target.checked;if(ST.trace&
   cv.addEventListener('pointerup',e=>{if(drag){const d=drag;drag=null;ST.drag=false;controls.enabled=true;if(d.moved){UNDO.push(d.snap);REDO.length=0;renderAll();fireChanged();}down=null;return;}
     if(!down||!CUR)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>5||e.button!==0)return;
     const t=pickTri(e),pi=t>=0?CUR.R.partOf[t]:-1;
+    if(HOOKS.pick&&t>=0&&!ST.seam&&!e.shiftKey&&HOOKS.pick(CUR.M3.T?CUR.M3.T[t]:t))return;
     if(ST.edit&&isPoly()){const fp=t>=0?ST.base.T[t]:-1;
       if(ST.seam){if(fp!==ST.sp||ST.sp<0)return;const h=pickHit(e);if(!h)return;const B=ST.base,Q=B.P[ST.sp];let be=null,bd=15;   // ближайшее ребро выбранной грани
         Q.forEach((a,k)=>{const b=Q[(k+1)%Q.length],ab=V3.sub(B.V[b],B.V[a]),L=V3.len(ab),u=Math.max(0,Math.min(1,V3.dot(V3.sub(h,B.V[a]),ab)/(L*L||1))),q=V3.add(B.V[a],V3.mul(ab,u)),d=V3.len(V3.sub(h,q));if(d<bd&&u*L>8&&(1-u)*L>8){bd=d;be={a,b,q};}});

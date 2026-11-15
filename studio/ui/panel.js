@@ -117,8 +117,12 @@
   $('mName').addEventListener('input',()=>{if(isOpen())schedule();now();});
   // для других вкладок (studio/ui/check.js): api — команда серверу; touch — записать фигуру (поменялось что-то кроме геометрии);
   // watch(fn) — fn зовётся, когда рабочая копия открылась или закрылась
-  // toModel / toPage — точки страницы в мм модели и обратно (у открытой копии)
-  window.__studio={cur:()=>cur,flush,say,tab,api,toModel,toPage,touch:()=>{if(isOpen())schedule();},watch:fn=>{WATCH.push(fn);}};
+  // toModel / toPage — точки страницы в мм модели и обратно (у открытой копии); showTab(id) — показать вкладку
+  // solo(id, off) → on(): переключатели раскраски модели, которые вместе не работают («Показать неточности», «Карта отклонений», решение Q30):
+  // on() — «я включился», у всех остальных зовётся их off()
+  const SOLO=new Map();
+  const solo=(id,off)=>{SOLO.set(String(id),off);return ()=>SOLO.forEach((f,k)=>{if(k!==String(id))try{f();}catch(e){console.error(e);}});};
+  window.__studio={cur:()=>cur,flush,say,tab,showTab,api,toModel,toPage,solo,touch:()=>{if(isOpen())schedule();},watch:fn=>{WATCH.push(fn);}};
 
   // ---- старт: ждём, пока страница построит свою первую фигуру, и открываем последнюю ----
   const ready=()=>typeof CUR!=='undefined'&&CUR;

@@ -207,3 +207,102 @@ test('«Вернуть» в группе «Оставлено так» возв�
   await expect(page.locator('#ckSum')).toHaveText('Ошибок: 10',{timeout:15000});await expect(grp(page,'keep')).toHaveCount(0);
   await expect.poll(()=>read().keep,{timeout:3000}).toEqual([]);
 });
+
+// ---- «Показать неточности» (Q23, Q30) ----
+// места образца: правило 1 — низ; 2 — по ребру у срезанных углов (две грани); 6 — срезы; 10 — грани у опущенного угла (низ среди них)
+const RULE_COL={1:[0xe0,0xa0,0x20],2:[0xe0,0x70,0x20],6:[0xd0,0x1f,0x1f],10:[0x2a,0x9a,0x50]};
+const show=page=>page.locator('#ckShow');
+const marked=page=>page.evaluate(()=>window.__studio.marked());
+const lg=(page,n)=>page.locator(`#ckLeg .ckLg[data-rule="${n}"]`);
+const legend=page=>page.locator('#ckLeg .ckLg').evaluateAll(b=>b.map(x=>x.dataset.rule+':'+x.querySelector('.ckLgN').textContent));
+// точка экрана, где под курсором грань из списка faces (первая видимая): {x, y, f} или null
+const spotOf=(page,faces)=>page.evaluate(faces=>{const m=root.children.find(c=>c.userData.pick),pos=m.geometry.getAttribute('position').array,r=renderer.domElement.getBoundingClientRect();
+  for(const f of faces)for(let t=0;t<CUR.M3.T.length;t++){if(CUR.M3.T[t]!==f)continue;
+    const c=k=>(pos[t*9+k]+pos[t*9+3+k]+pos[t*9+6+k])/3,p=new THREE.Vector3(c(0),c(1),c(2)).project(camera);
+    const x=r.left+(p.x+1)/2*r.width,y=r.top+(1-p.y)/2*r.height;
+    if(x>r.left+2&&x<r.right-2&&y>r.top+2&&y<r.bottom-2&&document.elementFromPoint(x,y)===renderer.domElement&&CUR.M3.T[pickTri({clientX:x,clientY:y})]===f)return {x,y,f};}
+  return null;},faces);
+const selRule=page=>page.locator('.ckRow.on').evaluate(b=>+b.closest('.ckGroup').dataset.rule);
+test('«Показать неточности»: выключен; включили — места всех строк цветом правила, легенда; фильтр легендой; выключили — цвета как были', async ({page}) => {
+  const errs=[];page.on('pageerror',e=>errs.push(e.message));
+  await open(page);
+  await expect(page.locator('#ckShowL')).toHaveText('Показать неточности');await expect(show(page)).not.toBeChecked();
+  await expect(page.locator('#ckLeg')).toBeHidden();expect(await marked(page)).toEqual([]);
+  await page.waitForTimeout(300);const col0=await faceColors(page);
+  await show(page).check();
+  await expect(page.locator('#ckLeg')).toBeVisible();
+  expect(await legend(page)).toEqual(['1:1','2:6','6:2','10:1']);
+  await expect(lg(page,2).locator('.ckLgT')).toHaveText('2. Нет коротких рёбер');
+  expect(await lg(page,6).locator('.ckSw').evaluate(s=>getComputedStyle(s).backgroundColor)).toBe('rgb(208, 31, 31)');
+  const M=await marked(page),col1=await faceColors(page);expect(M.length).toBeGreaterThan(4);
+  // клик по строке легенды — только этот тип; повторный — снова все
+  const by={};
+  for(const n of [1,2,6,10]){await lg(page,n).click();await expect(lg(page,n)).toHaveAttribute('aria-pressed','true');
+    by[n]=await marked(page);expect(by[n].length).toBeGreaterThan(0);
+    const col=await faceColors(page);by[n].forEach(f=>expect(col[f]).toEqual(RULE_COL[n]));
+    Object.keys(col).filter(f=>!by[n].includes(+f)).forEach(f=>expect(col[f]).toEqual(col0[f]));
+    await lg(page,n).click();await expect(lg(page,n)).toHaveAttribute('aria-pressed','false');expect(await marked(page)).toEqual(M);}
+  expect([...new Set(Object.values(by).flat())].sort((a,b)=>a-b)).toEqual(M);
+  // в одном месте несколько ошибок — цвет той, что выше в списке (меньший номер правила); у образца низ — в правилах 1 и 10
+  const top=f=>[1,2,6,10].find(n=>by[n].includes(f));
+  expect(M.some(f=>[1,2,6,10].filter(n=>by[n].includes(f)).length>1)).toBe(true);
+  M.forEach(f=>expect(col1[f]).toEqual(RULE_COL[top(f)]));
+  Object.keys(col1).filter(f=>!M.includes(+f)).forEach(f=>expect(col1[f]).toEqual(col0[f]));
+  // выключили — цвета модели как до включения
+  await show(page).uncheck();await expect(page.locator('#ckLeg')).toBeHidden();expect(await marked(page)).toEqual([]);
+  expect(await faceColors(page)).toEqual(col0);
+  // подсвечены именно места строк списка: грани строк правила (клик по каждой строке) — ровно то, что легенда оставляла для правила
+  for(const n of [1,2,6,10]){await openGroup(page,n);const rows=grp(page,n).locator('.ckRow'),U=new Set();
+    for(let k=0;k<await rows.count();k++){await rows.nth(k).click();(await painted(page)).forEach(f=>U.add(f));}
+    expect([...U].sort((a,b)=>a-b)).toEqual(by[n]);}
+  expect(errs).toEqual([]);
+});
+test('клик по подсвеченному месту на модели выбирает его строку; без подсветки клик — как раньше', async ({page}) => {
+  await open(page);
+  await page.waitForTimeout(800);
+  // без подсветки — выбор детали страницы, строки нет
+  const any=await page.evaluate(()=>[...new Set(CUR.M3.T)]),s0=await spotOf(page,any);expect(s0).not.toBeNull();
+  await page.mouse.click(s0.x,s0.y);await expect(page.locator('.ckRow.on')).toHaveCount(0);
+  expect(await page.evaluate(()=>ST.sel)).toBeGreaterThanOrEqual(0);
+  await page.mouse.click(s0.x,s0.y);expect(await page.evaluate(()=>ST.sel)).toBe(-1);   // второй клик снимает выбор детали
+  await show(page).check();
+  const M=await marked(page),s=await spotOf(page,M);expect(s).not.toBeNull();
+  const col=await faceColors(page),c0=await cam(page);
+  await page.locator('.stTab[data-tab=figs]').click();   // открыта другая вкладка — клик по месту вернёт «Проверку»
+  await page.mouse.click(s.x,s.y);
+  await expect(page.locator('#stTab-check')).toBeVisible();await expect(page.locator('.ckRow.on')).toHaveCount(1);
+  const n=await selRule(page);expect(col[s.f]).toEqual(RULE_COL[n]);   // строка того правила, чьим цветом подсвечено место
+  const lit=(await faceColors(page))[s.f];RULE_COL[n].forEach((x,k)=>expect(Math.abs(lit[k]-(x+255)/2)).toBeLessThanOrEqual(1));   // выбранное место светлее остальных мест правила
+  await expect(grp(page,n).locator('.ckAct')).toBeVisible();expect(await painted(page)).toContain(s.f);
+  expect(await page.evaluate(()=>ST.sel)).toBe(-1);   // клик забрала Проверка: деталь страницы не выбрана
+  await page.waitForTimeout(600);expect(moved(await cam(page),c0)).toBeLessThan(1e-6);   // камера на месте: место и так перед глазами
+  // в режиме правки клик выбирает и строку, и грань редактора
+  await page.evaluate(()=>{ST.edit=true;$('cEdit').checked=true;renderAll();});await page.waitForTimeout(300);
+  const s2=await spotOf(page,M);expect(s2).not.toBeNull();
+  await page.mouse.click(s2.x,s2.y);
+  await expect.poll(()=>page.evaluate(()=>ST.sp)).toBe(s2.f);expect(await painted(page)).toContain(s2.f);
+});
+test('после правки подсветка и числа в легенде обновились; «Отменить» — как было', async ({page}) => {
+  await open(page);await show(page).check();
+  expect(await legend(page)).toEqual(['1:1','2:6','6:2','10:1']);const M0=await marked(page);
+  await openGroup(page,1);await grp(page,1).locator('.ckRow').click();await page.locator('.ckFix').click();
+  await page.locator('.ckDo').click({timeout:15000});
+  await expect(page.locator('#ckSum')).toHaveText('Ошибок: 9',{timeout:15000});
+  await expect.poll(()=>legend(page)).toEqual(['2:6','6:2','10:1']);
+  const M1=await marked(page),col=await faceColors(page);expect(M1.length).toBeGreaterThan(0);
+  M1.forEach(f=>expect([RULE_COL[2],RULE_COL[6],RULE_COL[10]]).toContainEqual(col[f]));
+  expect(Object.values(col).some(c=>c.join()===RULE_COL[1].join())).toBe(false);
+  await page.locator('#ckUndo').click();
+  await expect(page.locator('#ckSum')).toHaveText('Ошибок: 10',{timeout:15000});
+  await expect.poll(()=>legend(page)).toEqual(['1:1','2:6','6:2','10:1']);expect(await marked(page)).toEqual(M0);
+});
+test('«Показать неточности» и другой переключатель вида (__studio.solo, «Карта отклонений») выключают друг друга', async ({page}) => {
+  await open(page);
+  await page.evaluate(()=>{window.__off=0;window.__mapOn=window.__studio.solo('map',()=>{window.__off++;});});
+  await show(page).check();expect(await page.evaluate(()=>window.__off)).toBe(1);
+  await page.evaluate(()=>window.__mapOn());
+  await expect(show(page)).not.toBeChecked();await expect(page.locator('#ckLeg')).toBeHidden();expect(await marked(page)).toEqual([]);
+  expect(await page.evaluate(()=>window.__off)).toBe(1);   // свой off не зовётся
+  // после перезагрузки снова выключен
+  await show(page).check();await open(page);await expect(show(page)).not.toBeChecked();expect(await marked(page)).toEqual([]);
+});

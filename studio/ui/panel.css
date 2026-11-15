@@ -58,3 +58,9 @@
 .ckKept{display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid var(--line,#C6CCCA)}.ckKept:last-child{border-bottom:0}
 .ckKT{flex:1;min-width:0;overflow-wrap:anywhere}
 .ckUnkeep{flex:none;padding:3px 8px}
+/* «Показать неточности» и легенда: строка — цвет, правило, сколько; нажата — на модели только этот тип, остальные строки бледнее */
+#ckShowL{display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer}#ckShowL[hidden]{display:none}#ckShow{margin:0;accent-color:var(--accent,#C0501C)}
+#ckLeg{display:flex;flex-direction:column;gap:2px;padding:4px;border:1px solid var(--line,#C6CCCA);border-radius:6px}#ckLeg[hidden]{display:none}
+.ckLg{display:flex;align-items:center;gap:6px;width:100%;padding:4px 6px;border:1px solid transparent;border-radius:4px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.ckLg:hover{background:var(--soft,#E2E6E3)}.ckLg.on{border-color:var(--accent,#C0501C);background:var(--accent-soft,#F3DED2);font-weight:600}.ckLg.off{opacity:.5}
+.ckLgT{flex:1;min-width:0;overflow-wrap:anywhere}.ckLgN{flex:none;font:600 12px var(--f-mono,monospace)}

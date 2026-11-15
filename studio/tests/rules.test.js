@@ -158,3 +158,15 @@ test('рысь 14: Проверка без эталона и без правил
   const {E,sc}=lynx(),t0=Date.now();check(E,{scale:sc,skip:[12]});const dt=Date.now()-t0;
   assert.ok(dt<2000,'Проверка '+dt+' мс');
 });
+// цвета правил в «Показать неточности» (решения Q23, Q30): 1, 6, 9 и протыкание — как на сайте (COL в editor/lynx/js/view3d.js),
+// у правил, которые показывает панель (все, кроме 12, 15, 17), — различимы: CIE76 ΔE не меньше 25 у каждой пары
+test('цвета правил: 1, 6, 9 и протыкание как на сайте, остальные различимы', () => {
+  const R=run('RULES'),col=n=>R.find(r=>r.n===n).color,pierce=run('PIERCE_COLOR');
+  assert.equal(col(1),'#e0a020');assert.equal(col(6),'#d01f1f');assert.equal(col(9),'#3a6fe0');assert.equal(pierce,'#9b3fd6');
+  const lab=h=>{const [r,g,b]=[1,3,5].map(i=>parseInt(h.substr(i,2),16)/255).map(c=>c>.04045?((c+.055)/1.055)**2.4:c/12.92);
+    const f=t=>t>.008856?Math.cbrt(t):7.787*t+16/116,x=f((r*.4124+g*.3576+b*.1805)/.95047),y=f(r*.2126+g*.7152+b*.0722),z=f((r*.0193+g*.1192+b*.9505)/1.08883);
+    return [116*y-16,500*(x-y),200*(y-z)];};
+  const C=R.filter(r=>![12,15,17].includes(r.n)).map(r=>[String(r.n),r.color]).concat([['9 протыкание',pierce]]),bad=[];
+  C.forEach(([a,ca],i)=>C.slice(i+1).forEach(([b,cb])=>{const d=Math.hypot(...lab(ca).map((v,k)=>v-lab(cb)[k]));if(d<25)bad.push(a+' и '+b+': '+d.toFixed(1));}));
+  assert.deepEqual(bad,[]);
+});
