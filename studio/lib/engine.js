@@ -3,13 +3,15 @@
 const fs=require('fs'),path=require('path'),vm=require('vm');
 const ROOT=path.join(__dirname,'..','..'),LYNX0=path.join(ROOT,'editor','lynx'),STUDIO=path.join(ROOT,'studio','js');
 // порядок скриптов мастерской — один на Node и на страницу мастерской; файлов, которых ещё нет, пропускаем
-const STUDIO_JS=['clean','ref','rules','fix','faces','auto'];
+const STUDIO_JS=['clean','ref','rules','fix','faces','auto','review'];
 // фигуры сайта — все plates-*.js в том порядке, в каком их грузит страница
 const platesOf=html=>[...html.matchAll(/<script[^>]+src="js\/(plates-[^"?]+)\.js/g)].map(m=>m[1]);
+// скрипты движка рыси (без страницы и 3D) в порядке загрузки — имена файлов в editor/lynx/js
+const lynxNames=LYNX=>['mesh','edit','models-poly','figures',...platesOf(fs.readFileSync(path.join(LYNX,'index.html'),'utf8')),'prod','sheets','bend','bend3d','trace'];
 function loadFigureEngine({studio=true,root=null}={}){
-  const LYNX=root?path.join(root,'editor','lynx'):LYNX0,html=fs.readFileSync(path.join(LYNX,'index.html'),'utf8'),ctx={console,TextDecoder,Math,atob};ctx.window=ctx;vm.createContext(ctx);
-  const files=[...['mesh','edit','models-poly','figures',...platesOf(html),'prod','sheets','bend','bend3d','trace'].map(f=>path.join(LYNX,'js',f+'.js')),
+  const LYNX=root?path.join(root,'editor','lynx'):LYNX0,ctx={console,TextDecoder,Math,atob};ctx.window=ctx;vm.createContext(ctx);
+  const files=[...lynxNames(LYNX).map(f=>path.join(LYNX,'js',f+'.js')),
     ...(studio?STUDIO_JS.map(f=>path.join(STUDIO,f+'.js')).filter(f=>fs.existsSync(f)):[])];
   files.forEach(f=>vm.runInContext(fs.readFileSync(f,'utf8'),ctx,{filename:f}));
   return {ctx,run:s=>vm.runInContext(s,ctx)};}
-module.exports={STUDIO_JS,loadFigureEngine,platesOf};
+module.exports={STUDIO_JS,loadFigureEngine,platesOf,lynxNames};

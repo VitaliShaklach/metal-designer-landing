@@ -29,3 +29,23 @@
 #studioPanel.stBusy #stList{opacity:.5;pointer-events:none}
 /* колонка развёрнута — страница и полоса сверху сдвинуты, колонка ничего не закрывает */
 @media (min-width:900px){body.st-open .wrap,body.st-open .edbar{margin-left:320px}}
+/* ---- вкладка «Проверка» ---- */
+#ckSum{font-weight:600}#ckSum.bad{color:#c0261c}
+#ckDone{padding:6px 8px;border-radius:6px;background:var(--soft,#E2E6E3);overflow-wrap:anywhere}#ckDone[hidden]{display:none}
+#ckList{display:flex;flex-direction:column;gap:6px}
+.ckGH{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:1px solid var(--line,#C6CCCA);border-radius:6px;background:var(--soft,#E2E6E3);color:inherit;font:inherit;text-align:left;cursor:pointer}
+.ckGH[aria-expanded=true]{border-radius:6px 6px 0 0}
+.ckSw{flex:none;width:12px;height:12px;border-radius:3px;border:1px solid rgba(0,0,0,.25)}.ckSw.none{visibility:hidden}
+.ckGT{flex:1;min-width:0;overflow-wrap:anywhere}
+.ckN{flex:none;min-width:22px;padding:0 6px;border-radius:10px;background:var(--panel,#F8F9F7);font:600 12px var(--f-mono,monospace);text-align:center}
+.ckRows{display:flex;flex-direction:column;border:1px solid var(--line,#C6CCCA);border-top:0;border-radius:0 0 6px 6px;max-height:46vh;overflow-y:auto}
+.ckRow{display:block;width:100%;padding:5px 8px;border:0;border-bottom:1px solid var(--line,#C6CCCA);background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.ckItem:last-child .ckRow:not(.on){border-bottom:0}
+.ckRow:hover{background:var(--soft,#E2E6E3)}
+.ckRow.on{background:var(--accent-soft,#F3DED2);font-weight:600}
+.ckInfo{padding:5px 8px;color:var(--muted,#5B666B);overflow-wrap:anywhere}
+.ckAct{display:flex;flex-direction:column;gap:6px;padding:8px;border-bottom:1px solid var(--line,#C6CCCA);background:var(--panel,#F8F9F7);overflow-wrap:anywhere}
+.ckBtns{display:flex;gap:6px}
+.ckFix,.ckDo,.ckNo,#ckUndo{padding:5px 10px;border:1px solid var(--line,#C6CCCA);border-radius:6px;background:var(--soft,#E2E6E3);color:inherit;font:inherit;cursor:pointer}
+.ckFix,.ckDo{border-color:var(--accent,#C0501C);background:var(--accent,#C0501C);color:#fff;font-weight:600}
+.ckWhy,.ckWorse{color:#c0261c}.ckWait{color:var(--muted,#5B666B)}

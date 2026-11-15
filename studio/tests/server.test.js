@@ -34,7 +34,13 @@ test('страница мастерской: токен и panel.js есть, ф
   const S=await start(tmp()),disk=fs.readFileSync(path.join(ROOT,'editor/lynx/index.html'),'utf8');
   try{for(const u of ['/editor/lynx/','/editor/lynx/index.html']){const r=await req(S,{url:u});assert.equal(r.status,200);
       assert.ok(r.text.includes(S.token),u);assert.ok(r.text.includes('/studio/ui/panel.js'));assert.ok(r.text.includes('/studio/js/rules.js'));assert.ok(r.text.indexOf('panel.js')>r.text.indexOf('js/ui.js'));
-      assert.ok(r.text.includes(`port:${S.port}`));}
+      assert.ok(r.text.includes(`port:${S.port}`));
+      assert.ok(r.text.indexOf('/studio/ui/check.js')>r.text.indexOf('/studio/ui/panel.js'),'вкладка «Проверка» — после панели');assert.ok(r.text.indexOf('/studio/ui/panel.js')>r.text.indexOf('/studio/js/review.js'));}
+    // STUDIO.engine — скрипты для фонового потока Проверки: движок без страницы и 3D, потом скрипты мастерской; все отдаются
+    const eng=JSON.parse(/engine:(\[[^\]]*\])/.exec((await req(S,{url:'/editor/lynx/'})).text)[1]);
+    assert.equal(eng[0],'/editor/lynx/js/mesh.js');assert.ok(eng.includes('/editor/lynx/js/plates-lynx14.js'));assert.equal(eng[eng.length-1],'/studio/js/review.js');
+    assert.ok(!eng.some(u=>/ui\.js|view3d\.js|three/.test(u)));
+    for(const u of [...eng,'/studio/ui/check-worker.js','/studio/ui/check.js'])assert.equal((await req(S,{url:u})).status,200,u);
     assert.equal(fs.readFileSync(path.join(ROOT,'editor/lynx/index.html'),'utf8'),disk);assert.ok(!disk.includes('panel.js'));
     assert.equal((await req(S,{url:'/editor/lynx/js/ui.js'})).status,200);   // обычный файл — без вставок
     assert.ok(!(await req(S,{url:'/editor/lynx/js/ui.js'})).text.includes(S.token));
@@ -68,10 +74,11 @@ test('копия рыси: slug rys-2, имя «Рысь 2», точки и гр
 test('закрыл и открыл: фигура, история и «последняя» те же', async () => {
   const work=tmp();let S=await start(work);
   const fig={type:'md-studio',v:1,name:'Тест',kind:'stand',localOnly:false,H:1000,V:[[0,0,0],[1,0,0],[1,1,0]],P:[[0,1,2]],S:[],keep:[{rule:1,at:[0,0,0]}],slots:[],refHalf:'left'};
-  try{assert.equal((await api(S,'save',{slug:'test',figure:fig,undo:['a','b'],redo:['c'],k:1.7})).status,200);}finally{await S.close();}
+  try{assert.equal((await api(S,'save',{slug:'test',figure:fig,undo:['a','b'],redo:['c'],k:1.7,map:{s:[1.7,1.7,1.7],mo:[0,0,0],po:[0,0,0]}})).status,200);}finally{await S.close();}
   S=await start(work);
   try{const l=j(await api(S,'list'));assert.equal(l.last,'test');assert.equal(l.figures[0].slug,'test');assert.equal(l.published[0].id,'lynx14');
-    const o=j(await api(S,'open',{slug:'test'}));assert.deepEqual(o.figure,fig);assert.deepEqual(o.undo,['a','b']);assert.deepEqual(o.redo,['c']);assert.equal(o.k,1.7);assert.equal(o.ref,null);
+    const o=j(await api(S,'open',{slug:'test'}));assert.deepEqual(o.figure,fig);assert.deepEqual(o.undo,['a','b']);assert.deepEqual(o.redo,['c']);assert.equal(o.k,1.7);assert.deepEqual(o.map,{s:[1.7,1.7,1.7],mo:[0,0,0],po:[0,0,0]});   // пересчёт страницы, в котором лежат шаги истории
+    assert.equal(o.ref,null);
     assert.equal((await api(S,'save',{slug:'../evil',figure:fig})).status,500);assert.equal((await api(S,'save',{slug:'t2',figure:{type:'x'}})).status,500);
     assert.equal((await api(S,'nosuch',{})).status,404);assert.equal(j(await api(S,'job',{job:'нет'})).done,true);
   }finally{await S.close();}

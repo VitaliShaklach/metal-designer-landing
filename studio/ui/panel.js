@@ -2,7 +2,9 @@
    Колонка слева: заголовок (сворачивает), строка состояния #stNow, вкладки. Вкладка «Фигуры»: «Мои фигуры» (рабочие копии, «×» — в корзину),
    «Взять фигуру с сайта» (копией). Другие вкладки добавляются через window.__studio.tab(id, title).
    Автосохранение не позже чем через 500 мс после любой правки.
-   Геометрия в figure.json — в рамке модели; страница живёт в мм сайта: V_страницы = V_модели × k, k = высота на странице / высота модели (на момент открытия). */
+   Геометрия в figure.json — в рамке модели; страница живёт в мм сайта и ставит фигуру по-своему (fitMesh: x — по центру, низ y = 0, z от 0,
+   масштаб по каждой оси свой — размеры округлены до мм): V_страницы = (V_модели − mo) × s + po. Пересчёт запоминается при открытии (cur.map);
+   k = s по высоте — масштаб для порогов Проверки и истории шагов. */
 (function(){
   if(typeof STUDIO==='undefined'||typeof HOOKS==='undefined')return;
   const S=STUDIO;let cur=null,timer=0,saving=null,dirty=false;
@@ -33,6 +35,7 @@
   pubBtn.addEventListener('click',()=>{pubList.hidden=!pubList.hidden;});
   const setBusy=b=>{busy=b;box.classList.toggle('stBusy',b);pubBtn.disabled=b;list.querySelectorAll('.stDel').forEach(x=>{x.disabled=b;});pubList.querySelectorAll('.stPubItem').forEach(x=>{x.disabled=b;});if(!b)msgEl.classList.remove('busy');};
 
+  const WATCH=[],fireWatch=()=>WATCH.forEach(f=>{try{f();}catch(e){console.error(e);}});
   // рабочая копия на экране? (выбрали в выпадашке фигуру сайта — уже нет)
   const isOpen=()=>!!cur&&ST.fig==='';
   // строка состояния; s: '' | 'сохраняю…' | 'сохранено' | 'не сохранилось' (без s — прежнее)
@@ -53,13 +56,23 @@
   const refresh=()=>api('list').then(drawList).catch(e=>say('Мастерская не отвечает: '+e.message,true));
 
   // ---- открыть фигуру в странице ----
-  const scaleSnap=(s,f)=>{if(Math.abs(f-1)<1e-9)return s;const j=JSON.parse(s);j.V=j.V.map(p=>p.map(x=>x*f));return JSON.stringify(j);};
+  // шаги истории записаны в мм страницы того раза (её пересчёт m0 лежит рядом, в undo.json); сейчас страница могла поставить фигуру иначе (m1):
+  // шаг → мм модели по m0 → мм страницы по m1. В старых файлах m0 нет — только масштаб k0
+  const sameMap=(a,b)=>[0,1,2].every(i=>Math.abs(a.s[i]-b.s[i])<1e-9&&Math.abs(a.mo[i]-b.mo[i])<1e-9&&Math.abs(a.po[i]-b.po[i])<1e-9);
+  const okMap=m=>m&&['s','mo','po'].every(n=>Array.isArray(m[n])&&m[n].length===3&&m[n].every(x=>typeof x==='number'&&isFinite(x)))&&m.s.every(x=>x>0);
+  function reSnap(m0,k0,m1,k1){const mv=fn=>s=>{const j=JSON.parse(s);j.V=j.V.map(fn);return JSON.stringify(j);};
+    if(okMap(m0))return sameMap(m0,m1)?s=>s:mv(p=>p.map((x,i)=>((x-m0.po[i])/m0.s[i]+m0.mo[i]-m1.mo[i])*m1.s[i]+m1.po[i]));
+    const f=k0?k1/k0:1;return Math.abs(f-1)<1e-9?s=>s:mv(p=>p.map(x=>x*f));}
   function applyFigure(slug,o){const f=o.figure;cur=null;dirty=false;
     ST.fig='';$('figSel').value='';ST.refId='';ST.frame=null;
     setBase(polyBase(f.V,f.P,f.S||[]),{name:f.name,H:f.H||1000});
-    const k=meshBox(ST.base.V).size[1]/(meshBox(f.V).size[1]||1),f0=o.k?k/o.k:1;
-    UNDO.length=REDO.length=0;(o.undo||[]).forEach(s=>UNDO.push(scaleSnap(s,f0)));(o.redo||[]).forEach(s=>REDO.push(scaleSnap(s,f0)));
-    compute();renderAll('instant');cur={slug,figure:f,k};now('');say(o.warning||'',!!o.warning);}
+    const k=meshBox(ST.base.V).size[1]/(meshBox(f.V).size[1]||1),map=mapOf(f.V,ST.base.V,k),re=reSnap(o.map,o.k,map,k);
+    UNDO.length=REDO.length=0;(o.undo||[]).forEach(s=>UNDO.push(re(s)));(o.redo||[]).forEach(s=>REDO.push(re(s)));
+    compute();renderAll('instant');cur={slug,figure:f,k,map,ref:o.ref||null,base:{V:f.V,P:f.P}};   // base — фигура, какой её открыли (мм модели): её не правим
+    now('');say(o.warning||'',!!o.warning);fireWatch();}
+  // пересчёт «модель ↔ страница»: якорь — центр по x, низ по y, начало по z (как ставит fitMesh); масштаб по оси — отношение габаритов
+  function mapOf(Vm,Vp,k){const a=meshBox(Vm),b=meshBox(Vp),anchor=x=>[(x.min[0]+x.max[0])/2,x.min[1],x.min[2]];
+    return {s:[0,1,2].map(i=>a.size[i]>1e-9&&b.size[i]>1e-9?b.size[i]/a.size[i]:k),mo:anchor(a),po:anchor(b)};}
   // done(название) — что сказать после открытия (копия); с ним «Открываю…» не пишем: в #stMsg держится сообщение о копии. → Promise<открылась ли>
   // Открытий может идти несколько (кликнули одну, следом другую): применяется последнее; удалили фигуру, пока она открывалась, — её открытие снимается
   function openFigure(slug,done){if(!done)say('Открываю…');const seq=++openSeq;opening=slug;const stale=()=>seq!==openSeq;
@@ -73,23 +86,27 @@
     return api('copy',{id:p.id}).then(r=>openFigure(r.slug,n=>'Открыта «'+n+'». Фигура на сайте не изменилась').then(ok=>{if(ok)pubList.hidden=true;else refresh();}),
       e=>say('Не скопировалось: '+e.message,true)).then(()=>setBusy(false));}
   // рабочую копию больше не ведём: отложенная запись снята, идущая запись её не вернёт (cur уже другой)
-  function drop(){cur=null;if(timer){clearTimeout(timer);timer=0;}dirty=false;state='';}
+  function drop(){cur=null;if(timer){clearTimeout(timer);timer=0;}dirty=false;state='';fireWatch();}
   // удалить рабочую копию (папка — в корзину). Открытую: сначала снять отложенную запись и дождаться идущей, иначе запись воскресит папку
   function removeFigure(f){if(busy||!window.confirm('Удалить «'+f.name+'»? Папка переедет в корзину '+TRASH))return Promise.resolve();
     const was=cur&&cur.slug===f.slug?cur:null;setBusy(true);if(was){drop();now();}if(opening===f.slug){openSeq++;opening='';}
     return (saving||Promise.resolve()).then(()=>api('remove',{slug:f.slug})).then(()=>{say('«'+f.name+'» удалена. Вернуть можно из '+TRASH);
       if(was&&!cur&&ST.fig===''){const id=$('figSel').options[0].value;$('figSel').value=id;loadFigure(id);}},   // на экране снова фигура с сайта — первая из выпадашки
-      e=>{if(was&&!cur&&ST.fig===''){cur=was;schedule();}now();say('Не удалилось: '+e.message,true);})   // не удалилась — ведём её дальше и дописываем снятую правку
+      e=>{if(was&&!cur&&ST.fig===''){cur=was;schedule();fireWatch();}now();say('Не удалилось: '+e.message,true);})   // не удалилась — ведём её дальше и дописываем снятую правку
       .then(()=>{setBusy(false);return refresh();});}
 
   // ---- автосохранение: не позже чем через 500 мс после первой правки ----
   const rnd=x=>Math.round(x*1e6)/1e6;
-  function payload(){const k=cur.k;return {slug:cur.slug,figure:Object.assign({},cur.figure,{name:ST.name||cur.figure.name,V:ST.base.V.map(p=>p.map(x=>rnd(x/k))),P:ST.base.P,S:ST.base.S||[]}),undo:UNDO.slice(),redo:REDO.slice(),k:cur.k};}
+  // точки страницы → мм модели и обратно (по cur.map)
+  const toModel=V=>{const m=cur.map;return V.map(p=>p.map((x,i)=>rnd((x-m.po[i])/m.s[i]+m.mo[i])));};
+  const toPage=V=>{const m=cur.map;return V.map(p=>p.map((x,i)=>(x-m.mo[i])*m.s[i]+m.po[i]));};
+  function payload(){return {slug:cur.slug,figure:Object.assign({},cur.figure,{name:ST.name||cur.figure.name,V:toModel(ST.base.V),P:ST.base.P,S:ST.base.S||[]}),undo:UNDO.slice(),redo:REDO.slice(),k:cur.k,map:cur.map};}
   function flush(){timer=0;if(!cur||ST.fig!==''||!ST.base.P)return Promise.resolve();
     if(saving){dirty=true;return saving;}
     const p=payload(),was=cur.figure.name,mine=()=>cur&&cur.slug===p.slug;
     if(state!=='не сохранилось')now('сохраняю…');   // «не сохранилось» держится до следующей удачной записи
-    saving=api('save',p).then(()=>{if(!mine())return;cur.figure=p.figure;if(state==='не сохранилось')say('');now('сохранено');if(p.figure.name!==was)refresh();},
+    saving=api('save',p).then(()=>{if(!mine())return;Object.assign(cur.figure,{name:p.figure.name,V:p.figure.V,P:p.figure.P,S:p.figure.S});   // остальное (прорези, «оставлено так») могло поменяться, пока шла запись
+      if(state==='не сохранилось')say('');now('сохранено');if(p.figure.name!==was)refresh();},
       e=>{if(!mine())return;now('не сохранилось');say('Не сохранилось: '+e.message,true);})
       .then(()=>{saving=null;if(dirty){dirty=false;schedule();}});return saving;}
   function schedule(){if(!timer)timer=setTimeout(flush,300);}
@@ -98,7 +115,10 @@
   const pageSetBase=setBase;setBase=function(){if(cur){drop();opening='';}return pageSetBase.apply(this,arguments);};
   HOOKS.changed.push(()=>{if(cur&&ST.fig!=='')drop();if(cur&&!ST.drag)schedule();now();});   // во время перетаскивания точки не пишем: сохранится при отпускании
   $('mName').addEventListener('input',()=>{if(isOpen())schedule();now();});
-  window.__studio={cur:()=>cur,flush,say,tab};
+  // для других вкладок (studio/ui/check.js): api — команда серверу; touch — записать фигуру (поменялось что-то кроме геометрии);
+  // watch(fn) — fn зовётся, когда рабочая копия открылась или закрылась
+  // toModel / toPage — точки страницы в мм модели и обратно (у открытой копии)
+  window.__studio={cur:()=>cur,flush,say,tab,api,toModel,toPage,touch:()=>{if(isOpen())schedule();},watch:fn=>{WATCH.push(fn);}};
 
   // ---- старт: ждём, пока страница построит свою первую фигуру, и открываем последнюю ----
   const ready=()=>typeof CUR!=='undefined'&&CUR;

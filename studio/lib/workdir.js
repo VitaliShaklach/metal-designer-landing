@@ -1,6 +1,6 @@
 // рабочая папка мастерской (studio/work): фигуры, история, настройки, «последняя открытая»
 //   work/<slug>/figure.json — {type:'md-studio', v:1, name, kind, localOnly, H, V, P, S, keep, slots, refHalf}
-//   work/<slug>/undo.json   — {undo: string[], redo: string[], k} (до 60 шагов; k — масштаб страницы при записи)
+//   work/<slug>/undo.json   — {undo: string[], redo: string[], k, map} (до 60 шагов; k и map — масштаб и пересчёт «модель ↔ страница» при записи: шаги лежат в мм страницы)
 //   work/<slug>/ref/ref.json, ref/src/ — эталон; versions/NNN.json — сохранённые версии (задача 7)
 //   work/settings.json = {th}, work/state.json = {last}; work/.trash/<slug>-<время>/ — удалённые рабочие копии
 const fs=require('fs'),path=require('path');
@@ -26,10 +26,10 @@ function readFigure(work,slug,quiet){const d=dirOf(work,slug),f=path.join(d,'fig
   if(!quiet)writeAtomic(f,JSON.stringify(j));   // целая копия встаёт на место: в следующий раз файл читается без предупреждений
   return {figure:j,warning:(warning||'Файл фигуры не читался.')+' Открыта '+from+'.'};}
 function readUndo(work,slug){const j=readJSON(path.join(dirOf(work,slug),'undo.json'));
-  return {undo:Array.isArray(j&&j.undo)?j.undo:[],redo:Array.isArray(j&&j.redo)?j.redo:[],k:j&&+j.k||0};}
+  return {undo:Array.isArray(j&&j.undo)?j.undo:[],redo:Array.isArray(j&&j.redo)?j.redo:[],k:j&&+j.k||0,map:j&&j.map||null};}
 function saveFigure(work,slug,figure,hist){const d=dirOf(work,slug);if(!okFigure(figure))throw new Error('это не фигура мастерской');
   writeAtomic(path.join(d,'figure.json'),JSON.stringify(figure));
-  hist=hist||{};writeAtomic(path.join(d,'undo.json'),JSON.stringify({undo:(hist.undo||[]).slice(-60),redo:(hist.redo||[]).slice(-60),k:hist.k||0}));}
+  hist=hist||{};writeAtomic(path.join(d,'undo.json'),JSON.stringify({undo:(hist.undo||[]).slice(-60),redo:(hist.redo||[]).slice(-60),k:hist.k||0,map:hist.map||null}));}
 function listFigures(work){if(!fs.existsSync(work))return [];
   return fs.readdirSync(work,{withFileTypes:true}).filter(e=>e.isDirectory()&&SLUG.test(e.name)).map(e=>{const f=path.join(work,e.name,'figure.json');let j=readJSON(f),m=null;
     try{m=fs.statSync(f).mtimeMs;}catch(x){}

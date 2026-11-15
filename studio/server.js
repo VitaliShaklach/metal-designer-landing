@@ -2,13 +2,14 @@
 // Только 127.0.0.1. Отдаёт файлы репозитория (кроме рабочих папок и .git) и вкладывает в страницу рыси панель мастерской;
 // команды /api/* принимает только от своей страницы: Origin и Host — наши, токен X-Studio-Token — случайный на каждый запуск.
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto'),{spawn}=require('child_process');
-const {STUDIO_JS,loadFigureEngine}=require('./lib/engine.js');
+const {STUDIO_JS,loadFigureEngine,lynxNames}=require('./lib/engine.js');
 const names=require('./lib/names.js'),W=require('./lib/workdir.js'),{LYNX_REF}=require('./lib/sources.js');
 
 const ROOT=path.join(__dirname,'..');
 const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8',
   '.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.woff2':'font/woff2','.ico':'image/x-icon','.txt':'text/plain; charset=utf-8','.md':'text/plain; charset=utf-8'};
 const MAX_BODY=64*1024*1024;
+const STUDIO_UI=['panel','check'];   // скрипты панели в порядке загрузки: колонка и вкладка «Фигуры», вкладка «Проверка»
 const inside=(abs,dir)=>{const r=path.relative(dir,abs);return r===''||(!r.startsWith('..')&&!path.isAbsolute(r));};
 
 function createStudio({root=ROOT,work,port=8765,open=true}={}){
@@ -41,9 +42,9 @@ function createStudio({root=ROOT,work,port=8765,open=true}={}){
   const API={
     list:()=>({figures:W.listFigures(work),published:published(),last:W.getLast(work)}),
     open:b=>{const r=W.readFigure(work,b.slug),h=W.readUndo(work,b.slug),rf=path.join(work,b.slug,'ref','ref.json');W.setLast(work,b.slug);
-      return {figure:r.figure,undo:h.undo,redo:h.redo,k:h.k,ref:fs.existsSync(rf)?W.readJSON(rf):null,warning:r.warning};},
+      return {figure:r.figure,undo:h.undo,redo:h.redo,k:h.k,map:h.map,ref:fs.existsSync(rf)?W.readJSON(rf):null,warning:r.warning};},
     copy:b=>copyPublished(String(b.id)),
-    save:b=>{if(!W.SLUG.test(String(b.slug)))throw new Error('плохое имя папки фигуры');W.saveFigure(work,b.slug,b.figure,{undo:b.undo,redo:b.redo,k:b.k});W.setLast(work,b.slug);return {ok:true};},
+    save:b=>{if(!W.SLUG.test(String(b.slug)))throw new Error('плохое имя папки фигуры');W.saveFigure(work,b.slug,b.figure,{undo:b.undo,redo:b.redo,k:b.k,map:b.map});W.setLast(work,b.slug);return {ok:true};},
     remove:b=>{W.removeFigure(work,String(b.slug));return {ok:true};},
     settings:b=>({th:W.settings(work,b,eng().run('TH_DEFAULT'))}),
     job:b=>jobs.get(String(b.job))||{stage:'',pct:0,done:true,error:'нет такого задания',result:null}};
@@ -60,7 +61,9 @@ function createStudio({root=ROOT,work,port=8765,open=true}={}){
     if(st.isDirectory()){if(!url.pathname.endsWith('/')){res.writeHead(301,{Location:url.pathname+'/'});return res.end();}abs=path.join(abs,'index.html');try{st=fs.statSync(abs);}catch(e){return nope(res);}}
     const type=MIME[path.extname(abs).toLowerCase()]||'application/octet-stream';
     if(abs.toLowerCase()===path.join(root,'editor','lynx','index.html').toLowerCase()){let h=fs.readFileSync(abs,'utf8');
-      const tags=`<script>STUDIO={token:${JSON.stringify(token)},port:${myPort}}</script>\n<link rel="stylesheet" href="/studio/ui/panel.css">\n`+STUDIO_JS.filter(f=>fs.existsSync(path.join(root,'studio','js',f+'.js'))).map(f=>`<script src="/studio/js/${f}.js"></script>`).join('\n')+'\n<script src="/studio/ui/panel.js"></script>\n';
+      // STUDIO.engine — те же скрипты движка и мастерской для фонового потока Проверки (studio/ui/check-worker.js), в том же порядке, что в Node
+      const sjs=STUDIO_JS.filter(f=>fs.existsSync(path.join(root,'studio','js',f+'.js'))).map(f=>`/studio/js/${f}.js`),engine=[...lynxNames(path.join(root,'editor','lynx')).map(f=>`/editor/lynx/js/${f}.js`),...sjs];
+      const tags=`<script>STUDIO={token:${JSON.stringify(token)},port:${myPort},engine:${JSON.stringify(engine)}}</script>\n<link rel="stylesheet" href="/studio/ui/panel.css">\n`+sjs.map(f=>`<script src="${f}"></script>`).join('\n')+'\n'+STUDIO_UI.map(f=>`<script src="/studio/ui/${f}.js"></script>`).join('\n')+'\n';
       const i=h.lastIndexOf('</body>');h=i<0?h+tags:h.slice(0,i)+tags+h.slice(i);return send(res,200,type,h);}
     res.writeHead(200,{'Content-Type':type,'Content-Length':st.size,'Cache-Control':'no-store'});
     if(req.method==='HEAD')return res.end();fs.createReadStream(abs).pipe(res);}

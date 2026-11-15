@@ -36,4 +36,15 @@ function stripeRef(){const x=150,H=600,D=260,V=[[-x,0,0],[x,0,0],[x,H,0],[-x,H,0
 function cutTop(c){const E=box(300,600,260),top=faceWhere(E,p=>p[1]===600);
   const a=edgePoint(E,vi(E,[-150,600,0]),vi(E,[-150,600,260]),[-150,600,c]),b=edgePoint(E,vi(E,[150,600,0]),vi(E,[150,600,260]),[150,600,c]);
   return run('cutPoly')(E,top,a,b,false);}
-module.exports={engine,run,g,box,faceWhere,TOP,edgePoint,vi,makePNG,writeOBJ,stripeRef,cutTop};
+// у куба срезаны два зеркальных верхних угла треугольником с рёбрами L (как CB в editor/lynx/tools/smoke.js)
+function cutCorners(L,E){E=E||box();const d=L/Math.SQRT2;[[6,1],[7,-1]].forEach(([v,s])=>{const p=E.V[v],n=E.V.length;E.V.push([p[0]-s*d,p[1],p[2]],[p[0],p[1]-d,p[2]],[p[0],p[1],p[2]-d]);
+  E.P=E.P.map(Q=>{const k=Q.indexOf(v);if(k<0)return Q;const nb=[Q[(k+Q.length-1)%Q.length],Q[(k+1)%Q.length]],pick=w=>{const q=E.V[w];return Math.abs(q[0]-p[0])>1?n:Math.abs(q[1]-p[1])>1?n+1:n+2;};
+    const r=Q.slice();r.splice(k,1,pick(nb[0]),pick(nb[1]));return r;});const tri=[n,n+1,n+2];E.P.push(s>0?tri:tri.reverse());});return E;}
+// фигура-образец для панели Проверки, мм модели; на сайте она вдвое больше (SAMPLE_SCALE): куб 300 × 400 × 260 мм сайта,
+// два верхних угла срезаны треугольниками с рёбрами 4 мм, нижний угол (150, 0, 260) опущен на 6 мм. В Проверке (эталон — она сама):
+//   правило 1 — 1 строка (низ неплоский на 1,5 мм; чинится), правило 2 — 6 (рёбра 4 мм; чинятся),
+//   правило 6 — 2 (срезы — узкие детали; починка даёт новые строки правил 3, 5, 10), правило 10 — 1 (починить нельзя: форма уйдёт на 3 мм), сведение «Эталона нет»
+const SAMPLE_SCALE=2;
+function sampleCube(){const E=cutCorners(2,box(150,200,130));E.V[5]=[75,-3,130];E.S=[];return E;}
+const sampleFigure=(name='Образец')=>{const E=sampleCube();return {type:'md-studio',v:1,name,kind:'stand',localOnly:false,H:406,V:E.V,P:E.P,S:[],keep:[],slots:[],refHalf:'left'};};
+module.exports={engine,run,g,box,faceWhere,TOP,edgePoint,vi,makePNG,writeOBJ,stripeRef,cutTop,cutCorners,sampleCube,sampleFigure,SAMPLE_SCALE};
