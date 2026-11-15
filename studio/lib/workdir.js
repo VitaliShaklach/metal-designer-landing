@@ -2,7 +2,7 @@
 //   work/<slug>/figure.json — {type:'md-studio', v:1, name, kind, localOnly, H, V, P, S, keep, slots, refHalf}
 //   work/<slug>/undo.json   — {undo: string[], redo: string[], k} (до 60 шагов; k — масштаб страницы при записи)
 //   work/<slug>/ref/ref.json, ref/src/ — эталон; versions/NNN.json — сохранённые версии (задача 7)
-//   work/settings.json = {th}, work/state.json = {last}
+//   work/settings.json = {th}, work/state.json = {last}; work/.trash/<slug>-<время>/ — удалённые рабочие копии
 const fs=require('fs'),path=require('path');
 
 const SLUG=/^[a-z0-9][a-z0-9-]*$/;
@@ -38,6 +38,14 @@ function listFigures(work){if(!fs.existsSync(work))return [];
 const stateFile=work=>path.join(work,'state.json'),settingsFile=work=>path.join(work,'settings.json');
 const getLast=work=>(readJSON(stateFile(work))||{}).last||null;
 const setLast=(work,slug)=>writeAtomic(stateFile(work),JSON.stringify({last:slug}));
+// удалить рабочую копию: папка переезжает в work/.trash/<slug>-<время> (вернуть можно руками). «.trash» не подходит под SLUG — в списке фигур его нет
+function removeFigure(work,slug){const d=dirOf(work,slug);let st=null;try{st=fs.statSync(d);}catch(e){}
+  if(!st||!st.isDirectory())throw new Error('нет такой фигуры: '+slug);
+  const bin=path.join(work,'.trash');fs.mkdirSync(bin,{recursive:true});
+  let t=Date.now();while(fs.existsSync(path.join(bin,slug+'-'+t)))t++;   // две папки с одним именем в одну миллисекунду
+  const trash=slug+'-'+t;fs.renameSync(d,path.join(bin,trash));
+  if(getLast(work)===slug)setLast(work,null);
+  return {trash};}
 // настройки порогов: set — поменять часть, reset — вернуть TH_DEFAULT; значения только числа и только известные ключи
 function settings(work,o,TH_DEFAULT){o=o||{};let th=Object.assign({},TH_DEFAULT,(readJSON(settingsFile(work))||{}).th||{});
   if(o.reset)th=Object.assign({},TH_DEFAULT);
@@ -47,4 +55,4 @@ function settings(work,o,TH_DEFAULT){o=o||{};let th=Object.assign({},TH_DEFAULT,
 function openLoops(P){const cnt=new Map();P.forEach(Q=>Q.forEach((a,k)=>{const b=Q[(k+1)%Q.length],key=a<b?a+'_'+b:b+'_'+a;(cnt.get(key)||cnt.set(key,[]).get(key)).push([a,b]);}));
   const nx=new Map();cnt.forEach(es=>{if(es.length===1)nx.set(es[0][1],es[0][0]);});   // против обхода грани
   const seen=new Set(),L=[];nx.forEach((_,s)=>{if(seen.has(s))return;const c=[];let v=s;while(v!==undefined&&!seen.has(v)){seen.add(v);c.push(v);v=nx.get(v);}if(c.length>=3&&v===s)L.push(c);});return L;}
-module.exports={SLUG,writeAtomic,readFigure,readUndo,saveFigure,listFigures,getLast,setLast,settings,openLoops,okFigure,readJSON};
+module.exports={SLUG,writeAtomic,readFigure,readUndo,saveFigure,removeFigure,listFigures,getLast,setLast,settings,openLoops,okFigure,readJSON};

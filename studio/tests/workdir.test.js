@@ -43,3 +43,18 @@ test('last и контуры дыр', () => {
   assert.deepEqual(W.openLoops([[0,1,2,3]]).map(l=>l.length),[4]);   // одна грань: край — один контур
   assert.deepEqual(W.openLoops(run('blankBox')(10,10,10).P),[]);
 });
+test('удалить: папка в .trash, в списке её нет, last сброшен, имя свободно', () => {
+  const work=tmp();W.saveFigure(work,'rys-2',fig('Рысь 2'),{});W.saveFigure(work,'rys-3',fig('Рысь 3'),{});W.setLast(work,'rys-2');
+  const r=W.removeFigure(work,'rys-2');
+  assert.match(r.trash,/^rys-2-\d+$/);assert.ok(fs.existsSync(path.join(work,'.trash',r.trash,'figure.json')));
+  assert.deepEqual(W.listFigures(work).map(f=>f.slug),['rys-3']);assert.equal(W.getLast(work),null);
+  assert.throws(()=>W.removeFigure(work,'rys-2'),/нет такой фигуры/);assert.throws(()=>W.removeFigure(work,'../x'),/плохое имя/);
+  W.setLast(work,'rys-3');W.removeFigure(work,'rys-3');W.saveFigure(work,'rys-2',fig('Рысь 2'),{});   // корзина не мешает новой папке с тем же именем
+  assert.deepEqual(W.listFigures(work).map(f=>f.slug),['rys-2']);
+});
+test('удалить: last чужой фигуры не трогается; две папки с одним именем в одну миллисекунду не сталкиваются в корзине', () => {
+  const work=tmp();W.saveFigure(work,'a',fig('А'),{});W.saveFigure(work,'b',fig('Б'),{});W.setLast(work,'b');
+  const t1=W.removeFigure(work,'a').trash;assert.equal(W.getLast(work),'b');
+  W.saveFigure(work,'a',fig('А'),{});const t2=W.removeFigure(work,'a').trash;assert.notEqual(t1,t2);
+  assert.equal(fs.readdirSync(path.join(work,'.trash')).length,2);
+});

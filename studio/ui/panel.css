@@ -1,11 +1,31 @@
-/* панель мастерской: поверх страницы, слева внизу; цвета — от переменных страницы рыси */
-#studioPanel{position:fixed;left:12px;bottom:12px;z-index:60;width:250px;max-width:calc(100vw - 24px);background:var(--panel,#F8F9F7);color:var(--ink,#1B2124);border:1px solid var(--line,#C6CCCA);border-radius:8px;font:13px/1.4 var(--f-body,system-ui,sans-serif);box-shadow:0 4px 18px rgba(0,0,0,.18)}
-#stHead{display:block;width:100%;text-align:left;padding:8px 12px;background:var(--accent,#C0501C);color:#fff;border:0;border-radius:7px 7px 0 0;font:600 13px var(--f-display,sans-serif);letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
-#stBody{padding:10px 12px;display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto}
-#stBody[hidden],#stPubList[hidden]{display:none}
+/* панель мастерской: колонка слева на всю высоту, 320 px; цвета — от переменных страницы рыси */
+#studioPanel{position:fixed;left:0;top:0;bottom:0;z-index:60;width:320px;max-width:100vw;box-sizing:border-box;display:flex;flex-direction:column;background:var(--panel,#F8F9F7);color:var(--ink,#1B2124);border-right:1px solid var(--line,#C6CCCA);font:13px/1.4 var(--f-body,system-ui,sans-serif);box-shadow:2px 0 14px rgba(0,0,0,.12)}
+#studioPanel *{box-sizing:border-box}
+/* свёрнута: узкая кнопка в левом верхнем углу */
+#studioPanel.shut{bottom:auto;width:auto;border:0}
+#stHead{flex:none;display:block;width:100%;text-align:left;padding:10px 14px;background:var(--accent,#C0501C);color:#fff;border:0;font:600 13px var(--f-display,sans-serif);letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+#stBody{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+#stBody[hidden],#stPubList[hidden],.stPane[hidden]{display:none}
+#stNow{padding:8px 10px;border-left:3px solid var(--accent,#C0501C);background:var(--soft,#E2E6E3);font-weight:600;overflow-wrap:anywhere}
+#stNow.bad{color:#c0261c;border-left-color:#c0261c}
+#stTabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line,#C6CCCA)}
+.stTab{padding:6px 10px;border:1px solid transparent;border-bottom:0;border-radius:6px 6px 0 0;background:none;color:var(--muted,#5B666B);font:inherit;cursor:pointer}
+.stTab.on{border-color:var(--line,#C6CCCA);background:var(--soft,#E2E6E3);color:inherit;font-weight:600}
+.stPane{display:flex;flex-direction:column;gap:6px}
 .stT{font:600 11px var(--f-mono,monospace);letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#5B666B)}
+.stHint{font-size:12px;color:var(--muted,#5B666B)}
 .stFig,.stPubItem,#stPub{display:block;width:100%;text-align:left;padding:6px 8px;border:1px solid var(--line,#C6CCCA);border-radius:6px;background:var(--soft,#E2E6E3);color:inherit;font:inherit;cursor:pointer}
+.stFig{display:flex;align-items:flex-start;gap:6px}
+.stFig .stName{flex:1;min-width:0;overflow-wrap:anywhere}
 .stFig.on{border-color:var(--accent,#C0501C);background:var(--accent-soft,#F3DED2)}
+.stDel{flex:none;width:22px;height:22px;padding:0;border:1px solid var(--line,#C6CCCA);border-radius:4px;background:var(--panel,#F8F9F7);color:var(--muted,#5B666B);font:inherit;line-height:1;cursor:pointer}
+.stDel:hover,.stDel:focus-visible{border-color:#c0261c;color:#c0261c}
 #stPubList{display:flex;flex-direction:column;gap:4px;padding-left:10px}
 .stEmpty{color:var(--muted,#5B666B)}
-#stMsg{min-height:1.4em;color:var(--muted,#5B666B)}#stMsg.bad{color:#c0261c}
+#stMsg{min-height:1.4em;color:var(--muted,#5B666B);overflow-wrap:anywhere}#stMsg.bad{color:#c0261c}
+#stMsg.busy{padding:8px 10px;border-radius:6px;background:var(--accent-soft,#F3DED2);color:var(--ink,#1B2124);font-weight:600}
+#studioPanel button:disabled{opacity:.5;cursor:default}
+/* идёт копия или удаление: список фигур не нажимается */
+#studioPanel.stBusy #stList{opacity:.5;pointer-events:none}
+/* колонка развёрнута — страница и полоса сверху сдвинуты, колонка ничего не закрывает */
+@media (min-width:900px){body.st-open .wrap,body.st-open .edbar{margin-left:320px}}

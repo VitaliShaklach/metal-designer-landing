@@ -44,6 +44,7 @@ function createStudio({root=ROOT,work,port=8765,open=true}={}){
       return {figure:r.figure,undo:h.undo,redo:h.redo,k:h.k,ref:fs.existsSync(rf)?W.readJSON(rf):null,warning:r.warning};},
     copy:b=>copyPublished(String(b.id)),
     save:b=>{if(!W.SLUG.test(String(b.slug)))throw new Error('плохое имя папки фигуры');W.saveFigure(work,b.slug,b.figure,{undo:b.undo,redo:b.redo,k:b.k});W.setLast(work,b.slug);return {ok:true};},
+    remove:b=>{W.removeFigure(work,String(b.slug));return {ok:true};},
     settings:b=>({th:W.settings(work,b,eng().run('TH_DEFAULT'))}),
     job:b=>jobs.get(String(b.job))||{stage:'',pct:0,done:true,error:'нет такого задания',result:null}};
 

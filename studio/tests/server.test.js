@@ -84,3 +84,18 @@ test('настройки: set / reset', async () => {
     assert.equal(j(await api(S,'settings',{reset:true})).th.planar,1);
   }finally{await S.close();}
 });
+test('remove: копия уходит в корзину; без токена — 403; .trash по HTTP не отдаётся', async () => {
+  const work=tmp(),keep=process.env.STUDIO_LYNX_REF;process.env.STUDIO_LYNX_REF=path.join(work,'нет-такого-файла.obj');   // без эталона: его сборка — минуты
+  const fresh=()=>{for(const k of Object.keys(require.cache))if(/studio[\\/](server|lib[\\/]sources)\.js$/.test(k))delete require.cache[k];};
+  fresh();const S=await start(work);
+  try{const {slug}=j(await api(S,'copy',{id:'lynx14'}));
+    assert.equal((await api(S,'remove',{slug},{token:null})).status,403);
+    assert.equal((await api(S,'remove',{slug:'../x'})).status,500);assert.equal((await api(S,'remove',{})).status,500);
+    assert.equal((await api(S,'remove',{slug})).status,200);
+    const L=j(await api(S,'list',{}));assert.deepEqual(L.figures,[]);assert.equal(L.last,null);
+    const t=fs.readdirSync(path.join(work,'.trash'));assert.equal(t.length,1);
+    assert.equal((await req(S,{url:'/studio/work/.trash/'+t[0]+'/figure.json'})).status,404);
+    assert.equal((await api(S,'remove',{slug})).status,500);   // второй раз удалять нечего
+    assert.equal(j(await api(S,'copy',{id:'lynx14'})).slug,slug);   // имя снова свободно
+  }finally{await S.close();if(keep===undefined)delete process.env.STUDIO_LYNX_REF;else process.env.STUDIO_LYNX_REF=keep;fresh();}
+});
