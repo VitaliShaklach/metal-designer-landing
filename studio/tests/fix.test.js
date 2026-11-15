@@ -18,12 +18,12 @@ function cutCorners(L){const E=box(),d=L/Math.SQRT2;[[6,1],[7,-1]].forEach(([v,s
 function fixAll(E,n,o={}){let moved=0;for(let k=0;k<12;k++){const i=only(check(E,o),n)[0];if(!i)break;const r=fix(E,i,o);assert.equal(r.why,null,'отказ: '+r.why);E=r.E;moved=Math.max(moved,r.moved);}return {E,moved};}
 
 test('исходная фигура не меняется', () => {
-  const E=raised(1.2),s=snap(E),{r}=fix1(E,1);
+  const E=raised(6),s=snap(E),{r}=fix1(E,1);
   assert.equal(r.why,null);assert.equal(snap(E),s);assert.notStrictEqual(r.E,E);
 });
-test('правило 1: угол поднят на 1,2 мм — грань выровнена, сдвиг не больше подъёма', () => {
-  const {r}=fix1(raised(1.2),1);
-  assert.equal(r.why,null);assert.equal(only(check(r.E),1).length,0);assert.ok(r.moved<=1.2+1e-6,'сдвиг '+r.moved);assert.ok(r.dev<=2);
+test('правило 1: угол поднят на 4,8 мм — грань выровнена, сдвиг не больше подъёма', () => {
+  const {r}=fix1(raised(4.8),1);
+  assert.equal(r.why,null);assert.equal(only(check(r.E),1).length,0);assert.ok(r.moved<=4.8+1e-6,'сдвиг '+r.moved);assert.ok(r.dev<=2);
 });
 test('правило 1: угол поднят на 6 мм при th.ref 1 — грань режется по диагонали на две плоские', () => {
   const E=raised(6),n0=E.P.length,o={th:{ref:1}},{r}=fix1(E,1,o);
@@ -122,7 +122,7 @@ test('правило 16: щель 1 мм при листе 2 мм — расши
 });
 test('правило 16: щель на крутой крыше — расширять нельзя, форма уйдёт (правило 11)', () => {
   const k=5,z=2.5,h=.5,V=[[-50,-50,z+k*49.5],[-h,-50,z],[-h,-10,z],[-h,10,z],[-h,50,z],[-50,50,z+k*49.5],[h,-50,z],[h,-10,z],[h,10,z],[h,50,z],[50,50,z+k*49.5],[50,-50,z+k*49.5]];
-  const E={V,P:[[0,1,2,3,4,5],[6,11,10,9,8,7],[1,6,7,2],[3,8,9,4]],S:[]},slot=[2,3,8,7],o={slots:[slot],t:2};
+  const E={V,P:[[0,1,2,3,4,5],[6,11,10,9,8,7],[1,6,7,2],[3,8,9,4]],S:[]},slot=[2,3,8,7],o={slots:[slot],t:6};
   const iss=only(check(E,o),16);assert.equal(iss.length,1);
   const r=fix(E,iss[0],o);assert.ok(r.why&&/мм/.test(r.why),String(r.why));assert.strictEqual(r.E,E);
 });

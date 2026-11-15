@@ -78,9 +78,9 @@ test('закрыл и открыл: фигура, история и «после
 });
 test('настройки: set / reset', async () => {
   const S=await start(tmp());try{
-    assert.equal(j(await api(S,'settings',{})).th.planar,.1);
+    assert.equal(j(await api(S,'settings',{})).th.planar,1);
     assert.equal(j(await api(S,'settings',{set:{planar:.3}})).th.planar,.3);assert.equal(j(await api(S,'settings',{})).th.planar,.3);
     assert.equal((await api(S,'settings',{set:{evil:1}})).status,500);
-    assert.equal(j(await api(S,'settings',{reset:true})).th.planar,.1);
+    assert.equal(j(await api(S,'settings',{reset:true})).th.planar,1);
   }finally{await S.close();}
 });

@@ -41,7 +41,8 @@ function fxOpenCount(T){const c=new Map();T.P.forEach(Q=>Q.forEach((a,k)=>{const
 function fxMerge(T,f,g){const L=mergeTwo(T.P,f,g);if(!L)return false;T.P.splice(Math.max(f,g),1);T.P.splice(Math.min(f,g),1);T.P.push(L);return true;}
 
 // выравнивание рядом с точками seed: свободны точки граней, где они есть (и зеркальные), остальные закреплены; решатель — clean.js solve
-function fxTidy(c,T,seed,ring=1){const mm=mirrorMap(T.V),free=new Set(seed);
+function fxTidy(c,T,seed,ring=1){if(c.raw)return;   // вариант «как есть»: выравнивание тянет соседние грани к идеальной плоскости и уводит форму
+  const mm=mirrorMap(T.V),free=new Set(seed);
   for(let r=0;r<ring;r++){const cur=new Set(free);T.P.forEach(Q=>{if(Q.some(v=>cur.has(v)))Q.forEach(v=>free.add(v));});}
   [...free].forEach(v=>{if(mm[v]>=0)free.add(mm[v]);});
   c.open.forEach(v=>free.delete(v));   // края (глаза, стена, прорези) не двигаем
@@ -199,8 +200,10 @@ function fixIssue(E,issue,o){o=o||{};const sc=o.scale||1,th=Object.assign({},TH_
   if(typeof plan==='string')return fail(plan);
   c.before=fxCount(c,E,issue.rule);c.openN=fxOpenCount(E);
   const opt={merge:!!plan.merge,noDev:!!plan.noDev};let best=null,why=null;
-  for(const mk of plan.list){const r=fxRun(c,mk,opt);if(r.why){why=why||r.why;continue;}
-    if(!best||r.moved<best.moved-1e-9)best=r;if(plan.ordered)break;}
+  // каждый вариант — сначала как есть (c.raw: без выравнивания), потом с выравниванием; берётся тот, где точки ушли меньше
+  out:for(const mk of plan.list)for(const raw of [true,false]){c.raw=raw;const r=fxRun(c,mk,opt);if(r.why){why=why||r.why;continue;}
+    if(!best||r.moved<best.moved-1e-9)best=r;if(plan.ordered)break out;}
+  c.raw=false;
   return best?{E:best.T,moved:best.moved,dev:best.dev,why:null}:fail(why||'не получилось');}
 
 // швы S на всех рёбрах между гранями (шаг 8 спеки): деталей станет столько же, сколько граней

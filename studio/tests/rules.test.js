@@ -10,10 +10,10 @@ test('куб чистый', () => {
 
 // угол верхней грани поднят по y: боковые грани (x = 150, z = 260) остаются плоскими, у верхней неплоскость = подъём / 4
 function raised(d){const E=box(),i=vi(E,[150,400,260]);E.V[i]=[150,400+d,260];return {E,top:faceWhere(box(),TOP)};}
-test('правило 1: неплоская грань 0,3 мм — строка на этой грани; 0,05 мм — строк нет', () => {
-  const a=raised(1.2),r1=only(check(a.E),1);
-  assert.equal(r1.length,1);assert.deepEqual(r1[0].faces,[a.top]);assert.ok(Math.abs(r1[0].val-.3)<.01);assert.match(r1[0].text,/неплоская на 0,3 мм/);
-  assert.equal(only(check(raised(.2).E),1).length,0);
+test('правило 1: неплоская грань 1,5 мм — строка на этой грани; 0,5 мм — строк нет', () => {
+  const a=raised(6),r1=only(check(a.E),1);
+  assert.equal(r1.length,1);assert.deepEqual(r1[0].faces,[a.top]);assert.ok(Math.abs(r1[0].val-1.5)<.01);assert.match(r1[0].text,/неплоская на 1,5 мм/);
+  assert.equal(only(check(raised(2).E),1).length,0);
 });
 
 // у куба срезаны два зеркальных угла треугольником с рёбрами L (как CB в editor/lynx/tools/smoke.js)
@@ -112,17 +112,17 @@ test('правило 16: прорезь 1 мм при листе 2 мм — ст
 });
 
 test('оставить так: место правила 1 в keep (± 3 мм) — строки нет; в 8 мм — строка есть', () => {
-  const {E}=raised(1.2),at=only(check(E),1)[0].at;
+  const {E}=raised(6),at=only(check(E),1)[0].at;
   assert.equal(only(check(E,{keep:[{rule:1,at:[at[0]+3,at[1],at[2]]}]}),1).length,0);
   assert.equal(only(check(E,{keep:[{rule:1,at:[at[0]+8,at[1],at[2]]}]}),1).length,1);
   assert.equal(only(check(E,{keep:[{rule:2,at}]}),1).length,1);
   assert.ok(run('keepMatch')({rule:1,at:[0,0,0]},{rule:1,at:[0,0,4]},1)&&!run('keepMatch')({rule:1,at:[0,0,0]},{rule:1,at:[0,0,4]},2));
 });
 
-test('строже в области: неплоскость 0,07 мм — без области строки нет, «Здесь криво» рядом — есть, вдали — нет', () => {
-  const {E}=raised(.28),c=[0,400,130];
+test('строже в области: неплоскость 0,7 мм — без области строки нет, «Здесь криво» рядом — есть, вдали — нет', () => {
+  const {E}=raised(2.8),c=[0,400,130];
   assert.equal(only(check(E),1).length,0);
-  const r=check(E,{region:{c,r:60}});assert.equal(only(r,1).length,1);assert.ok(Math.abs(only(r,1)[0].val-.07)<.005);
+  const r=check(E,{region:{c,r:60}});assert.equal(only(r,1).length,1);assert.ok(Math.abs(only(r,1)[0].val-.7)<.005);
   assert.equal(check(E,{region:{c:[0,0,130],r:60}}).filter(i=>i.rule===1).length,0);
 });
 

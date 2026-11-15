@@ -36,7 +36,7 @@ test('настройки: set меняет, reset возвращает TH_DEFAUL
   const work=tmp(),TH=run('TH_DEFAULT');
   assert.deepEqual(W.settings(work,{},TH),TH);assert.equal(W.settings(work,{set:{planar:.3}},TH).planar,.3);assert.equal(W.settings(work,{},TH).planar,.3);
   assert.throws(()=>W.settings(work,{set:{planar:'x'}},TH));assert.throws(()=>W.settings(work,{set:{nosuch:1}},TH));
-  assert.deepEqual(W.settings(work,{reset:true},TH),TH);assert.equal(W.settings(work,{},TH).planar,.1);
+  assert.deepEqual(W.settings(work,{reset:true},TH),TH);assert.equal(W.settings(work,{},TH).planar,1);
 });
 test('last и контуры дыр', () => {
   const work=tmp();assert.equal(W.getLast(work),null);W.setLast(work,'rys-2');assert.equal(W.getLast(work),'rys-2');
