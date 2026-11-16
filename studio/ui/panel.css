@@ -5,7 +5,7 @@
 #studioPanel.shut{bottom:auto;width:auto;border:0}
 #stHead{flex:none;display:block;width:100%;text-align:left;padding:10px 14px;background:var(--accent,#C0501C);color:#fff;border:0;font:600 13px var(--f-display,sans-serif);letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
 #stBody{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
-#stBody[hidden],#stPubList[hidden],.stPane[hidden]{display:none}
+#stBody[hidden],#stPubList[hidden],.stPane[hidden],#stVer[hidden]{display:none}
 #stNow{padding:8px 10px;border-left:3px solid var(--accent,#C0501C);background:var(--soft,#E2E6E3);font-weight:600;overflow-wrap:anywhere}
 #stNow.bad{color:#c0261c;border-left-color:#c0261c}
 #stTabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line,#C6CCCA)}
@@ -14,7 +14,7 @@
 .stPane{display:flex;flex-direction:column;gap:6px}
 .stT{font:600 11px var(--f-mono,monospace);letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#5B666B)}
 .stHint{font-size:12px;color:var(--muted,#5B666B)}
-.stFig,.stPubItem,#stPub{display:block;width:100%;text-align:left;padding:6px 8px;border:1px solid var(--line,#C6CCCA);border-radius:6px;background:var(--soft,#E2E6E3);color:inherit;font:inherit;cursor:pointer}
+.stFig,.stPubItem,#stPub,#stVer{display:block;width:100%;text-align:left;padding:6px 8px;border:1px solid var(--line,#C6CCCA);border-radius:6px;background:var(--soft,#E2E6E3);color:inherit;font:inherit;cursor:pointer}
 .stFig{display:flex;align-items:flex-start;gap:6px}
 .stFig .stName{flex:1;min-width:0;overflow-wrap:anywhere}
 .stFig.on{border-color:var(--accent,#C0501C);background:var(--accent-soft,#F3DED2)}

@@ -1,9 +1,9 @@
-// сервер мастерской: node studio/server.js [--port N] [--work DIR] [--no-open]  (npm run studio)
+// сервер мастерской: node studio/server.js [--port N] [--work DIR] [--repo DIR] [--no-open]  (npm run studio)
 // Только 127.0.0.1. Отдаёт файлы репозитория (кроме рабочих папок и .git) и вкладывает в страницу рыси панель мастерской;
 // команды /api/* принимает только от своей страницы: Origin и Host — наши, токен X-Studio-Token — случайный на каждый запуск.
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto'),{spawn}=require('child_process');
 const {STUDIO_JS,loadFigureEngine,lynxNames}=require('./lib/engine.js');
-const names=require('./lib/names.js'),W=require('./lib/workdir.js'),{LYNX_REF}=require('./lib/sources.js');
+const names=require('./lib/names.js'),W=require('./lib/workdir.js'),{LYNX_REF}=require('./lib/sources.js'),{saveVersion}=require('./lib/drafts.js');
 
 const ROOT=path.join(__dirname,'..');
 const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8',
@@ -12,10 +12,13 @@ const MAX_BODY=64*1024*1024;
 const STUDIO_UI=['panel','check','settings'];   // скрипты панели в порядке загрузки: колонка и вкладка «Фигуры», вкладка «Проверка», вкладка «Настройки»
 const inside=(abs,dir)=>{const r=path.relative(dir,abs);return r===''||(!r.startsWith('..')&&!path.isAbsolute(r));};
 
-function createStudio({root=ROOT,work,port=8765,open=true}={}){
-  root=path.resolve(root);work=path.resolve(work||path.join(root,'studio','work'));fs.mkdirSync(work,{recursive:true});
+// repo — git-репозиторий для «Сохранить версию» (ветка drafts через studio/.wt/drafts); по умолчанию — тот же, что root. Тесты дают свой временный
+function createStudio({root=ROOT,work,repo,port=8765,open=true}={}){
+  root=path.resolve(root);repo=path.resolve(repo||root);work=path.resolve(work||path.join(root,'studio','work'));fs.mkdirSync(work,{recursive:true});
   const token=crypto.randomBytes(32).toString('hex'),hidden=[work,path.join(root,'studio','.wt'),path.join(root,'studio','work'),path.join(root,'studio','tests','.work')];
   let ENG=null;const eng=()=>ENG||(ENG=loadFigureEngine({studio:true}));
+  // «Сохранить версию» и удаление — по одной: две версии сразу подерутся за git и номер, удаление посреди отправки оставит половину копии
+  let vq=Promise.resolve();const queue=fn=>{const p=vq.then(fn);vq=p.catch(()=>{});return p;};
   const jobs=new Map();   // долгие операции (задачи 9, 10, 12): job → {stage, pct, done, error, result}
   let myPort=port;const hostOk=()=>'127.0.0.1:'+myPort,originOk=()=>'http://127.0.0.1:'+myPort;
 
@@ -45,7 +48,8 @@ function createStudio({root=ROOT,work,port=8765,open=true}={}){
       return {figure:r.figure,undo:h.undo,redo:h.redo,k:h.k,map:h.map,ref:fs.existsSync(rf)?W.readJSON(rf):null,warning:r.warning};},
     copy:b=>copyPublished(String(b.id)),
     save:b=>{if(!W.SLUG.test(String(b.slug)))throw new Error('плохое имя папки фигуры');W.saveFigure(work,b.slug,b.figure,{undo:b.undo,redo:b.redo,k:b.k,map:b.map});W.setLast(work,b.slug);return {ok:true};},
-    remove:b=>{W.removeFigure(work,String(b.slug));return {ok:true};},
+    remove:b=>queue(()=>{W.removeFigure(work,String(b.slug));return {ok:true};}),   // не посреди отправки версии этой папки
+    version:b=>queue(()=>saveVersion(repo,work,String(b.slug))),
     settings:b=>({th:W.settings(work,b,eng().run('TH_DEFAULT'),eng().run('thBad'))}),
     job:b=>jobs.get(String(b.job))||{stage:'',pct:0,done:true,error:'нет такого задания',result:null}};
 
@@ -85,7 +89,8 @@ function createStudio({root=ROOT,work,port=8765,open=true}={}){
         const chunks=[];let n=0;
         req.on('data',c=>{n+=c.length;if(n>MAX_BODY){json(res,413,{error:'слишком большой запрос'});req.destroy();}else chunks.push(c);});
         req.on('end',()=>{if(res.writableEnded)return;let b={};try{const s=Buffer.concat(chunks).toString('utf8');b=s?JSON.parse(s):{};}catch(e){return json(res,400,{error:'не JSON'});}
-          try{json(res,200,fn(b||{}));}catch(e){json(res,500,{error:e.message});}});
+          // команда отвечает сразу или обещанием (version)
+          Promise.resolve().then(()=>fn(b||{})).then(r=>json(res,200,r),e=>json(res,500,{error:e.message}));});
         return;}
       if(req.method!=='GET'&&req.method!=='HEAD')return json(res,405,{error:'только GET'});
       staticFile(req,res,url);
@@ -99,5 +104,5 @@ function createStudio({root=ROOT,work,port=8765,open=true}={}){
 function openBrowser(url){try{const c=process.platform==='win32'?spawn('cmd',['/c','start','',url],{detached:true,stdio:'ignore'}):spawn(process.platform==='darwin'?'open':'xdg-open',[url],{detached:true,stdio:'ignore'});c.on('error',()=>{});c.unref();}catch(e){}}
 
 if(require.main===module){const a=process.argv.slice(2),arg=(k,d)=>{const i=a.indexOf(k);return i>=0&&a[i+1]?a[i+1]:d;};
-  createStudio({port:+arg('--port',8765),work:arg('--work',null)||undefined,open:!a.includes('--no-open')}).then(s=>console.log('Мастерская: '+s.url),e=>{console.error('Не запустилась: '+(e.code==='EADDRINUSE'?'порт занят (другой экземпляр мастерской?)':e.message));process.exit(1);});}
+  createStudio({port:+arg('--port',8765),work:arg('--work',null)||undefined,repo:arg('--repo',null)||undefined,open:!a.includes('--no-open')}).then(s=>console.log('Мастерская: '+s.url),e=>{console.error('Не запустилась: '+(e.code==='EADDRINUSE'?'порт занят (другой экземпляр мастерской?)':e.message));process.exit(1);});}
 module.exports={createStudio};

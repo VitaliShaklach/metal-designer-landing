@@ -1,6 +1,6 @@
 /* ---------- панель мастерской (вкладывает сервер, studio/server.js; на публичной странице её нет) ----------
    Колонка слева: заголовок (сворачивает), строка состояния #stNow, вкладки. Вкладка «Фигуры»: «Мои фигуры» (рабочие копии, «×» — в корзину),
-   «Взять фигуру с сайта» (копией). Другие вкладки добавляются через window.__studio.tab(id, title).
+   «Сохранить версию» (у открытой копии: versions/NNN.json и ветка drafts, studio/lib/drafts.js), «Взять фигуру с сайта» (копией). Другие вкладки добавляются через window.__studio.tab(id, title).
    Автосохранение не позже чем через 500 мс после любой правки.
    Геометрия в figure.json — в рамке модели; страница живёт в мм сайта и ставит фигуру по-своему (fitMesh: x — по центру, низ y = 0, z от 0,
    масштаб по каждой оси свой — размеры округлены до мм): V_страницы = (V_модели − mo) × s + po. Пересчёт запоминается при открытии (cur.map);
@@ -18,7 +18,8 @@
   // ---- вид ----
   const box=el('div',{id:'studioPanel'}),head=el('button',{id:'stHead',type:'button'},'Мастерская'),body=el('div',{id:'stBody'}),
     nowEl=el('div',{id:'stNow'}),tabsEl=el('div',{id:'stTabs'}),
-    msgEl=el('div',{id:'stMsg'}),list=el('div',{id:'stList'}),pubBtn=el('button',{id:'stPub',type:'button'},'Взять фигуру с сайта'),pubList=el('div',{id:'stPubList',hidden:true});
+    msgEl=el('div',{id:'stMsg'}),list=el('div',{id:'stList'}),pubBtn=el('button',{id:'stPub',type:'button'},'Взять фигуру с сайта'),
+    verBtn=el('button',{id:'stVer',type:'button',hidden:true,title:'Снимок фигуры: на диск и в облако (ветка drafts). Номер на сайте не тратит'},'Сохранить версию'),pubList=el('div',{id:'stPubList',hidden:true});
   body.append(nowEl,tabsEl);box.append(head,body);document.body.append(box);
   // вкладки: tab(id, title) → содержимое вкладки; второй раз с тем же id — то же содержимое
   const TABS={};
@@ -27,13 +28,13 @@
     const btn=el('button',{type:'button',className:'stTab'},title),pane=el('div',{id:'stTab-'+id,className:'stPane',hidden:true});btn.dataset.tab=id;
     btn.addEventListener('click',()=>showTab(id));tabsEl.append(btn);body.append(pane);TABS[id]={btn,pane};
     if(Object.keys(TABS).length===1)showTab(id);return pane;}
-  tab('figs','Фигуры').append(el('div',{className:'stT'},'Мои фигуры'),el('div',{className:'stHint'},'Ваши рабочие копии. Правки сохраняются сами'),list,pubBtn,pubList,msgEl);
+  tab('figs','Фигуры').append(el('div',{className:'stT'},'Мои фигуры'),el('div',{className:'stHint'},'Ваши рабочие копии. Правки сохраняются сами'),list,verBtn,pubBtn,pubList,msgEl);
   // колонка развёрнута — страница сдвинута вправо (body.st-open); 3D пересчитывает размер по resize
   const fold=open=>{body.hidden=!open;box.classList.toggle('shut',!open);document.body.classList.toggle('st-open',open);window.dispatchEvent(new Event('resize'));};
   head.addEventListener('click',()=>fold(body.hidden));document.body.classList.add('st-open');
   const say=(t,bad,wait)=>{msgEl.textContent=t||'';msgEl.classList.toggle('bad',!!bad);msgEl.classList.toggle('busy',!!wait);};
   pubBtn.addEventListener('click',()=>{pubList.hidden=!pubList.hidden;});
-  const setBusy=b=>{busy=b;box.classList.toggle('stBusy',b);pubBtn.disabled=b;list.querySelectorAll('.stDel').forEach(x=>{x.disabled=b;});pubList.querySelectorAll('.stPubItem').forEach(x=>{x.disabled=b;});if(!b)msgEl.classList.remove('busy');};
+  const setBusy=b=>{busy=b;box.classList.toggle('stBusy',b);pubBtn.disabled=verBtn.disabled=b;list.querySelectorAll('.stDel').forEach(x=>{x.disabled=b;});pubList.querySelectorAll('.stPubItem').forEach(x=>{x.disabled=b;});if(!b)msgEl.classList.remove('busy');};
 
   const WATCH=[],fireWatch=()=>WATCH.forEach(f=>{try{f();}catch(e){console.error(e);}});
   // рабочая копия на экране? (выбрали в выпадашке фигуру сайта — уже нет)
@@ -41,7 +42,7 @@
   // строка состояния; s: '' | 'сохраняю…' | 'сохранено' | 'не сохранилось' (без s — прежнее)
   function now(s){if(s!==undefined)state=s;const o=isOpen();
     nowEl.textContent=o?'Открыта: '+(ST.name||cur.figure.name)+(state?' · '+state:''):SITE;nowEl.classList.toggle('bad',o&&state==='не сохранилось');
-    const sl=o?cur.slug:'';if(sl!==shown)drawList(lastL);}
+    verBtn.hidden=!o;const sl=o?cur.slug:'';if(sl!==shown)drawList(lastL);}
 
   function drawList(L){lastL=L;shown=isOpen()?cur.slug:'';list.textContent='';
     if(!L.figures.length)list.append(el('div',{className:'stEmpty'},'Фигур пока нет. Нажмите «Взять фигуру с сайта»'));
@@ -95,6 +96,15 @@
       e=>{if(was&&!cur&&ST.fig===''){cur=was;schedule();fireWatch();}now();say('Не удалилось: '+e.message,true);})   // не удалилась — ведём её дальше и дописываем снятую правку
       .then(()=>{setBusy(false);return refresh();});}
 
+  // «Сохранить версию»: сначала всё несохранённое — на диск (сервер снимает версию с figure.json), потом /api/version.
+  // Прошлая запись не удалась — пробуем ещё раз; снова нет — версию не снимаем (на диске фигура старее, чем на экране).
+  // Нет сети — версия всё равно на диске, сообщение красным; «только на этом компе» (r.local, сервер знает по figure.json) — не ошибка
+  function saveVersion(){if(busy||!isOpen())return Promise.resolve();const c=cur;setBusy(true);say('Сохраняю версию…',false,true);
+    return (state==='не сохранилось'?flush():Promise.resolve()).then(settle).then(()=>{if(cur!==c)throw new Error('фигура закрыта');if(state==='не сохранилось')throw new Error('последняя правка не записалась на диск');
+        return api('version',{slug:c.slug});})
+      .then(r=>say(r.msg,!r.pushed&&!r.local),e=>say('Версия не сохранилась: '+e.message,true)).then(()=>setBusy(false));}
+  verBtn.addEventListener('click',saveVersion);
+
   // ---- автосохранение: не позже чем через 500 мс после первой правки ----
   const rnd=x=>Math.round(x*1e6)/1e6;
   // точки страницы → мм модели и обратно (по cur.map)
@@ -110,6 +120,8 @@
       e=>{if(!mine())return;now('не сохранилось');say('Не сохранилось: '+e.message,true);})
       .then(()=>{saving=null;if(dirty){dirty=false;schedule();}});return saving;}
   function schedule(){if(!timer)timer=setTimeout(flush,300);}
+  // дождаться, пока на диске всё: отложенная запись — сейчас, идущая — до конца, и то, что накопилось за время идущей
+  function settle(){if(timer){clearTimeout(timer);return flush().then(settle);}return saving?saving.then(settle):Promise.resolve();}
   // На экран встала другая фигура (выпадашка «Фигура», «Открыть модель», «Начать с заготовки» — всё идёт через setBase страницы) — рабочая копия закрыта:
   // чужая фигура в её папку не пишется. Сама мастерская зовёт setBase только из applyFigure, там cur уже null
   const pageSetBase=setBase;setBase=function(){if(cur){drop();opening='';}return pageSetBase.apply(this,arguments);};
