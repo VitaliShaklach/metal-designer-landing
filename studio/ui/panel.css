@@ -48,6 +48,15 @@
 .ckBtns{display:flex;gap:6px}
 .ckFix,.ckDo,.ckNo,#ckUndo,.ckFix,.ckDo{border-color:var(--accent,#C0501C);background:var(--accent,#C0501C);color:#fff;font-weight:600}
 .ckWhy,.ckWorse{color:#c0261c}.ckWait{color:var(--muted,#5B666B)}
+/* пачка: «Исправить все ошибки этого типа» (вверху раскрытой группы), «Исправить всё безопасное», прогресс, итог и причины */
+#ckSafe,.ckAll,.ckStop,.ckBNo{padding:5px 10px;border:1px solid var(--line,#C6CCCA);border-radius:6px;background:var(--soft,#E2E6E3);color:inherit;font:inherit;cursor:pointer}
+#ckSafe{align-self:flex-start;font-weight:600}#ckSafe[hidden]{display:none}
+.ckAll{display:block;width:100%;border-width:0 0 1px;border-radius:0;text-align:left;font-weight:600}
+.ckBDo{padding:5px 10px;border:1px solid var(--accent,#C0501C);border-radius:6px;background:var(--accent,#C0501C);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+#ckBatch{display:flex;flex-direction:column;gap:6px;padding:6px 8px;border:1px solid var(--accent,#C0501C);border-radius:6px;overflow-wrap:anywhere}#ckBatch[hidden]{display:none}
+#ckBatch .ckBtns{align-items:center}.ckBT,.ckBRes{font-weight:600}.ckBProg{flex:1;min-width:0}
+.ckBWhyT{color:var(--muted,#5B666B)}.ckBWhy{padding-left:8px;color:#c0261c}
+#ckDone .ckBWhyT{margin-top:4px}
 /* по одной: «Предыдущая» / «Следующая»; «Оставить так» и группа «Оставлено так» */
 .ckKeep,.ckGoPrev,.ckGoNext,.ckUnkeep{padding:5px 10px;border:1px solid var(--line,#C6CCCA);border-radius:6px;background:var(--soft,#E2E6E3);color:inherit;font:inherit;cursor:pointer}
 .ckKeep{align-self:flex-start}

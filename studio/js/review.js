@@ -7,6 +7,12 @@
      при отказе E = null и why — причина. moved и dev — мм сайта.
      o — как у checkFigure; o.issues — строки Проверки до правки (чтобы не считать заново). Швы S ставятся на новые рёбра,
      если у фигуры они и так на всех рёбрах (как у рыси 14).
+   reviewBatch(E, o) — пачка (решения Q24, Q28, Q29), генератор: «Исправить все ошибки этого типа» (o.rules = [n]) или «Исправить всё безопасное»
+     (без o.rules — все правила, что чинит автоматика). Это цикл автоматики autoSteps с тем же судом (judgeAll, правило 11, «Оставить так»,
+     швы на линии эталона) на своей копии фигуры. yield {round, k, of, …} после каждой пробы; next(true) — «Стоп»: посчитанное до него применимо.
+     Ответ: {E — фигура после пачки без лишних точек (compact) или null, если починить нечего; fixed — сколько строк чинимых правил ушло, of — сколько
+     их было; left — сколько осталось (у одного правила — его строк, у «всего безопасного» — всех ошибок); moved — наибольший сдвиг точки, мм сайта;
+     reasons — [{why, n}] причины, почему строки чинимых правил остались (одинаковые, кроме мм, — одной строкой с разбросом); stopped}.
    reviewSlots(E, pts, scale, prev) → {slots, pts, idx} — прорези по местам, а не по номерам точек: ручные правки и compact перенумеровывают точки.
      pts — точки каждой прорези, какими они были (мм модели); прорезь — открытый контур E, у которого не меньше половины точек лежат
      на прежних местах (ближе 1 мм сайта). Не нашлась — прорези сейчас нет (её залатали или разорвали): в slots её нет, а в pts её
@@ -26,6 +32,23 @@ function reviewFix(E,issue,o){o=o||{};const r=fixIssue(E,issue,Object.assign({},
   const T=compact(r.E);
   const j=judgeAll(o.issues||reviewCheck(E,o),reviewCheck(T,Object.assign({},o,{slots:o.slots?reviewSlots(T,o.slots.map(L=>L.map(v=>E.V[v])),o.scale||1).slots:o.slots})));
   return {E:T,moved:r.moved,dev:r.dev,why:null,worse:j.worse.map(w=>({rule:w.rule,title:(RULES.find(x=>x.n===w.rule)||{}).title||'',was:w.was,now:w.now}))};}
+// пачка: «Исправить все ошибки этого типа» (o.rules = [n]) и «Исправить всё безопасное» (без o.rules)
+function* reviewBatch(E,o){o=o||{};const sc=o.scale||1,skip=REVIEW_SKIP.concat(o.skip||[]);
+  const A=yield* autoSteps(E,Object.assign({},o,{skip,seams:reviewAllSeams(E)}));
+  const aim=n=>A.rules.includes(n),sum=(c,f)=>Object.keys(c).reduce((s,k)=>s+(f(+k)?c[k]:0),0);
+  const of=sum(A.before,aim),left=sum(A.after,o.rules?aim:()=>true),fixed=Math.max(0,of-sum(A.after,aim));
+  // сдвиг: наибольший у правок (там и точки, слитые в другую) и у точек итога против исходной (правки одного места складываются)
+  const done=A.log.filter(l=>l.done);let moved=0;done.forEach(l=>{moved=Math.max(moved,l.moved||0);});
+  const used=new Set(A.E.P.flat());used.forEach(v=>{if(v<E.V.length)moved=Math.max(moved,V3.len(V3.sub(A.E.V[v],E.V[v]))*sc);});
+  const by=new Map();A.log.forEach(l=>{if(!l.done&&aim(l.issue.rule))reviewWhy(by,l.why);});
+  const reasons=[...by.values()].map(x=>({why:x.tpl.split('#').map((s,k)=>k?reviewSpan(x.mm[k-1])+s:s).join(''),n:x.n})).sort((a,b)=>b.n-a.n||(a.why<b.why?-1:1));
+  return {E:done.length?compact(A.E):null,fixed:done.length?fixed:0,of,left,moved:done.length?moved:0,reasons,stopped:A.stopped};}
+// причины отказов пачки: одинаковые, кроме чисел перед «мм», — одна строка с разбросом («неплоской на 1,05–1,48 мм»)
+const REVIEW_MM=/-?\d+(?:,\d+)?(?= мм)/g;   // числа — как пишет fmtN (rules.js): без разрядов, запятая
+function reviewWhy(by,why){const tpl=why.replace(REVIEW_MM,'#'),nums=why.match(REVIEW_MM)||[];let x=by.get(tpl);
+  if(!x)by.set(tpl,x={tpl,n:0,mm:nums.map(()=>null)});x.n++;
+  nums.forEach((s,k)=>{const v=+s.replace(',','.'),m=x.mm[k];if(!m)x.mm[k]={lo:v,hi:v,ls:s,hs:s};else{if(v<m.lo){m.lo=v;m.ls=s;}if(v>m.hi){m.hi=v;m.hs=s;}}});}
+const reviewSpan=m=>m.lo===m.hi?m.ls:m.ls+'–'+m.hs;
 // контуры открытых рёбер — номера точек по кругу (как openLoops в studio/lib/workdir.js)
 function reviewLoops(P){const cnt=new Map();P.forEach(Q=>Q.forEach((a,k)=>{const b=Q[(k+1)%Q.length];if(a===b)return;const key=a<b?a+'_'+b:b+'_'+a;(cnt.get(key)||cnt.set(key,[]).get(key)).push([a,b]);}));
   const nx=new Map();cnt.forEach(es=>{if(es.length===1)nx.set(es[0][1],es[0][0]);});

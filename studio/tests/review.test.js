@@ -1,6 +1,6 @@
 // Проверка для панели мастерской (studio/js/review.js): node --test studio/tests/review.test.js
 const test=require('node:test'),assert=require('node:assert');
-const {run,box,faceWhere,TOP,sampleCube,SAMPLE_SCALE}=require('./helpers.js');
+const {run,box,faceWhere,TOP,sampleCube,sampleSplit,SAMPLE_SCALE}=require('./helpers.js');
 const copy=E=>({V:E.V.map(p=>p.slice()),P:E.P.map(Q=>Q.slice()),S:(E.S||[]).map(s=>s.slice())});
 const opts=(E,o={})=>Object.assign({scale:SAMPLE_SCALE,kind:'stand',slots:[],base:copy(E)},o);
 const check=(E,o)=>run('reviewCheck')(E,o),fix=(E,i,o)=>run('reviewFix')(E,i,o),counts=iss=>run('ruleCounts')(iss);
@@ -82,4 +82,68 @@ test('«Следующая» (Q31): ближайшая на модели стр�
   // строка на прежнем месте (для «Предыдущая»): то же правило, ближе 1 мм сайта; нет — null
   const find=(a,sc=1,rule=2)=>{const r=run('reviewFind')(iss,rule,at(a),sc);return r&&r.at[0];};
   assert.equal(find(10.4),10);assert.equal(find(10.4,3),null);assert.equal(find(1,1,2),null);assert.equal(find(1,1,3),1);assert.equal(find(2,1,11),null);
+});
+
+// ---- пачка (решения Q24, Q28, Q29): reviewBatch — генератор: шаг за шагом, next(true) — «Стоп» ----
+const batch=(E,o,stopAt)=>{const g=run('reviewBatch')(E,o),steps=[];let r=g.next(),n=0;
+  while(!r.done){steps.push(r.value);r=g.next(stopAt!==undefined&&n++>=stopAt);}return Object.assign({steps},r.value);};
+const judge=(a,b)=>run('judgeAll')(a,b);
+test('пачка по правилу 2: все 6 строк починены, прогресс «k из 6», другие правила не хуже, исходная не тронута', () => {
+  const E=sampleCube(),s=JSON.stringify(E),o=opts(E),r=batch(E,Object.assign({rules:[2]},o));
+  assert.equal(JSON.stringify(E),s);
+  assert.deepEqual({...r.steps[0]},{...r.steps[0],k:0,of:6,round:0});assert.ok(r.steps.length>=2);
+  assert.ok(r.steps.every(p=>p.of===6||p.round>0));
+  assert.equal(r.stopped,false);assert.equal(r.of,6);assert.equal(r.fixed,6);assert.equal(r.left,0);
+  assert.ok(r.moved>0&&r.moved<=4,'сдвиг '+r.moved);assert.deepEqual(r.reasons,[]);
+  assert.equal(used(r.E),r.E.V.length,'без лишних точек, как после ручной правки');
+  const a=check(r.E,o);assert.equal(row(a,2),undefined);assert.ok(judge(check(E,o),a).ok);
+});
+test('пачка: правка, от которой растёт другое правило, не попадает; причина названа (Q28)', () => {
+  const E=sampleSplit(),o=opts(E);assert.deepEqual(counts(check(E,o)),{1:1,2:6,6:2,7:1,10:1});
+  const r=batch(E,Object.assign({rules:[7]},o));
+  assert.equal(r.E,null);assert.equal(r.fixed,0);assert.equal(r.of,1);assert.equal(r.left,1);
+  assert.deepEqual(r.reasons,[{why:'правка откатана: стало хуже правило 5 (было 0, стало 2)',n:1}]);
+  // а одиночное «Исправить» ту же правку даёт сделать (с предупреждением)
+  const iss=check(E,o),one=fix(E,row(iss,7),Object.assign({issues:iss},o));assert.equal(one.why,null);assert.deepEqual(one.worse.map(w=>w.rule),[5]);
+});
+test('«Стоп» после первой пробы: посчитанная часть применима, остальное — «расчёт остановлен»', () => {
+  const E=sampleCube(),o=opts(E),full=batch(E,Object.assign({rules:[2]},o)),r=batch(E,Object.assign({rules:[2]},o),1);
+  assert.equal(r.stopped,true);assert.equal(r.steps.length,2);assert.equal(r.steps[1].k,1);
+  assert.ok(r.E,'есть что применить');assert.ok(r.fixed>0&&r.fixed<full.fixed,'починено '+r.fixed);assert.equal(r.left,6-r.fixed);
+  assert.ok(judge(check(E,o),check(r.E,o)).ok);
+  assert.ok(r.reasons.some(x=>/расчёт остановлен/.test(x.why)),JSON.stringify(r.reasons));
+  // «Стоп» до первой пробы — применять нечего
+  const z=batch(E,Object.assign({rules:[2]},o),0);assert.equal(z.stopped,true);assert.equal(z.E,null);assert.equal(z.fixed,0);
+});
+test('«Исправить всё безопасное»: чинит всё, что можно; остальное — с причинами; ничего не стало хуже', () => {
+  const E=sampleCube(),o=opts(E),r=batch(E,o);
+  assert.equal(r.of,10);assert.equal(r.fixed,9);assert.equal(r.left,1);assert.equal(r.stopped,false);
+  const a=check(r.E,o);assert.deepEqual(counts(a),{10:1});assert.ok(judge(check(E,o),a).ok);
+  assert.deepEqual(r.reasons,[{why:'правка уведёт форму от открытой фигуры на 3 мм (допуск 2 мм)',n:1}]);
+  // с разрезанной гранью: шов не убран — от этого выросло бы правило 5
+  const S=sampleSplit(),os=opts(S),b=batch(S,os);
+  assert.equal(b.of,11);assert.equal(b.fixed,9);assert.equal(b.left,2);assert.deepEqual(counts(check(b.E,os)),{7:1,10:1});
+  assert.ok(b.reasons.some(x=>/стало хуже правило 5/.test(x.why)),JSON.stringify(b.reasons));
+});
+test('причины пачки: одинаковые, кроме мм, — одной строкой с разбросом; номера правил не склеиваются', () => {
+  const by=new Map(),W=run('reviewWhy');['грань станет неплоской на 1,48 мм','грань станет неплоской на 1,05 мм','грань станет неплоской на 1,2 мм',
+    'правка откатана: стало хуже правило 3 (было 0, стало 2)','правка откатана: стало хуже правило 5 (было 0, стало 2)'].forEach(w=>W(by,w));
+  const out=[...by.values()].map(x=>x.tpl.split('#').map((s,k)=>k?run('reviewSpan')(x.mm[k-1])+s:s).join('')+' · '+x.n);
+  assert.deepEqual(out,['грань станет неплоской на 1,05–1,48 мм · 3','правка откатана: стало хуже правило 3 (было 0, стало 2) · 1','правка откатана: стало хуже правило 5 (было 0, стало 2) · 1']);
+});
+
+// ---------- рысь 14: пачка по правилу 2 целиком (около 25 с). С эталоном src5, если он есть; нет — похожесть от открытой фигуры, как в панели ----------
+test('рысь 14: пачка по правилу 2 доходит до конца, ни одно правило не стало хуже', () => {
+  const fs=require('fs'),W=require('../lib/workdir.js'),{buildRef}=require('../lib/refbuild.js'),{LYNX_REF}=require('../lib/sources.js');
+  const E=run("modelPoly('lynx14')"),sc=1000/run('meshBox')(E.V).size[1],png=LYNX_REF.replace(/\.obj$/i,'.png');
+  const R=fs.existsSync(LYNX_REF)?run('refIndex')(buildRef(LYNX_REF,fs.existsSync(png)?png:null,{half:'left',frame:'lynx14'})):null;
+  const slots=W.openLoops(E.P),o={scale:sc,kind:'stand',slots,ref:R,base:R?null:copy(E)};
+  const r=batch(E,Object.assign({rules:[2]},o));
+  assert.equal(r.stopped,false);assert.equal(r.of,178);assert.ok(r.fixed>0&&r.E,'починено '+r.fixed);
+  assert.ok(r.steps.length>r.of/2,'прогресс шёл по шагам: '+r.steps.length);
+  // до и после — Проверка панели заново (прорези — по местам: compact перенумеровал точки)
+  const before=counts(check(E,o)),T=r.E,after=counts(check(T,Object.assign({},o,{slots:run('reviewSlots')(T,slots.map(L=>L.map(v=>E.V[v])),sc).slots})));
+  const j=judge(before,after);assert.ok(j.ok,'стало хуже: '+JSON.stringify(j.worse));
+  assert.equal(after[2],r.left);assert.equal(before[2]-after[2],r.fixed);
+  assert.ok(r.reasons.length&&r.reasons.reduce((s,x)=>s+x.n,0)===r.left,'у каждой оставшейся строки — причина');
 });

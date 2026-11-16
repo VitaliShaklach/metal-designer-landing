@@ -10,14 +10,20 @@
    не показывает); группа «Оставлено так», у каждого места «Вернуть».
    «Показать неточности» (Q23, Q30): переключатель, по умолчанию выключен — все места списка на модели сразу, цветом своего правила, и легенда
    «цвет — правило — сколько»; клик по строке легенды оставляет один тип, повторный — все. Грань в нескольких местах — цвет того, что выше в списке.
-   Клик по подсвеченной грани на модели (HOOKS.pick) выбирает строку этого места. С «Картой отклонений» вместе не работает (__studio.solo). */
+   Клик по подсвеченной грани на модели (HOOKS.pick) выбирает строку этого места. С «Картой отклонений» вместе не работает (__studio.solo).
+   Пачка (Q24, Q28, Q29): «Исправить все ошибки этого типа» у раскрытой группы правила и «Исправить всё безопасное» над списком.
+   Поток считает её на копии фигуры (reviewBatch: тот же цикл и суд, что у автоматики, — правка остаётся, только если ни одно правило
+   не стало хуже и правило 11 цело), по одной пробе: «Проверяю 37 из 178» и «Стоп». Итог — «Починю N из M, форма уйдёт не больше … мм»
+   и причины отказов, «Сделать» / «Отмена»; после «Стоп» — то же для посчитанной части. «Сделать» — один шаг «Отменить» на всю пачку,
+   после — «Починено N, осталось M» и причины. Правка фигуры (и «Оставить так») посреди пачки её снимает: считалась для другой фигуры. */
 (function(){
   const SD=window.__studio;if(!SD||typeof STUDIO==='undefined'||typeof Worker==='undefined')return;
   const pane=SD.tab('check','Проверка');
   const el=(tag,attrs,text)=>{const e=document.createElement(tag);Object.assign(e,attrs||{});if(text!==undefined)e.textContent=text;return e;};
   const sumEl=el('div',{id:'ckSum'}),doneEl=el('div',{id:'ckDone',hidden:true}),navEl=el('div',{id:'ckNav',hidden:true}),listEl=el('div',{id:'ckList'});
   const showL=el('label',{id:'ckShowL',hidden:true}),showIn=el('input',{type:'checkbox',id:'ckShow'}),legEl=el('div',{id:'ckLeg',hidden:true});
-  showL.append(showIn,document.createTextNode('Показать неточности'));pane.append(sumEl,showL,legEl,doneEl,navEl,listEl);
+  const safeB=el('button',{type:'button',id:'ckSafe',hidden:true},'Исправить всё безопасное'),batchEl=el('div',{id:'ckBatch',hidden:true});
+  showL.append(showIn,document.createTextNode('Показать неточности'));pane.append(sumEl,showL,legEl,safeB,doneEl,batchEl,navEl,listEl);
   const NO_COPY='Проверка работает с рабочей копией. Откройте её на вкладке «Фигуры»';
   const ruleOf=n=>RULES.find(r=>r.n===n)||{n,title:'Правило '+n,color:'#888888'};
   const keyOf=i=>autoKey(i)+'@'+i.at.map(x=>Math.round(x*10)).join('_')+'#'+(i.faces||[]).slice().sort((a,b)=>a-b).join('_');
@@ -38,6 +44,7 @@
   let over=null;              // её подкраска: {map: грань → THREE.Color, who: грань → место (строка), base, sig}; null — выключена или список не для этой фигуры
   let drawn='',drawnBase=null; // какую подкраску 3D уже показывает и для какой фигуры страницы
   const openG=new Set();      // раскрытые группы
+  let batch=null;             // пачка: {id, rules — [n] или null (всё безопасное), phase: 'run' | 'stop' | 'res', k, of, round — прогресс, res — итог потока}
   let walk=null;              // проход по одной: {rule, at — где сейчас, seen — где уже были, back / fwd — для «Предыдущая» и возврата «Следующей»} (места — мм модели)
 
   const modelE=()=>({V:SD.toModel(ST.base.V),P:ST.base.P,S:ST.base.S||[]});
@@ -94,7 +101,12 @@
       if(only!==null&&!issues.some(x=>!x.info&&x.rule===only))only=null;   // этого типа больше нет — легенда снова на все
       buildOver();setPaint(i);return draw();}
     if(m.type==='fix'){if(!prev||prev.id!==m.id||m.gen!==gen)return;prev={res:m};return draw();}
+    // пачка: на каждую пробу поток ждёт ответа — «дальше», если не нажали «Стоп»
+    if(m.type==='progress'){if(!batch||batch.id!==m.id)return;if(m.gen!==gen){dropBatch();return draw();}
+      batch.k=m.k;batch.of=m.of;batch.round=m.round;if(batch.phase==='run')W.postMessage({type:'more',id:m.id});return drawBatch();}
+    if(m.type==='batch'){if(!batch||batch.id!==m.id)return;if(m.gen!==gen){batch=null;return draw();}batch.phase='res';batch.res=m;return draw();}
     if(m.type==='error'){
+      if(m.of==='batch'){if(batch&&batch.id===m.id){batch.phase='res';batch.res={err:m.error};draw();}return;}
       if(m.of==='fix'){if(prev&&prev.id===m.id){prev={res:{why:'правка не вышла: '+m.error,worse:[]}};draw();}return;}
       if(m.of==='check'&&m.id===inflight){inflight=0;issues=null;wErr=m.error;buildOver();repaint();if(again){again=false;return recheck();}}
       draw();}}
@@ -102,9 +114,9 @@
   // прорези — по местам: после любой правки находим их заново и пишем номера точек в фигуру (уйдут на диск с автосохранением)
   function trackSlots(E){const c=SD.cur();if(!c)return;const r=reviewSlots(E,slotPts,c.k,slotIdx);slotPts=r.pts;slotIdx=r.idx;c.figure.slots=r.slots;}
 
-  HOOKS.changed.push(()=>{gen++;prev=null;if(!applying)done=null;if(ST.drag||!SD.cur())return draw();
+  HOOKS.changed.push(()=>{gen++;prev=null;if(!applying)done=null;dropBatch();if(ST.drag||!SD.cur())return draw();
     const E=modelE();trackSlots(E);recheck(E);});
-  SD.watch(()=>{const c=SD.cur();gen++;sel='';prev=null;done=null;issues=null;wErr='';walk=null;show=false;only=null;over=null;showIn.checked=false;
+  SD.watch(()=>{const c=SD.cur();gen++;sel='';prev=null;done=null;dropBatch();issues=null;wErr='';walk=null;show=false;only=null;over=null;showIn.checked=false;
     if(c){const f=c.figure;slotIdx=(f.slots||[]).map(L=>L.slice());slotPts=slotIdx.map(L=>L.map(v=>f.V[v]).filter(Boolean).map(p=>p.slice()));
       if(W)W.postMessage({type:'figure',ref:c.ref,base:c.base});setPaint(null);}
     else{slotPts=[];slotIdx=[];setPaint(null,true);}   // копия закрылась: страница сейчас сама перерисует другую фигуру
@@ -127,7 +139,7 @@
     st.length=Math.max(g.j,0);   // места выше найденного (и всё, если шли к новой) — уже починены
     other.push(walk.at);walk.at=g.t.at;if(!beenAt(g.t,k))walk.seen.push(g.t.at);go(g.t);}
   // «Оставить так» и «Вернуть»: поменялись места keep — список прежней фигуры уже не тот (gen), пересчёт и запись
-  function setKeep(K){const c=SD.cur();if(!c)return;c.figure.keep=K;gen++;prev=null;SD.touch();recheck();}
+  function setKeep(K){const c=SD.cur();if(!c)return;c.figure.keep=K;gen++;prev=null;dropBatch();SD.touch();recheck();}
   function keepIt(i){const c=SD.cur();if(!c||!fresh())return;
     setKeep((c.figure.keep||[]).concat([{rule:i.rule,at:i.at.map(x=>Math.round(x*1e6)/1e6),text:i.text}]));}
   // вернули место — проход снова к нему зайдёт
@@ -137,6 +149,16 @@
     W.postMessage({type:'fix',id:prev.id,gen,E:modelE(),o:opts(c),issue:i,issues});draw();}
   function doFix(i){const c=SD.cur(),E=prev&&prev.res&&prev.res.E;if(!c||!E)return;
     done={text:i.text};prev=null;applying=true;
+    try{pushUndo();applyE({V:SD.toPage(E.V),P:E.P,S:E.S||[]});}finally{applying=false;}}
+  // пачка: rules — [n] («Исправить все ошибки этого типа») или null («Исправить всё безопасное»); одна за раз
+  function askBatch(rules){const c=SD.cur();if(!c||!W||!fresh()||batch)return;prev=null;
+    batch={id:++seq,rules,phase:'run',k:0,of:0,round:0,res:null};
+    W.postMessage({type:'batch',id:batch.id,gen,E:modelE(),o:opts(c),rules});draw();}
+  function stopBatch(){if(!batch||batch.phase!=='run')return;batch.phase='stop';W.postMessage({type:'stop',id:batch.id});drawBatch();}
+  // снять пачку: поток бросает расчёт, итог не придёт
+  function dropBatch(){if(batch&&batch.phase!=='res'&&W)W.postMessage({type:'drop',id:batch.id});batch=null;}
+  function doBatch(){const c=SD.cur(),r=batch&&batch.res,E=r&&r.E;if(!c||!E)return;
+    done={text:'пачка',batch:{fixed:r.fixed,left:r.left,reasons:r.reasons||[]}};batch=null;prev=null;applying=true;
     try{pushUndo();applyE({V:SD.toPage(E.V),P:E.P,S:E.S||[]});}finally{applying=false;}}
 
   // ---- вид ----
@@ -156,11 +178,28 @@
     const row=el('div',{className:'ckBtns'});row.append(btn('ckDo','Сделать',()=>doFix(i)),btn('ckNo','Не надо',()=>{prev=null;draw();}));a.append(row);return a;}
   function navBar(){if(!walk||!fresh()||selIssue())return;const p=target(-1),n=target(1);if(!(p&&p.t)&&!(n&&n.t))return;
     navEl.hidden=false;navEl.append(el('span',{className:'ckNavT'},'По очереди: '+walk.rule+'. '+ruleOf(walk.rule).title),navRow(p,n));}
-  function group(id,title,color,rows,render){const g=el('div',{className:'ckGroup'}),h=el('button',{type:'button',className:'ckGH'}),on=openG.has(id);g.dataset.rule=id;
+  // причины отказов пачки: «причина — 3 места»; больше REASONS_MAX — «и ещё …»
+  const REASONS_MAX=8,places=n=>n%10===1&&n%100!==11?'место':n%10>=2&&n%10<=4&&(n%100<12||n%100>14)?'места':'мест';
+  function whyList(box,R,title){if(!R||!R.length)return;box.append(el('div',{className:'ckBWhyT'},title));
+    R.slice(0,REASONS_MAX).forEach(x=>box.append(el('div',{className:'ckBWhy'},x.why+(x.n>1?' — '+x.n+' '+places(x.n):''))));
+    if(R.length>REASONS_MAX)box.append(el('div',{className:'ckBWhyT'},'и ещё причин: '+(R.length-REASONS_MAX)));}
+  function drawBatch(){batchEl.textContent='';batchEl.hidden=!batch;if(!batch)return;const b=batch,r=b.res;
+    batchEl.append(el('div',{className:'ckBT'},b.rules?'Все ошибки «'+b.rules[0]+'. '+ruleOf(b.rules[0]).title+'»':'Всё безопасное'));
+    if(b.phase!=='res'){const row=el('div',{className:'ckBtns'}),t=b.phase==='stop'?'Останавливаю, проверяю посчитанное…':
+        !b.of?'Считаю…':(b.round?'Проход '+(b.round+1)+': проверяю ':'Проверяю ')+Math.min(b.k+1,b.of)+' из '+b.of;
+      row.append(el('span',{className:'ckBProg'},t));if(b.phase==='run')row.append(btn('ckStop','Стоп',stopBatch));batchEl.append(row);return;}
+    const row=el('div',{className:'ckBtns'});
+    if(r.err)batchEl.append(el('div',{className:'ckWhy'},'Пачка не посчиталась: '+r.err));
+    else{const head=r.stopped?'Остановлено: '+(b.round?'проход '+(b.round+1)+', ':'')+'проверено '+Math.min(b.k,b.of)+' из '+b.of+'. ':'';
+      batchEl.append(el('div',{className:'ckBRes'},head+(r.E?'Починю '+r.fixed+' из '+r.of+', форма уйдёт не больше '+mm(r.moved)+' мм':
+        r.stopped?'Пока ничего не починено':r.of?'Починить не выйдет ни одной из '+r.of:'Чинить нечего')));
+      whyList(batchEl,r.reasons,'Не починю:');if(r.E)row.append(btn('ckBDo','Сделать',doBatch));}
+    row.append(btn('ckBNo',r.E?'Отмена':'Закрыть',()=>{batch=null;draw();}));batchEl.append(row);}
+  function group(id,title,color,rows,render,top){const g=el('div',{className:'ckGroup'}),h=el('button',{type:'button',className:'ckGH'}),on=openG.has(id);g.dataset.rule=id;
     const sw=el('span',{className:'ckSw'});if(color)sw.style.background=color;else sw.classList.add('none');
     h.append(sw,el('span',{className:'ckGT'},title),el('span',{className:'ckN'},String(rows.length)));h.setAttribute('aria-expanded',String(on));
     h.addEventListener('click',()=>{if(on)openG.delete(id);else openG.add(id);draw();});g.append(h);
-    if(on){const box=el('div',{className:'ckRows'});rows.forEach(i=>box.append(render(i)));g.append(box);}return g;}
+    if(on){const box=el('div',{className:'ckRows'});if(top)box.append(top);rows.forEach(i=>box.append(render(i)));g.append(box);}return g;}
   // легенда: строка на правило — цвет (у правила 9 — и протыкание), правило, сколько; нажата — на модели только этот тип.
   // Список старой фигуры — легенда не нажимается, пока не пришёл новый
   function legend(G){legEl.textContent='';legEl.hidden=!(show&&G.length);if(legEl.hidden)return;
@@ -169,16 +208,19 @@
       b.append(el('span',{className:'ckLgT'},n+'. '+r.title),el('span',{className:'ckLgN'},String(rows.length)));
       b.title=only===n?'Показать все типы':'Показать на модели только этот тип';b.addEventListener('click',()=>setOnly(n));legEl.append(b);});}
   function draw(){const c=SD.cur();listEl.textContent='';doneEl.textContent='';doneEl.hidden=!(done&&c);navEl.textContent='';navEl.hidden=true;sumEl.classList.toggle('bad',!!wErr);
-    showL.hidden=!c||!!wErr;if(showL.hidden||!issues)legend([]);
+    showL.hidden=!c||!!wErr;if(showL.hidden||!issues)legend([]);drawBatch();
+    safeB.hidden=!c||!!wErr||!issues||!issues.some(i=>!i.info&&AUTO_ORDER.includes(i.rule));safeB.disabled=!fresh()||!!batch;
     if(wErr){sumEl.textContent='Проверка не посчиталась: '+wErr;return;}
     if(!c){sumEl.textContent=NO_COPY;return;}
-    if(done){const u=el('button',{type:'button',id:'ckUndo'},'Отменить');u.addEventListener('click',()=>{done=null;undo();});doneEl.append(el('span',{},'Сделано: '+done.text+'. '),u);}
+    if(done){const u=el('button',{type:'button',id:'ckUndo'},'Отменить');u.addEventListener('click',()=>{done=null;undo();});
+      const d=done.batch;doneEl.append(el('span',{},d?'Починено '+d.fixed+', осталось '+d.left+'. ':'Сделано: '+done.text+'. '),u);if(d)whyList(doneEl,d.reasons,'Не починено:');}
     if(!issues){sumEl.textContent='Считаю…';return;}
     const G=errGroups(),errs=issues.filter(i=>!i.info),infos=issues.filter(i=>i.info);legend(G);
     sumEl.textContent=(errs.length?'Ошибок: '+errs.length:'Ошибок нет')+(inflight?' · считаю…':'');
     G.forEach(([n,rows])=>{const r=ruleOf(n);
+      const all=AUTO_ORDER.includes(n)?btn('ckAll','Исправить все ошибки этого типа',()=>askBatch([n])):null;if(all)all.disabled=!fresh()||!!batch;
       listEl.append(group(String(n),n+'. '+r.title,r.color,rows,i=>{const on=keyOf(i)===sel,it=el('div',{className:'ckItem'}),b=el('button',{type:'button',className:'ckRow'+(on?' on':''),disabled:!fresh()},i.text);   // список старой фигуры не нажимается, пока не пришёл новый
-        b.addEventListener('click',()=>select(i));it.append(b);if(on&&fresh())it.append(actBox(i));return it;}));});
+        b.addEventListener('click',()=>select(i));it.append(b);if(on&&fresh())it.append(actBox(i));return it;},all));});
     const K=c.figure.keep||[];
     if(K.length)listEl.append(group('keep','Оставлено так','',K.map((k,n)=>({k,n})),({k,n})=>{const r=el('div',{className:'ckKept'});
       r.append(el('span',{className:'ckKT'},k.rule+'. '+(k.text||ruleOf(k.rule).title)),btn('ckUnkeep','Вернуть',()=>unkeep(n)));return r;}));
@@ -191,8 +233,10 @@
   SD.marked=()=>over&&over.base===ST.base?[...over.map.keys()].sort((a,b)=>a-b):[];   // грани «Показать неточности»
   SD.picked=()=>{const i=selIssue();return i&&SD.cur()?SD.toPage([i.at])[0]:null;};   // место выбранной строки, мм сайта
 
+  safeB.addEventListener('click',()=>askBatch(null));
+
   // ---- старт ----
-  try{W=new Worker('/studio/ui/check-worker.js');W.onmessage=e=>onMsg(e.data);W.onerror=e=>{wErr=e.message||'фоновый поток не запустился';inflight=0;issues=null;buildOver();repaint();draw();};
+  try{W=new Worker('/studio/ui/check-worker.js');W.onmessage=e=>onMsg(e.data);W.onerror=e=>{wErr=e.message||'фоновый поток не запустился';inflight=0;issues=null;batch=null;buildOver();repaint();draw();};
     W.postMessage({type:'init',urls:STUDIO.engine});}catch(e){wErr=e.message;}
   draw();
   SD.api('settings',{}).then(r=>{th=r.th;const c=SD.cur();if(c&&W)W.postMessage({type:'figure',ref:c.ref,base:c.base});recheck();},e=>{wErr=e.message;draw();});

@@ -2,7 +2,7 @@
 // Файл идёт раньше studio.spec.js (по алфавиту); тот в начале сам чистит рабочую папку.
 const {test,expect}=require('@playwright/test');
 const fs=require('fs'),path=require('path');
-const {sampleFigure}=require('../helpers.js');
+const {sampleFigure,sampleSplit}=require('../helpers.js');
 const WORK=path.join(__dirname,'..','.work'),SLUG='obrazec';
 const read=()=>JSON.parse(fs.readFileSync(path.join(WORK,SLUG,'figure.json'),'utf8'));
 const NO_COPY='Проверка работает с рабочей копией. Откройте её на вкладке «Фигуры»';
@@ -305,4 +305,107 @@ test('«Показать неточности» и другой переключ
   expect(await page.evaluate(()=>window.__off)).toBe(1);   // свой off не зовётся
   // после перезагрузки снова выключен
   await show(page).check();await open(page);await expect(show(page)).not.toBeChecked();expect(await marked(page)).toEqual([]);
+});
+
+// ---- пачка (Q24, Q28, Q29): «Исправить все ошибки этого типа» и «Исправить всё безопасное» ----
+// ответы потока, кроме пересчёта списка, можно придержать: window.__hold = true — копятся в window.__held; __step() отдаёт один
+const HOLD=()=>{const W0=window.Worker;window.__held=[];window.__step=()=>{const f=window.__held.shift();if(f)f();return !!f;};
+  window.Worker=function(u,o){const w=new W0(u,o);let h=null;Object.defineProperty(w,'onmessage',{set(f){h=f;},get(){return h;}});
+    w.addEventListener('message',e=>{const go=()=>h&&h(e);if(window.__hold&&e.data.type!=='check')window.__held.push(go);else go();});return w;};};
+const shape=page=>page.evaluate(()=>JSON.stringify([ST.base.V,ST.base.P]));
+const held=page=>expect.poll(()=>page.evaluate(()=>window.__held.length)).toBeGreaterThan(0);
+const release=page=>page.evaluate(()=>{window.__hold=false;while(window.__step());});
+test('«Исправить все ошибки этого типа» → прогресс → итог с числами → «Сделать» → строк правила меньше; одно «Отменить» возвращает всё', async ({page}) => {
+  await page.addInitScript(HOLD);
+  const errs=[];page.on('pageerror',e=>errs.push(e.message));
+  await open(page);await openGroup(page,2);
+  const s0=await shape(page),before=read();
+  const all=grp(page,2).locator('.ckAll');await expect(all).toHaveText('Исправить все ошибки этого типа');
+  await page.evaluate(()=>{window.__hold=true;});await all.click();
+  await held(page);await page.evaluate(()=>window.__step());
+  await expect(page.locator('#ckBatch .ckBProg')).toHaveText('Проверяю 1 из 6');await expect(page.locator('#ckBatch .ckStop')).toHaveText('Стоп');
+  await expect(page.locator('#ckSafe')).toBeDisabled();await expect(all).toBeDisabled();   // одна пачка за раз
+  await release(page);
+  await expect(page.locator('#ckBatch .ckBRes')).toHaveText(/^Починю 6 из 6, форма уйдёт не больше [\d,]+ мм$/,{timeout:20000});
+  await expect(page.locator('#ckBatch .ckBWhy')).toHaveCount(0);
+  expect(await shape(page)).toBe(s0);   // пока считали — фигура та же: считали на копии
+  await page.locator('#ckBatch .ckBDo').click();
+  await expect(page.locator('#ckSum')).toHaveText('Ошибок: 2',{timeout:15000});await expect(grp(page,2)).toHaveCount(0);   // узкие срезы (правило 6) ушли заодно
+  await expect(page.locator('#ckDone')).toContainText('Починено 6, осталось 0');await expect(page.locator('#ckBatch')).toBeHidden();
+  await expect.poll(()=>JSON.stringify(read().V)!==JSON.stringify(before.V),{timeout:3000}).toBe(true);
+  // одно «Отменить» — вся пачка
+  await page.locator('#ckUndo').click();
+  await expect(page.locator('#ckSum')).toHaveText('Ошибок: 10',{timeout:15000});await expect(grp(page,2).locator('.ckN')).toHaveText('6');
+  expect(await shape(page)).toBe(s0);
+  await expect.poll(()=>{const f=read();return f.V.length===before.V.length&&f.V.every((p,i)=>p.every((x,k)=>Math.abs(x-before.V[i][k])<1e-6));},{timeout:3000}).toBe(true);
+  expect(errs).toEqual([]);
+});
+test('«Отмена» в итоге пачки — фигура не изменилась', async ({page}) => {
+  await open(page);await openGroup(page,1);
+  const s0=await shape(page),f0=JSON.stringify(read());
+  await grp(page,1).locator('.ckAll').click();
+  await expect(page.locator('#ckBatch .ckBRes')).toHaveText(/^Починю 1 из 1/,{timeout:20000});
+  await page.locator('#ckBatch .ckBNo').click();await expect(page.locator('#ckBatch')).toBeHidden();
+  await page.waitForTimeout(700);
+  expect(await shape(page)).toBe(s0);expect(JSON.stringify(read())).toBe(f0);
+  await expect(page.locator('#ckSum')).toHaveText('Ошибок: 10');await expect(page.locator('#ckDone')).toBeHidden();
+  await expect(page.locator('#ckSafe')).toBeEnabled();
+});
+test('«Стоп» посреди расчёта — показана посчитанная часть, её можно применить', async ({page}) => {
+  await page.addInitScript(HOLD);
+  await open(page);await openGroup(page,2);
+  await page.evaluate(()=>{window.__hold=true;});await grp(page,2).locator('.ckAll').click();
+  await held(page);await page.evaluate(()=>window.__step());await expect(page.locator('#ckBatch .ckBProg')).toHaveText('Проверяю 1 из 6');
+  // поток сделал первую пробу и ждёт ответа страницы; «Стоп» закрывает расчёт на ней
+  await held(page);
+  await page.locator('#ckBatch .ckStop').click();await expect(page.locator('#ckBatch .ckBProg')).toHaveText(/^Останавливаю/);
+  await release(page);
+  await expect(page.locator('#ckBatch .ckBRes')).toHaveText(/^Остановлено: проверено 1 из 6\. Починю 4 из 6, форма уйдёт не больше [\d,]+ мм$/,{timeout:20000});
+  await expect(page.locator('#ckBatch .ckBWhy')).toContainText(['не дошла очередь: расчёт остановлен']);
+  await page.locator('#ckBatch .ckBDo').click();
+  await expect(grp(page,2).locator('.ckN')).toHaveText('2',{timeout:15000});await expect(page.locator('#ckSum')).toHaveText('Ошибок: 4');
+  await expect(page.locator('#ckDone')).toContainText('Починено 4, осталось 2');
+  await page.locator('#ckUndo').click();await expect(page.locator('#ckSum')).toHaveText('Ошибок: 10',{timeout:15000});
+});
+test('пачка: правка, от которой растёт другое правило, не попадает — её причина видна до и после', async ({page}) => {
+  fs.writeFileSync(path.join(WORK,SLUG,'figure.json'),JSON.stringify(sampleFigure('Образец',sampleSplit())));
+  await open(page,11);await openGroup(page,7);
+  await grp(page,7).locator('.ckAll').click();
+  await expect(page.locator('#ckBatch .ckBRes')).toHaveText('Починить не выйдет ни одной из 1',{timeout:20000});
+  await expect(page.locator('#ckBatch .ckBWhy')).toHaveText(['правка откатана: стало хуже правило 5 (было 0, стало 2)']);
+  await expect(page.locator('#ckBatch .ckBDo')).toHaveCount(0);await page.locator('#ckBatch .ckBNo').click();await expect(page.locator('#ckBatch')).toBeHidden();
+  // всё безопасное: 9 из 11; шов остался, причина — и после «Сделать»
+  const s0=await shape(page);
+  await page.locator('#ckSafe').click();
+  await expect(page.locator('#ckBatch .ckBRes')).toHaveText(/^Починю 9 из 11, форма уйдёт не больше [\d,]+ мм$/,{timeout:30000});
+  await page.locator('#ckBatch .ckBDo').click();
+  await expect(page.locator('#ckSum')).toHaveText('Ошибок: 2',{timeout:15000});
+  await expect(page.locator('#ckDone')).toContainText('Починено 9, осталось 2');
+  await expect(page.locator('#ckDone .ckBWhy')).toHaveText(['правка откатана: стало хуже правило 5 (было 0, стало 2)',/^правка уведёт форму от открытой фигуры на (3|2,99) мм \(допуск 2 мм\)$/]);
+  await expect(grp(page,7).locator('.ckN')).toHaveText('1');
+  // одно «Отменить» возвращает всё
+  await page.locator('#ckUndo').click();await expect(page.locator('#ckSum')).toHaveText('Ошибок: 11',{timeout:15000});
+  expect(await shape(page)).toBe(s0);
+});
+test('«Исправить всё безопасное»: одно «Отменить» возвращает всё; правка фигуры посреди расчёта снимает пачку', async ({page}) => {
+  await page.addInitScript(HOLD);
+  await open(page);
+  const s0=await shape(page);await expect(page.locator('#ckSafe')).toHaveText('Исправить всё безопасное');
+  // правка руками, пока пачка считается: пачка снята, её итог не придёт
+  await page.evaluate(()=>{window.__hold=true;});await page.locator('#ckSafe').click();
+  await held(page);
+  await page.evaluate(()=>{ST.edit=true;$('cEdit').checked=true;ST.sp=0;renderAll();$('op_split').click();});
+  await expect(page.locator('#ckBatch')).toBeHidden();
+  await release(page);
+  await expect(grp(page,7)).toHaveCount(1,{timeout:15000});await page.waitForTimeout(500);await expect(page.locator('#ckBatch')).toBeHidden();
+  await page.evaluate(()=>$('bUndo').click());await expect(page.locator('#ckSum')).toHaveText('Ошибок: 10',{timeout:15000});
+  await page.evaluate(()=>{ST.edit=false;$('cEdit').checked=false;renderAll();});
+  // теперь до конца
+  await page.locator('#ckSafe').click();
+  await expect(page.locator('#ckBatch .ckBRes')).toHaveText(/^Починю 9 из 10, форма уйдёт не больше [\d,]+ мм$/,{timeout:30000});
+  await expect(page.locator('#ckBatch .ckBWhy')).toHaveText([/^правка уведёт форму от открытой фигуры на (3|2,99) мм \(допуск 2 мм\)$/]);
+  await page.locator('#ckBatch .ckBDo').click();
+  await expect(page.locator('#ckSum')).toHaveText('Ошибок: 1',{timeout:15000});await expect(page.locator('#ckDone')).toContainText('Починено 9, осталось 1');
+  await page.locator('#ckUndo').click();
+  await expect(page.locator('#ckSum')).toHaveText('Ошибок: 10',{timeout:15000});expect(await shape(page)).toBe(s0);
 });

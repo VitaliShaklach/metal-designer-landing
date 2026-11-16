@@ -46,5 +46,7 @@ function cutCorners(L,E){E=E||box();const d=L/Math.SQRT2;[[6,1],[7,-1]].forEach(
 //   правило 6 — 2 (срезы — узкие детали; починка даёт новые строки правил 3, 5, 10), правило 10 — 1 (починить нельзя: форма уйдёт на 3 мм), сведение «Эталона нет»
 const SAMPLE_SCALE=2;
 function sampleCube(){const E=cutCorners(2,box(150,200,130));E.V[5]=[75,-3,130];E.S=[];return E;}
-const sampleFigure=(name='Образец')=>{const E=sampleCube();return {type:'md-studio',v:1,name,kind:'stand',localOnly:false,H:406,V:E.V,P:E.P,S:[],keep:[],slots:[],refHalf:'left'};};
-module.exports={engine,run,g,box,faceWhere,TOP,edgePoint,vi,makePNG,writeOBJ,stripeRef,cutTop,cutCorners,sampleCube,sampleFigure,SAMPLE_SCALE};
+const sampleFigure=(name='Образец',E=sampleCube())=>({type:'md-studio',v:1,name,kind:'stand',localOnly:false,H:406,V:E.V,P:E.P,S:[],keep:[],slots:[],refHalf:'left'});
+// образец, у которого задняя грань (z = 0) разрезана пополам: ещё строка правила 7 (шов без излома); убрать шов — выросло бы правило 5 (лишние точки)
+function sampleSplit(){const E=sampleCube(),R=run('splitPoly')(E,faceWhere(E,p=>p[2]===0),true);R.S=[];return R;}
+module.exports={engine,run,g,box,faceWhere,TOP,edgePoint,vi,makePNG,writeOBJ,stripeRef,cutTop,cutCorners,sampleCube,sampleSplit,sampleFigure,SAMPLE_SCALE};

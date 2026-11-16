@@ -9,6 +9,9 @@
      E на входе не меняется. Номера точек в ответе те же (убранные точки остаются в V без граней), поэтому o.slots и keep верны и после.
      log — {issue, done, why?}[]: сначала сделанные правки по порядку (ещё moved и dev, мм сайта), потом всё, что осталось в Проверке, с причиной.
      before и after — ruleCounts полной Проверки до и после; с seams «до» — фигура уже со швами на всех рёбрах.
+   autoSteps(E, o) — тот же цикл генератором, по шагам (его прокручивает autoClean; пачка панели — reviewBatch в review.js):
+     o.rules — чинить только эти правила (Проверка и суд — по всем); yield {round, rule, k, of, fixed} после каждой попытки, next(true) — «Стоп»,
+     ответ — как у autoClean и ещё stopped и rules — какие правила чинились (AUTO_ORDER с учётом o.rules и o.skip).
    За проход правила чинятся в порядке AUTO_ORDER. Правка остаётся, только если:
      - строк её правила стало меньше и ни у одного правила строк не стало больше (правило 9 так только откатывает правку, которая его создала);
      - форма не ушла от эталона дальше th.ref (правило 11 — его держит fixIssue; эталона нет — от фигуры, какой она пришла);
@@ -50,9 +53,16 @@ function autoNear(X,pts,r){const lo=[1e18,1e18,1e18],hi=[-1e18,-1e18,-1e18];pts.
   const near=v=>{let h=hit.get(v);if(h===undefined){const p=X.V[v];h=test(p[0],p[1],p[2])||test(-p[0],p[1],p[2]);hit.set(v,h);}return h;},out=[];
   X.P.forEach((Q,i)=>{if(Q.some(near))out.push(i);});return out;}
 
-function autoClean(E,o){o=o||{};const sc=o.scale||1,maxRounds=o.maxRounds||20,skip0=o.skip||[],REF=o.ref?refOf(o.ref):null,zr=(o.zone||AUTO_ZONE)/sc;
+// весь цикл до конца (Node, studio/tools/auto.js)
+function autoClean(E,o){const g=autoSteps(E,o);let r=g.next(false);while(!r.done)r=g.next(false);return r.value;}
+// тот же цикл по шагам — для пачки панели (studio/js/review.js reviewBatch): после каждой попытки починки и в начале каждого прохода
+// отдаёт {round, rule, k, of, fixed} (k — попыток в этом проходе, of — строк чинимых правил в его начале); next(true) — «Стоп»:
+// проход закрывается так же, как в конце (полная Проверка и откат виновной правки), и в ответе stopped: true.
+// o.rules — какие правила чинить (по умолчанию все из AUTO_ORDER); Проверка и суд — по всем правилам, как без o.rules.
+function* autoSteps(E,o){o=o||{};const sc=o.scale||1,maxRounds=o.maxRounds||20,skip0=o.skip||[],REF=o.ref?refOf(o.ref):null,zr=(o.zone||AUTO_ZONE)/sc;
+  const want=o.rules?new Set(o.rules):null,aim=n=>!skip0.includes(n)&&(!want||want.has(n))&&AUTO_ORDER.includes(n),rules=AUTO_ORDER.filter(aim);
   // эталона нет — похожесть меряется от фигуры, какой она пришла (а не от уже правленой: иначе уход копился бы с каждой правкой)
-  const oo=Object.assign({},o,{base:o.base||(REF?null:E)});delete oo.onStep;delete oo.judge;delete oo.region;
+  const oo=Object.assign({},o,{base:o.base||(REF?null:E)});delete oo.onStep;delete oo.judge;delete oo.region;delete oo.rules;
   let cur=o.seams?addAllSeams(E):ecopy(E);   // своя копия: по ней кеши (грани, зеркало, края), а фигуру снаружи могут править на месте
   const full=X=>checkFigure(X,oo),ruleOnly=(X,n)=>checkFigure(X,Object.assign({},oo,{skip:FX_ALL.filter(k=>k!==n||skip0.includes(k))})).filter(i=>i.rule===n&&!i.info);
   // местная перепроверка: правила 11 (держит fixIssue), 12 и 15 (долгие) — только в полной
@@ -91,29 +101,37 @@ function autoClean(E,o){o=o||{};const sc=o.scale||1,maxRounds=o.maxRounds||20,sk
   const PIN=new WeakMap(),pinOf=X=>{let p=PIN.get(X);if(!p){p=new Set(KV);if(REF&&REF.T){const cnt=new Map();X.P.forEach(Q=>Q.forEach((a,k)=>{const b=Q[(k+1)%Q.length];if(a!==b){const e=fxEk(a,b);cnt.set(e,(cnt.get(e)||0)+1);}}));
     cnt.forEach((n,e)=>{if(n<2)return;const [a,b]=e.split('_').map(Number);if(onLine(X,a,b)){p.add(a);p.add(b);}});}PIN.set(X,p);}return p;};
   // когда место меняли в последний раз: отказ пробуется снова, только если рядом что-то поменялось
-  const log=[],fail=new Map(),ban=new Map(),touch=new Map();let stamp=0,fixed=0,rounds=0;
+  const log=[],fail=new Map(),ban=new Map(),touch=new Map();let stamp=0,fixed=0,rounds=0,stopped=false,tried=new Set(),of=0;
   const fresh=(i,X)=>{const f=fail.get(autoKey(i));if(!f)return true;
     return i.verts.some(v=>(touch.get(v)||0)>f.at)||i.faces.some(fi=>X.P[fi]&&X.P[fi].some(v=>(touch.get(v)||0)>f.at));};
+  const prog=(round,rule)=>({round,rule,k:tried.size,of,fixed});   // k — сколько мест уже пробовали в этом проходе (повторная проба того же места — не новое)
   for(let round=0;round<maxRounds;round++){rounds=round+1;const start=cur,cnt0=ruleCounts(iss),chain=[];let did=0;
-    for(const rule of AUTO_ORDER){if(skip0.includes(rule)||!iss.some(i=>i.rule===rule&&!i.info)&&!did)continue;
+    tried=new Set();of=iss.filter(i=>!i.info&&aim(i.rule)).length;
+    if(yield prog(round,0)){stopped=true;break;}
+    for(const rule of AUTO_ORDER){if(!aim(rule)||!iss.some(i=>i.rule===rule&&!i.info)&&!did)continue;
       let L=ruleOnly(cur,rule),k=0;
       while(k<L.length){const i=L[k++],key=autoKey(i);if(ban.has(key)||!fresh(i,cur))continue;
-        const r=fixIssue(cur,i,Object.assign({},oo,{judge,pin:pinOf(cur)}));
-        if(r.why){fail.set(key,{at:stamp,why:r.why});if(o.onStep)o.onStep({round,rule,issue:i,done:false,why:r.why,fixed});continue;}
+        const r=fixIssue(cur,i,Object.assign({},oo,{judge,pin:pinOf(cur)}));tried.add(key);
+        if(r.why){fail.set(key,{at:stamp,why:r.why});if(o.onStep)o.onStep({round,rule,issue:i,done:false,why:r.why,fixed});
+          if(yield prog(round,rule)){stopped=true;break;}continue;}
         const D=autoDiff(cur,r.E);stamp++;D.eb.forEach(f=>cur.P[f].forEach(v=>touch.set(v,stamp)));D.ta.forEach(f=>r.E.P[f].forEach(v=>touch.set(v,stamp)));
         cur=r.E;did++;fixed++;fail.delete(key);log.push({issue:i,done:true,moved:r.moved,dev:r.dev});chain.push({E:cur,key,issue:i,n:log.length-1});
         if(o.onStep)o.onStep({round,rule,issue:i,done:true,why:null,fixed});
-        L=ruleOnly(cur,rule);k=0;}}   // номера граней после правки другие — список правила заново
+        if(yield prog(round,rule)){stopped=true;break;}
+        L=ruleOnly(cur,rule);k=0;}   // номера граней после правки другие — список правила заново
+      if(stopped)break;}
     if(!did)break;
     iss=full(cur);let j=judgeAll(cnt0,iss);
     if(!j.ok){   // местная перепроверка не увидела: найти виновную правку, откатить её и всё после неё
       const bad=autoFirstWorse(chain.length,m=>judgeAll(cnt0,full(chain[m].E)).ok),c=chain[bad];
       j=bad===chain.length-1?j:judgeAll(cnt0,full(c.E));
       ban.set(c.key,'правка откатана: после неё стало хуже правило '+autoWorse(j));
-      fixed-=log.length-c.n;log.length=c.n;cur=bad?chain[bad-1].E:start;iss=full(cur);fail.clear();}}   // отказы считались на откатанной фигуре — пробовать заново
+      fixed-=log.length-c.n;log.length=c.n;cur=bad?chain[bad-1].E:start;iss=full(cur);fail.clear();}   // отказы считались на откатанной фигуре — пробовать заново
+    if(stopped)break;}
   const after=ruleCounts(iss);
   iss.forEach(i=>{if(i.info)return;const key=autoKey(i),f=fail.get(key);
-    log.push({issue:i,done:false,why:ban.get(key)||(f&&f.why)||AUTO_WHY[i.rule]||(RULE_FIX.has(i.rule)?'не дошла очередь: проходы кончились':'это правило автоматика не чинит')});});
-  return {E:cur,log,before,after,rounds};}
+    log.push({issue:i,done:false,why:ban.get(key)||(f&&f.why)||AUTO_WHY[i.rule]||(!RULE_FIX.has(i.rule)?'это правило автоматика не чинит':
+      want&&!want.has(i.rule)?'это правило в пачку не входит':stopped?'не дошла очередь: расчёт остановлен':'не дошла очередь: проходы кончились')});});
+  return {E:cur,log,before,after,rounds,stopped,rules};}
 
-if(typeof module!=='undefined')module.exports={judgeAll,autoClean,autoFirstWorse,AUTO_ORDER};
+if(typeof module!=='undefined')module.exports={judgeAll,autoClean,autoSteps,autoFirstWorse,AUTO_ORDER};
