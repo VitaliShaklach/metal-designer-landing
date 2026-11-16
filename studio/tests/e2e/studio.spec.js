@@ -25,7 +25,7 @@ test('пустая мастерская: колонка слева, подска
   expect((await page.locator('#studioPanel').boundingBox()).height).toBeLessThan(80);   // осталась узкая кнопка в углу
   await page.locator('#stHead').click();await expect(page.locator('#stPub')).toBeVisible();
   const t=await page.evaluate(()=>{const a=window.__studio.tab('check','Проверка'),b=window.__studio.tab('check','Проверка');a.textContent='тут будет Проверка';return [a===b,a.id,document.querySelectorAll('.stTab').length];});
-  expect(t).toEqual([true,'stTab-check',2]);
+  expect(t).toEqual([true,'stTab-check',3]);   // «Фигуры», «Проверка», «Настройки»
   // вкладки переключаются: видно содержимое одной, состояние — над вкладками, видно всегда
   await page.locator('.stTab[data-tab=check]').click();await expect(page.locator('#stTab-check')).toBeVisible();await expect(page.locator('#stPub')).toBeHidden();
   await expect(page.locator('.stTab.on')).toHaveText('Проверка');await expect(page.locator('#stNow')).toBeVisible();

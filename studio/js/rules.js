@@ -11,6 +11,31 @@
    Правило 7 с эталоном: шов лишний, только если на эталоне рядом нет ни излома, ни линии (studio/js/ref.js refSeam).
    Правило 17 — DXF при публикации (задача 8). */
 const TH_DEFAULT={planar:1,edge:5,near:8,ang:5,lineLo:172,lineHi:179.5,width:15,seam:5,ref:2,sym:.1,H:1000};   // sym — допуск зеркальной точки (правило 10)
+// пороги во вкладке «Настройки» (studio/ui/settings.js): правило, подпись, единица (мм сайта или градусы).
+// H — высота на сайте, не порог правила (масштаб Проверка берёт из фигуры): в «Настройках» её нет
+const TH_INFO=[
+  {k:'planar',rule:1,label:'неплоскость грани не больше',unit:'мм'},
+  {k:'edge',rule:2,label:'ребро не короче',unit:'мм'},
+  {k:'near',rule:3,label:'точки без ребра не ближе',unit:'мм'},
+  {k:'ang',rule:4,label:'угол в грани не меньше',unit:'°'},
+  {k:'lineLo',rule:5,label:'почти прямой угол: от',unit:'°'},
+  {k:'lineHi',rule:5,label:'почти прямой угол: до',unit:'°'},
+  {k:'width',rule:6,label:'ширина детали не меньше',unit:'мм'},
+  {k:'seam',rule:7,label:'излом шва не меньше',unit:'°'},
+  {k:'sym',rule:10,label:'зеркальная точка не дальше',unit:'мм'},
+  {k:'ref',rule:11,label:'от эталона не дальше',unit:'мм'}];
+// пороги годятся? '' — да, иначе — что не так, словами: каждый — число больше нуля, углы не больше 180°, «от» почти прямой меньше «до»
+function thBad(th){for(const x of TH_INFO){const v=th[x.k];
+    if(typeof v!=='number'||!isFinite(v)||v<=0)return '«'+x.label+'»: нужно число больше нуля';
+    if(x.unit==='°'&&v>180)return '«'+x.label+'»: угол не больше 180°';}
+  if(th.lineLo>=th.lineHi)return 'почти прямой угол: «от» ('+fmtN(th.lineLo,1)+'°) должно быть меньше «до» ('+fmtN(th.lineHi,1)+'°)';
+  return '';}
+// пороги Проверки фигуры: начальные ← общие (work/settings.json) ← свои у фигуры (figure.th). Берутся только известные ключи и числа больше нуля;
+// общие не годятся (thBad) — начальные; свои вместе с общими не годятся (например, свой «от» почти прямой выше общего «до») — свои не берутся,
+// why — почему. → {th, why}
+function thMerge(common,own){const pick=(b,o)=>{const t=Object.assign({},b);for(const k in o||{}){const v=o[k];if(k in TH_DEFAULT&&typeof v==='number'&&isFinite(v)&&v>0)t[k]=v;}return t;};
+  let base=pick(TH_DEFAULT,common);if(thBad(base))base=Object.assign({},TH_DEFAULT);
+  const t=pick(base,own),why=thBad(t);return why?{th:base,why}:{th:t,why:''};}
 const RULES=[
   {n:1,title:'Грань плоская',color:'#e0a020'},
   {n:2,title:'Нет коротких рёбер',color:'#e07020'},

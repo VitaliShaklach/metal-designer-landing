@@ -35,12 +35,13 @@ test('страница мастерской: токен и panel.js есть, ф
   try{for(const u of ['/editor/lynx/','/editor/lynx/index.html']){const r=await req(S,{url:u});assert.equal(r.status,200);
       assert.ok(r.text.includes(S.token),u);assert.ok(r.text.includes('/studio/ui/panel.js'));assert.ok(r.text.includes('/studio/js/rules.js'));assert.ok(r.text.indexOf('panel.js')>r.text.indexOf('js/ui.js'));
       assert.ok(r.text.includes(`port:${S.port}`));
-      assert.ok(r.text.indexOf('/studio/ui/check.js')>r.text.indexOf('/studio/ui/panel.js'),'вкладка «Проверка» — после панели');assert.ok(r.text.indexOf('/studio/ui/panel.js')>r.text.indexOf('/studio/js/review.js'));}
+      assert.ok(r.text.indexOf('/studio/ui/check.js')>r.text.indexOf('/studio/ui/panel.js'),'вкладка «Проверка» — после панели');assert.ok(r.text.indexOf('/studio/ui/panel.js')>r.text.indexOf('/studio/js/review.js'));
+      assert.ok(r.text.indexOf('/studio/ui/settings.js')>r.text.indexOf('/studio/ui/check.js'),'вкладка «Настройки» — после «Проверки»');}
     // STUDIO.engine — скрипты для фонового потока Проверки: движок без страницы и 3D, потом скрипты мастерской; все отдаются
     const eng=JSON.parse(/engine:(\[[^\]]*\])/.exec((await req(S,{url:'/editor/lynx/'})).text)[1]);
     assert.equal(eng[0],'/editor/lynx/js/mesh.js');assert.ok(eng.includes('/editor/lynx/js/plates-lynx14.js'));assert.equal(eng[eng.length-1],'/studio/js/review.js');
     assert.ok(!eng.some(u=>/ui\.js|view3d\.js|three/.test(u)));
-    for(const u of [...eng,'/studio/ui/check-worker.js','/studio/ui/check.js'])assert.equal((await req(S,{url:u})).status,200,u);
+    for(const u of [...eng,'/studio/ui/check-worker.js','/studio/ui/check.js','/studio/ui/settings.js'])assert.equal((await req(S,{url:u})).status,200,u);
     assert.equal(fs.readFileSync(path.join(ROOT,'editor/lynx/index.html'),'utf8'),disk);assert.ok(!disk.includes('panel.js'));
     assert.equal((await req(S,{url:'/editor/lynx/js/ui.js'})).status,200);   // обычный файл — без вставок
     assert.ok(!(await req(S,{url:'/editor/lynx/js/ui.js'})).text.includes(S.token));
@@ -88,6 +89,8 @@ test('настройки: set / reset', async () => {
     assert.equal(j(await api(S,'settings',{})).th.planar,1);
     assert.equal(j(await api(S,'settings',{set:{planar:.3}})).th.planar,.3);assert.equal(j(await api(S,'settings',{})).th.planar,.3);
     assert.equal((await api(S,'settings',{set:{evil:1}})).status,500);
+    for(const v of [-1,0,'abc'])assert.equal((await api(S,'settings',{set:{planar:v}})).status,500,String(v));   // #115: только числа больше нуля
+    assert.match(j(await api(S,'settings',{set:{lineHi:170}})).error,/172/);assert.equal(j(await api(S,'settings',{})).th.planar,.3);
     assert.equal(j(await api(S,'settings',{reset:true})).th.planar,1);
   }finally{await S.close();}
 });

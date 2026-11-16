@@ -9,7 +9,7 @@ const ROOT=path.join(__dirname,'..');
 const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8',
   '.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.woff2':'font/woff2','.ico':'image/x-icon','.txt':'text/plain; charset=utf-8','.md':'text/plain; charset=utf-8'};
 const MAX_BODY=64*1024*1024;
-const STUDIO_UI=['panel','check'];   // скрипты панели в порядке загрузки: колонка и вкладка «Фигуры», вкладка «Проверка»
+const STUDIO_UI=['panel','check','settings'];   // скрипты панели в порядке загрузки: колонка и вкладка «Фигуры», вкладка «Проверка», вкладка «Настройки»
 const inside=(abs,dir)=>{const r=path.relative(dir,abs);return r===''||(!r.startsWith('..')&&!path.isAbsolute(r));};
 
 function createStudio({root=ROOT,work,port=8765,open=true}={}){
@@ -46,7 +46,7 @@ function createStudio({root=ROOT,work,port=8765,open=true}={}){
     copy:b=>copyPublished(String(b.id)),
     save:b=>{if(!W.SLUG.test(String(b.slug)))throw new Error('плохое имя папки фигуры');W.saveFigure(work,b.slug,b.figure,{undo:b.undo,redo:b.redo,k:b.k,map:b.map});W.setLast(work,b.slug);return {ok:true};},
     remove:b=>{W.removeFigure(work,String(b.slug));return {ok:true};},
-    settings:b=>({th:W.settings(work,b,eng().run('TH_DEFAULT'))}),
+    settings:b=>({th:W.settings(work,b,eng().run('TH_DEFAULT'),eng().run('thBad'))}),
     job:b=>jobs.get(String(b.job))||{stage:'',pct:0,done:true,error:'нет такого задания',result:null}};
 
   function send(res,code,type,body){const b=Buffer.from(typeof body==='string'?body:JSON.stringify(body));res.writeHead(code,{'Content-Type':type,'Content-Length':b.length,'Cache-Control':'no-store'});res.end(b);}

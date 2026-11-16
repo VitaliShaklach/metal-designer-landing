@@ -38,6 +38,15 @@ test('настройки: set меняет, reset возвращает TH_DEFAUL
   assert.throws(()=>W.settings(work,{set:{planar:'x'}},TH));assert.throws(()=>W.settings(work,{set:{nosuch:1}},TH));
   assert.deepEqual(W.settings(work,{reset:true},TH),TH);assert.equal(W.settings(work,{},TH).planar,1);
 });
+test('настройки: не число, ноль, отрицательное и несовместимое не принимаются, файл прежний (#115)', () => {
+  const work=tmp(),TH=run('TH_DEFAULT'),bad=run('thBad');W.settings(work,{set:{planar:3}},TH,bad);
+  const disk=fs.readFileSync(path.join(work,'settings.json'),'utf8');
+  for(const v of [-1,0,NaN,Infinity,'2',null,true])assert.throws(()=>W.settings(work,{set:{planar:v}},TH,bad),/планар|больше нуля|число/i,String(v));
+  assert.throws(()=>W.settings(work,{set:{lineLo:179.6}},TH,bad),/179,5/);   // нижняя граница «почти прямой» выше верхней
+  assert.throws(()=>W.settings(work,{set:{ang:200}},TH,bad),/180/);
+  assert.equal(fs.readFileSync(path.join(work,'settings.json'),'utf8'),disk);assert.equal(W.settings(work,{},TH,bad).planar,3);
+  assert.equal(W.settings(work,{set:{planar:2.5,edge:4}},TH,bad).edge,4);
+});
 test('last и контуры дыр', () => {
   const work=tmp();assert.equal(W.getLast(work),null);W.setLast(work,'rys-2');assert.equal(W.getLast(work),'rys-2');
   assert.deepEqual(W.openLoops([[0,1,2,3]]).map(l=>l.length),[4]);   // одна грань: край — один контур
@@ -57,4 +66,12 @@ test('удалить: last чужой фигуры не трогается; дв
   const t1=W.removeFigure(work,'a').trash;assert.equal(W.getLast(work),'b');
   W.saveFigure(work,'a',fig('А'),{});const t2=W.removeFigure(work,'a').trash;assert.notEqual(t1,t2);
   assert.equal(fs.readdirSync(path.join(work,'.trash')).length,2);
+});
+test('настройки: негодное в settings.json (рука, старая версия) не берётся, остальное можно менять (#115)', () => {
+  const work=tmp(),TH=run('TH_DEFAULT'),bad=run('thBad');
+  fs.writeFileSync(path.join(work,'settings.json'),JSON.stringify({th:{planar:0,edge:'x',near:9}}));
+  const t=W.settings(work,{},TH,bad);assert.equal(t.planar,1);assert.equal(t.edge,5);assert.equal(t.near,9);
+  assert.equal(W.settings(work,{set:{width:12}},TH,bad).width,12);
+  fs.writeFileSync(path.join(work,'settings.json'),JSON.stringify({th:{lineLo:179.9,near:9}}));   // вместе не годится — все начальные
+  assert.deepEqual(W.settings(work,{},TH,bad),TH);assert.equal(W.settings(work,{set:{edge:6}},TH,bad).edge,6);
 });

@@ -46,10 +46,17 @@ function removeFigure(work,slug){const d=dirOf(work,slug);let st=null;try{st=fs.
   const trash=slug+'-'+t;fs.renameSync(d,path.join(bin,trash));
   if(getLast(work)===slug)setLast(work,null);
   return {trash};}
-// настройки порогов: set — поменять часть, reset — вернуть TH_DEFAULT; значения только числа и только известные ключи
-function settings(work,o,TH_DEFAULT){o=o||{};let th=Object.assign({},TH_DEFAULT,(readJSON(settingsFile(work))||{}).th||{});
+// настройки порогов (общие для всех фигур): set — поменять часть, reset — вернуть TH_DEFAULT; только известные ключи и только числа больше нуля.
+// bad(th) → '' | что не так (thBad из studio/js/rules.js: углы, «от» и «до» почти прямой); не годится — ошибка, файл прежний
+// В файле что-то не то (рука, старая версия) — не годное не берётся: ключ не число больше нуля — начальный; всё вместе не годится — все начальные
+const okTh=v=>typeof v==='number'&&isFinite(v)&&v>0;
+function settings(work,o,TH_DEFAULT,bad){o=o||{};const st=(readJSON(settingsFile(work))||{}).th||{};let th=Object.assign({},TH_DEFAULT);
+  for(const k of Object.keys(TH_DEFAULT))if(okTh(st[k]))th[k]=st[k];
+  if(bad&&bad(th))th=Object.assign({},TH_DEFAULT);
   if(o.reset)th=Object.assign({},TH_DEFAULT);
-  else if(o.set){for(const k of Object.keys(o.set)){if(!(k in TH_DEFAULT)||typeof o.set[k]!=='number'||!isFinite(o.set[k]))throw new Error('плохая настройка: '+k);th[k]=o.set[k];}}
+  else if(o.set){for(const k of Object.keys(o.set)){const v=o.set[k];if(!(k in TH_DEFAULT))throw new Error('плохая настройка: '+k);
+      if(!okTh(v))throw new Error('плохая настройка: '+k+' — нужно число больше нуля');th[k]=v;}
+    const why=bad?bad(th):'';if(why)throw new Error(why);}
   if(o.reset||o.set)writeAtomic(settingsFile(work),JSON.stringify({th}));return th;}
 // контуры открытых рёбер (глаза и т. п.) — номера точек по кругу; у рыси 14 это её прорези
 function openLoops(P){const cnt=new Map();P.forEach(Q=>Q.forEach((a,k)=>{const b=Q[(k+1)%Q.length],key=a<b?a+'_'+b:b+'_'+a;(cnt.get(key)||cnt.set(key,[]).get(key)).push([a,b]);}));

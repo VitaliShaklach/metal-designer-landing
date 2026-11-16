@@ -21,7 +21,8 @@
    остальные подкрашивают свои грани. Одна кнопка — один клик; после правки место перепроверяется само.
    «Карта отклонений» (Q30): переключатель, по умолчанию выключен — каждая грань цветом своего отклонения (reviewDev: от эталона, без него —
    от фигуры, какой её открыли, и это сказано словами), легенда «совпадает … 2 мм и дальше» (reviewMapHex). С «Показать неточности» вместе
-   не работает (__studio.solo); выключили — цвета модели как были. */
+   не работает (__studio.solo); выключили — цвета модели как были.
+   Пороги: общие (work/settings.json) и свои у фигуры (figure.th) поверх них; поменяли во вкладке «Настройки» — __studio.thChanged, пересчёт. */
 (function(){
   const SD=window.__studio;if(!SD||typeof STUDIO==='undefined'||typeof Worker==='undefined')return;
   const pane=SD.tab('check','Проверка');
@@ -61,7 +62,7 @@
   let devWait=0,devAgain=false,hereWait=0,hereAgain=false;
 
   const modelE=()=>({V:SD.toModel(ST.base.V),P:ST.base.P,S:ST.base.S||[]});
-  const opts=c=>({th:Object.assign({},th||{},c.figure.th||{}),scale:c.k,kind:c.figure.kind||'stand',slots:c.figure.slots||[],keep:c.figure.keep||[],t:ST.t});
+  const opts=c=>({th:thMerge(th,c.figure.th).th,scale:c.k,kind:c.figure.kind||'stand',slots:c.figure.slots||[],keep:c.figure.keep||[],t:ST.t});
   const selIssue=()=>issues&&sel?issues.find(i=>keyOf(i)===sel)||null:null;
   const fresh=()=>!!issues&&igen===gen;
 
@@ -198,6 +199,9 @@
     other.push(walk.at);walk.at=g.t.at;if(!beenAt(g.t,k))walk.seen.push(g.t.at);go(g.t);}
   // «Оставить так» и «Вернуть»: поменялись места keep — список прежней фигуры уже не тот (gen), пересчёт и запись
   function setKeep(K){const c=SD.cur();if(!c)return;c.figure.keep=K;gen++;prev=null;dropBatch();SD.touch();recheck();if(hereRes)askHere(hereRes.c);}
+  // поменялись пороги («Настройки», studio/ui/settings.js): common — новые общие (без него поменялись только пороги фигуры, figure.th).
+  // Как с «Оставить так»: список, предпросмотр, пачка и «Здесь криво» посчитаны по старым порогам — пересчёт; карта от порогов не зависит
+  SD.thChanged=common=>{if(common)th=common;gen++;prev=null;dropBatch();recheck();if(hereRes)askHere(hereRes.c);};
   function keepIt(i){const c=SD.cur();if(!c||!fresh())return;
     setKeep((c.figure.keep||[]).concat([{rule:i.rule,at:i.at.map(x=>Math.round(x*1e6)/1e6),text:i.text}]));}
   // вернули место — проход снова к нему зайдёт

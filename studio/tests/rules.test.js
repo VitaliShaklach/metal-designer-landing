@@ -170,3 +170,23 @@ test('цвета правил: 1, 6, 9 и протыкание как на са�
   C.forEach(([a,ca],i)=>C.slice(i+1).forEach(([b,cb])=>{const d=Math.hypot(...lab(ca).map((v,k)=>v-lab(cb)[k]));if(d<25)bad.push(a+' и '+b+': '+d.toFixed(1));}));
   assert.deepEqual(bad,[]);
 });
+// «Настройки» (#115): у каждого порога правил есть подпись и единица; H (высота на сайте) — не порог правила, её в «Настройках» нет
+test('TH_INFO: пороги правил с подписями и единицами; thBad — только числа больше нуля и совместимые', () => {
+  const I=run('TH_INFO'),TH=run('TH_DEFAULT'),bad=run('thBad');
+  assert.deepEqual(I.map(x=>x.k).sort(),Object.keys(TH).filter(k=>k!=='H').sort());
+  I.forEach(x=>{assert.ok(x.rule>=1&&x.rule<=17,x.k);assert.ok(x.label,x.k);assert.ok(['мм','°'].includes(x.unit),x.k);});
+  assert.deepEqual(['planar','edge','near','width','sym','ref'].map(k=>I.find(x=>x.k===k).unit),['мм','мм','мм','мм','мм','мм']);
+  assert.deepEqual(['ang','lineLo','lineHi','seam'].map(k=>I.find(x=>x.k===k).unit),['°','°','°','°']);
+  assert.equal(I.find(x=>x.k==='planar').rule,1);assert.equal(TH.planar,1);   // Q20, Q27
+  assert.equal(bad(TH),'');assert.equal(bad(Object.assign({},TH,{planar:3})),'');
+  for(const v of [0,-1,NaN,Infinity,'1',null])assert.match(bad(Object.assign({},TH,{planar:v})),/больше нуля/,String(v));
+  assert.match(bad(Object.assign({},TH,{lineLo:179.5})),/меньше/);assert.match(bad(Object.assign({},TH,{seam:181})),/180/);
+});
+test('thMerge: начальные ← общие ← свои у фигуры; негодное не берётся, несовместимое своё — общие и причина (#115)', () => {
+  const m=run('thMerge'),TH=run('TH_DEFAULT');
+  assert.deepEqual(m(null,null),{th:TH,why:''});
+  assert.equal(m({planar:3},null).th.planar,3);assert.equal(m({planar:3},{planar:1.2}).th.planar,1.2);
+  assert.equal(m({planar:-1},{edge:'x'}).th.planar,1);assert.equal(m({planar:-1},{edge:'x'}).th.edge,5);
+  const r=m({lineHi:174},{lineLo:175});assert.equal(r.th.lineLo,172);assert.equal(r.th.lineHi,174);assert.match(r.why,/меньше/);
+  assert.deepEqual(m({lineLo:179.9},null).th,TH);   // общие вместе не годятся — начальные
+});
