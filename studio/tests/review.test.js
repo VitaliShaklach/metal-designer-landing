@@ -147,3 +147,27 @@ test('рысь 14: пачка по правилу 2 доходит до конц
   assert.equal(after[2],r.left);assert.equal(before[2]-after[2],r.fixed);
   assert.ok(r.reasons.length&&r.reasons.reduce((s,x)=>s+x.n,0)===r.left,'у каждой оставшейся строки — причина');
 });
+
+// ---- «Здесь криво» и «Карта отклонений» (#114) ----
+test('«Здесь криво» (Q20): шар 60 мм сайта, пороги вдвое строже — грань 0,7 мм есть, чистое место пусто, сведений нет', () => {
+  const {sampleTwist,TWIST_FACE}=require('./helpers.js'),E=sampleTwist(),o=opts(E),here=(c)=>run('reviewHere')(E,c,o);
+  assert.equal(run('REVIEW_HERE_R'),60);
+  assert.deepEqual(check(E,o).filter(i=>!i.info),[],'в обычной Проверке ошибок нет');
+  const f=faceWhere(E,TWIST_FACE),r=here(run('polyC')(E.V,E.P[f]));
+  assert.deepEqual(r.map(i=>i.rule+' '+i.text),['1 грань неплоская на 0,7 мм']);assert.deepEqual(r[0].faces,[f]);
+  assert.deepEqual(here([0,100,130]),[],'середина передней грани — чисто');
+  // «Оставить так» действует и здесь
+  assert.deepEqual(run('reviewHere')(E,r[0].at,Object.assign({},o,{keep:[{rule:1,at:r[0].at}]})),[]);
+});
+test('«Карта отклонений»: отклонение каждой грани от эталона (или от открытой фигуры), цвет от «совпадает» до «2 мм и дальше»', () => {
+  const {sampleTwist,twistRef}=require('./helpers.js'),E=sampleTwist(),dev=(R)=>run('reviewDev')(E,R,SAMPLE_SCALE);
+  const m=dev(twistRef());assert.equal(m.dev.length,E.P.length);assert.ok(Array.isArray(m.dev));
+  const top=faceWhere(E,p=>p[1]===200),bottom=faceWhere(E,p=>p[1]===0);
+  assert.ok(Math.abs(m.dev[top]-3)<.01,'верх '+m.dev[top]);assert.ok(m.dev[bottom]<.01);assert.ok(Math.abs(m.max-3)<.01);
+  // эталона нет — сравнение с фигурой, какой её открыли: всё совпадает
+  const b=dev(copy(E));assert.ok(b.max<.01);
+  const hex=d=>run('reviewMapHex')(d);
+  assert.equal(run('REVIEW_MAP_MAX'),2);
+  assert.equal(hex(0),'#2e9e4f');assert.equal(hex(2),'#d01f1f');assert.equal(hex(5),'#d01f1f');assert.equal(hex(1),'#e8c62a');
+  assert.notEqual(hex(.5),hex(0));assert.notEqual(hex(1.5),hex(2));
+});

@@ -23,7 +23,10 @@
      у рыси соседние короткие рёбра одного угла — разные строки; «Оставить так» тоже закрывает одну строку — keepHits).
    reviewNext(issues, rule, at, seen, scale) → Issue | null — «Следующая»: ближайшая к at строка правила rule (не сведение),
      места которой нет в seen ([at, …]); все уже были — null.
-   reviewFind(issues, rule, at, scale) → Issue | null — строка правила rule на месте at (для «Предыдущая»); её починили — null. */
+   reviewFind(issues, rule, at, scale) → Issue | null — строка правила rule на месте at (для «Предыдущая»); её починили — null.
+   reviewHere(E, c, o) → Issue[] — «Здесь криво» (решение Q20): шар REVIEW_HERE_R мм сайта вокруг c (мм модели), пороги вдвое строже, без сведений.
+   reviewDev(E, R, scale) → {dev, max} — «Карта отклонений»: отклонение каждой грани от R (эталон или фигура, какой её открыли), мм сайта;
+   reviewMapHex(d) → '#rrggbb' — её цвет: «совпадает» зелёный, REVIEW_MAP_MAX мм и дальше — красный. */
 const REVIEW_SKIP=[12],REVIEW_SAME=1;
 function reviewCheck(E,o){o=o||{};return checkFigure(E,Object.assign({},o,{skip:REVIEW_SKIP.concat(o.skip||[])}));}
 const reviewAllSeams=E=>!!(E.S&&E.S.length)&&addAllSeams(E).S.length===E.S.length;
@@ -64,3 +67,16 @@ function reviewNear(issues,rule,at,pick){let best=null,bd=Infinity;
 const reviewSame=(i,at,scale)=>V3.len(V3.sub(i.at,at))*(scale||1)<REVIEW_SAME;
 function reviewNext(issues,rule,at,seen,scale){return reviewNear(issues,rule,at,i=>!(seen||[]).some(p=>reviewSame(i,p,scale)));}
 function reviewFind(issues,rule,at,scale){return reviewNear(issues,rule,at,i=>reviewSame(i,at,scale));}
+
+// «Здесь криво» (решение Q20): Проверка шара REVIEW_HERE_R мм сайта вокруг c (мм модели), пороги вдвое строже (checkFigure o.region, thStrict:
+// плоскость 0,5 мм при обычном 1). Только ошибки, без сведений; места «Оставить так» не показываются, как в списке
+const REVIEW_HERE_R=60;
+function reviewHere(E,c,o){return reviewCheck(E,Object.assign({},o||{},{region:{c,r:REVIEW_HERE_R}})).filter(i=>!i.info);}
+// «Карта отклонений»: наибольшее отклонение каждой грани (faceDev, мм сайта) от эталона или, если его нет, от фигуры, какой её открыли
+// (R — эталон {V, F}, фигура {V, P} или готовый индекс; индекс кешируется по объекту, refOf) → {dev: [мм сайта по граням], max}.
+// Не посчиталась грань (NaN) — в max не идёт
+function reviewDev(E,R,scale){const D=faceDev(E,refOf(R),scale||1),dev=Array.from(D);return {dev,max:dev.reduce((m,x)=>isFinite(x)&&x>m?x:m,0)};}
+// цвет карты: «совпадает» — зелёный, REVIEW_MAP_MAX/2 — жёлтый, REVIEW_MAP_MAX мм и дальше — красный (как на сайте у узких деталей)
+const REVIEW_MAP_MAX=2,REVIEW_MAP_STOPS=[[0x2e,0x9e,0x4f],[0xe8,0xc6,0x2a],[0xd0,0x1f,0x1f]];
+function reviewMapHex(d){const t=Math.max(0,Math.min(1,(d||0)/REVIEW_MAP_MAX))*2,k=Math.min(1,Math.floor(t)),u=t-k,a=REVIEW_MAP_STOPS[k],b=REVIEW_MAP_STOPS[k+1];
+  return '#'+a.map((x,i)=>Math.round(x+(b[i]-x)*u).toString(16).padStart(2,'0')).join('');}

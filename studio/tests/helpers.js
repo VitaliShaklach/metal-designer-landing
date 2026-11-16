@@ -49,4 +49,14 @@ function sampleCube(){const E=cutCorners(2,box(150,200,130));E.V[5]=[75,-3,130];
 const sampleFigure=(name='Образец',E=sampleCube())=>({type:'md-studio',v:1,name,kind:'stand',localOnly:false,H:406,V:E.V,P:E.P,S:[],keep:[],slots:[],refHalf:'left'});
 // образец, у которого задняя грань (z = 0) разрезана пополам: ещё строка правила 7 (шов без излома); убрать шов — выросло бы правило 5 (лишние точки)
 function sampleSplit(){const E=sampleCube(),R=run('splitPoly')(E,faceWhere(E,p=>p[2]===0),true);R.S=[];return R;}
-module.exports={engine,run,g,box,faceWhere,TOP,edgePoint,vi,makePNG,writeOBJ,stripeRef,cutTop,cutCorners,sampleCube,sampleSplit,sampleFigure,SAMPLE_SCALE};
+// «Здесь криво» и «Карта отклонений»: куб 150 × 200 × 130 мм модели (на сайте вдвое больше, 300 × 400 × 260, H 400), у которого правая
+// и левая грани перекручены зеркально: верхний передний угол (±75, 200, 130) отодвинут вбок на 1,4 мм модели — грань неплоская на 0,7 мм сайта
+// (меньше порога 1, больше строгого 0,5). Верх и перед от этого не гнутся (точка уходит в их плоскости). В обычной Проверке ошибок нет
+const TWIST_FACE=p=>p[0]>=75;   // правая грань
+function sampleTwist(){const E=box(150,200,130),d=1.4;[1,-1].forEach(s=>{E.V[vi(E,[75*s,200,130])]=[(75+d)*s,200,130];});E.S=[];return E;}
+const twistFigure=(name='Образец')=>Object.assign(sampleFigure(name,sampleTwist()),{H:400});
+// эталон для него (ref/ref.json, мм модели): тот же куб без перекоса, но верх выше на 1,5 мм модели — верх фигуры уходит от эталона на 3 мм сайта
+function twistRef(){const W=75,H=201.5,D=130,V=[[-W,0,0],[W,0,0],[W,H,0],[-W,H,0],[-W,0,D],[W,0,D],[W,H,D],[-W,H,D]],F=[];
+  [[0,3,2,1],[4,5,6,7],[0,1,5,4],[3,7,6,2],[0,4,7,3],[1,2,6,5]].forEach(([a,b,c,d])=>F.push([a,b,c],[a,c,d]));return {V,F,trace:null,half:'left',frame:'meshy'};}
+module.exports={engine,run,g,box,faceWhere,TOP,edgePoint,vi,makePNG,writeOBJ,stripeRef,cutTop,cutCorners,sampleCube,sampleSplit,sampleFigure,SAMPLE_SCALE,
+  sampleTwist,twistFigure,twistRef,TWIST_FACE};

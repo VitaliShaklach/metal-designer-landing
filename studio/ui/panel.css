@@ -73,3 +73,15 @@
 .ckLg{display:flex;align-items:center;gap:6px;width:100%;padding:4px 6px;border:1px solid transparent;border-radius:4px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .ckLg:hover{background:var(--soft,#E2E6E3)}.ckLg.on{border-color:var(--accent,#C0501C);background:var(--accent-soft,#F3DED2);font-weight:600}.ckLg.off{opacity:.5}
 .ckLgT{flex:1;min-width:0;overflow-wrap:anywhere}.ckLgN{flex:none;font:600 12px var(--f-mono,monospace)}
+/* «Карта отклонений» и «Здесь криво» (studio/ui/check.js) */
+#ckMapL{display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer}#ckMapL[hidden]{display:none}#ckMap{margin:0;accent-color:var(--accent,#C0501C)}
+#ckMapLeg{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border:1px solid var(--line,#C6CCCA);border-radius:6px;overflow-wrap:anywhere}#ckMapLeg[hidden]{display:none}
+.ckMapBar{height:10px;border-radius:3px;border:1px solid rgba(0,0,0,.25)}
+.ckMapScale{display:flex;justify-content:space-between;gap:6px;font-size:12px;color:var(--muted,#5B666B)}
+.ckMapNote{color:var(--muted,#5B666B)}.ckMapMax{font-weight:600}.ckMapMax.bad{color:#c0261c}
+#ckHereB,.ckHereX{align-self:flex-start;padding:5px 10px;border:1px solid var(--line,#C6CCCA);border-radius:6px;background:var(--soft,#E2E6E3);color:inherit;font:inherit;cursor:pointer}
+#ckHereB{font-weight:600}#ckHereB[hidden]{display:none}#ckHereB.on{border-color:var(--accent,#C0501C);background:var(--accent-soft,#F3DED2)}
+#ckHere{display:flex;flex-direction:column;gap:6px;padding:6px 8px;border:1px solid var(--accent,#C0501C);border-radius:6px;overflow-wrap:anywhere}#ckHere[hidden]{display:none}
+.ckHereT{color:var(--muted,#5B666B)}.ckHereRes{font-weight:600}
+.ckHereRow{display:block;width:100%;padding:5px 8px;border:1px solid var(--line,#C6CCCA);border-radius:4px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.ckHereRow:hover{background:var(--soft,#E2E6E3)}

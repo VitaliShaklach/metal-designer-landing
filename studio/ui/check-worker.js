@@ -10,6 +10,8 @@
        после каждой — {type:'progress', id, gen, k, of, round}, и поток ждёт ответа страницы: {type:'more', id} — дальше, {type:'stop', id} —
        закрыть расчёт на посчитанном; в конце {type:'batch', id, gen, E, fixed, of, left, moved, reasons, stopped}. {type:'drop', id} — бросить пачку.
        Страница отвечает сразу, поэтому пачка не ждёт; а «Стоп» доходит до потока между пробами, не дожидаясь конца.
+     {type:'here', id, gen, E, c, o}     → {type:'here', id, gen, issues}             — «Здесь криво»: reviewHere, шар вокруг c (мм модели);
+     {type:'dev', id, gen, E, scale}     → {type:'dev', id, gen, dev, max}            — «Карта отклонений»: reviewDev от эталона, а без него — от base.
    Ошибка → {type:'error', of, id, error}. E — мм модели, o — как у checkFigure (th, scale, kind, slots, keep, t). */
 self.window=self;
 let REF=null,BASE=null,B=null;   // B — идущая пачка: {id, gen, g}
@@ -28,4 +30,7 @@ self.onmessage=e=>{const m=e.data;
     if(m.type==='batch'){B={id:m.id,gen:m.gen,g:reviewBatch(m.E,Object.assign(opts(m.o),{rules:m.rules||null}))};return stepB(false);}
     if(m.type==='more'||m.type==='stop'){if(B&&B.id===m.id)stepB(m.type==='stop');return;}
     if(m.type==='drop'){if(B&&B.id===m.id)B=null;return;}
+    if(m.type==='here')return self.postMessage({type:'here',id:m.id,gen:m.gen,issues:reviewHere(m.E,m.c,opts(m.o))});
+    if(m.type==='dev'){const R=REF||BASE;if(!R)throw new Error('нет ни эталона, ни открытой фигуры');const r=reviewDev(m.E,R,m.scale);
+      return self.postMessage({type:'dev',id:m.id,gen:m.gen,dev:r.dev,max:r.max});}
   }catch(err){self.postMessage({type:'error',of:m.type,id:m.id,error:String(err&&err.message||err)});}};
