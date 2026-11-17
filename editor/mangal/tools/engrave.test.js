@@ -17,7 +17,7 @@ test('все детали мангала получают номер; ENGR_MIRRO
   const c=loadMangal({mode:'grill'});
   const miss=run(c,'nestJob().groups.flatMap(G=>G.types.filter(ty=>!ty.eng||!ty.eng.length).map(ty=>ty.p.name))');
   assert.deepEqual(miss,[]);
-  assert.deepEqual(run(c,'[...ENGR_MIRROR].sort()'),['gEnd0','lintel','sK1','side1']);
+  assert.deepEqual(run(c,'[...ENGR_MIRROR].sort()'),['gBot','gEnd0','lintel','sBot','sK1','side1']);
   const h=run(c,'ENGR_HIDDEN');
   assert.ok(!('cgr1' in h)&&!('cgr2' in h),'колосника мангала на лазере нет (#117)');
   for(const pt of ['legs','pads','cgrH','grate','hook','air','shib','div'])assert.ok(h[pt]==='top'||h[pt]==='bottom',pt);
@@ -148,4 +148,35 @@ test('engraveSegs: номера 1, 12, 123 — те же отрезки, что 
   const c=loadMangal({mode:'grill'});
   assert.equal(GOLD.length,12);
   for(const g of GOLD)assert.deepEqual(run(c,`engraveSegs(${g.no},${JSON.stringify(g.P)},${JSON.stringify(g.o)})`),g.segs,'номер '+g.no);
+});
+
+// ---------- #121: дно жаровни и печи низом вверх ----------
+const PMM=require('./partmm-golden.json');   // partMM всех деталей до #121 (grill / stove / both, поддувало включено)
+const BOTS=['gBot','sBot'];
+
+test('ENGR_HIDDEN: дно жаровни и печи — нижняя грань, остальные как были', ()=>{
+  const c=loadMangal({mode:'grill'});
+  assert.deepEqual(run(c,'ENGR_HIDDEN'),{legs:'top',pads:'top',cgrH:'bottom',grate:'bottom',hook:'bottom',air:'bottom',shib:'bottom',div:'top',gBot:'bottom',sBot:'bottom'});
+});
+
+test('дно печи с поддувалом: зеркало по X — ближнее к X=0 отверстие в 95 мм от края (было 55), число и Y отверстий прежние', ()=>{
+  const c=loadMangal({mode:'stove',draft:true});
+  const now=run(c,'partMM(laserParts().find(p=>p.pt==="sBot"))'),was=PMM.stove.find(x=>x[0]==='sBot')[2];
+  const xs=now.circles.map(q=>q[0]),xw=was.circles.map(q=>q[0]);
+  assert.ok(Math.abs(Math.min(...xw)-55)<.01,'было '+Math.min(...xw));
+  assert.ok(Math.abs(Math.min(...xs)-95)<.01,'стало '+Math.min(...xs));
+  assert.equal(now.circles.length,was.circles.length);
+  const ys=a=>a.circles.map(q=>q[1]).sort((a,b)=>a-b);
+  assert.deepEqual(ys(now),ys(was));
+  assert.deepEqual(now.circles.map(q=>Math.round((now.w-q[0])*100)/100).sort((a,b)=>a-b),xw.slice().sort((a,b)=>a-b),'зеркало ровно по ширине дна');
+});
+
+test('дно жаровни и печи: рез, врезки, размеры прежние; остальные детали не изменились (grill, stove, both)', ()=>{
+  for(const mode of ['grill','stove','both']){
+    const c=loadMangal({mode,draft:true}),now=run(c,'laserParts().map(p=>[p.pt,p.file,partMM(p)])');
+    assert.deepEqual(now.map(x=>x[0]),PMM[mode].map(x=>x[0]),mode);
+    now.forEach(([pt,file,m],i)=>{const was=PMM[mode][i][2];
+      if(BOTS.includes(pt)){for(const k of ['cut','pierce','w','h'])assert.equal(m[k],was[k],mode+' '+pt+' '+k);}
+      else assert.deepEqual(m,was,mode+' '+pt);});
+  }
 });

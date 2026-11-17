@@ -56,7 +56,7 @@ function laserParts(){const g=gOn(),k=sOn(),LL=legsList(),r=[];
 // деталь → мм, сдвиг в (0,0), длина реза и врезки
 function partMM(p){const G=p.geo(),xs=[],ys=[];G.loops.forEach(l=>l.forEach(([x,y])=>{xs.push(x);ys.push(y);}));
   const mx=Math.min(...xs),my=Math.min(...ys),f=v=>Math.round(v*1000)/100,P=([x,y])=>[f(x-mx),f(y-my)];
-  const w=f(Math.max(...xs)-mx),mir=ENGR_MIRROR.has(p.pt),M=([x,y])=>mir?[Math.round((w-x)*100)/100,y]:[x,y];   // наружная сторона → внутренней вверх (engrave.js)
+  const w=f(Math.max(...xs)-mx),mir=ENGR_MIRROR.has(p.pt),M=([x,y])=>mir?[Math.round((w-x)*100)/100,y]:[x,y];   // зеркало: вверх сторона под гравировку — у стенок внутренняя, у дна наружная (engrave.js)
   const loops=G.loops.map(l=>l.map(P).map(M)),circles=G.circles.map(([x,y,r])=>[...M(P([x,y])),f(r)]),bends=G.bends.map(b=>b.map(P).map(M));
   let cut=0;loops.forEach(l=>{for(let i=0;i<l.length-1;i++)cut+=Math.hypot(l[i+1][0]-l[i][0],l[i+1][1]-l[i][1]);});circles.forEach(c=>cut+=2*Math.PI*c[2]);
   return {loops,circles,bends,w,h:f(Math.max(...ys)-my),cut,pierce:loops.length+circles.length};}
