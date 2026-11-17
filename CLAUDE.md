@@ -49,7 +49,19 @@ NODE_OPTIONS=--use-system-ca npm run test:editor    # smoke.js мангала и
 NODE_OPTIONS=--use-system-ca npx playwright test    # страница: desktop 1440 × 900 и phone 390 × 844
 ```
 
-Оба должны быть зелёными перед коммитом. После этого — глазами на десктопе и на телефоне.
+Полный прогон Playwright идёт ~30 мин, поэтому проверка в три уровня:
+
+1. **Всегда, перед каждым коммитом** — `npm test` и `npm run test:editor` (~30 с).
+2. **После правки** — e2e только затронутой области и только desktop (таблица ниже). Правки лендинга не бывает: он заморожен.
+3. **Полный прогон (desktop + phone)** — только перед вливанием в `master`. Запускает его Claude по команде Виталия, в отдельном окне по правилу `test-progress`.
+
+| Область | Команда (с `NODE_OPTIONS=--use-system-ca`) |
+|---|---|
+| Мангал редактора | `npx playwright test tests/e2e/editor.spec.js -g mangal --project=desktop` |
+| Рысь редактора | `npx playwright test tests/e2e/editor.spec.js -g lynx --project=desktop` |
+| Главная редактора | `npx playwright test tests/e2e/editor.spec.js -g home --project=desktop` |
+
+Тяжёлым тестам (раскрой, чертежи, карты по «Рассчитать») — `test.slow()` в самом тесте; общий таймаут в `playwright.config.js` не трогаем. После тестов — глазами на десктопе и на телефоне.
 
 Новая версия рыси (Виталий доделал её в `C:\dev\metal-designer`): `NODE_OPTIONS=--use-system-ca npm run lynx -- 6` — номер версии из `plates-lynx6.js`; раскрой считается минутами. Потом посмотреть картинки в `lynx/` глазами (не пустые, рысь целиком, без панелей редактора) и закоммитить `lynx/`. `--rework <id>,<id>…` — фигуры для картинок «Переработка»: первая — `rework.jpg`, следующие — `rework-2.jpg`… (по умолчанию `lynx,lynx3`: исходная гранёная и рысь 3).
 

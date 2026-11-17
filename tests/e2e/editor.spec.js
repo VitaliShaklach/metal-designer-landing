@@ -247,6 +247,7 @@ test('lynx: «Лазер · DXF», «Чертежи», «Карты»: откр�
 });
 
 test('lynx: «Рассчитать» на «Чертежах» без раскроя — листы с «Раскрой листа» появляются, PDF только с ними', async ({page}) => {
+  test.slow();   // «Рассчитать» у рыси: под нагрузкой дольше 30 с
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
   await lynxCube(page);
@@ -272,6 +273,7 @@ test('lynx: «Рассчитать» на «Чертежах» без раскр
 });
 
 test('lynx: изменение фигуры, точек и толщины убирает листы; смена вкладки и вида 3D — нет', async ({page}) => {
+  test.slow();   // «Рассчитать» у рыси: под нагрузкой дольше 30 с
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
   await lynxCube(page);
@@ -312,6 +314,7 @@ test('lynx: изменение фигуры, точек и толщины уби
 });
 
 test('lynx: «Лазер · DXF» — DXF раскроя и DXF деталей скачиваются после «Рассчитать»', async ({page}) => {
+  test.slow();   // «Рассчитать» у рыси: под нагрузкой дольше 30 с
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
   await lynxCube(page);
@@ -1011,6 +1014,7 @@ test('mangal: детали поменяли во время счёта — ус�
 });
 
 test('lynx: во время раскроя виден индикатор', async ({page}) => {
+  test.slow();   // «Рассчитать» у рыси: под нагрузкой дольше 30 с
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
   await lynxTab(page, 'nest');
@@ -1038,7 +1042,7 @@ test('lynx: индикатор виден в «Чертежах» и «Карт�
   await expect(page.locator('#cdWait')).toBeVisible({timeout: 5000});
   await expect(page.locator('#cdWait')).toContainText('карты');
   await expect(page.locator('#cdCnt')).toContainText(/из \d+/, {timeout: 60000});   // счётчик идёт
-  await expect(page.locator('#cdWait')).toBeHidden({timeout: 120000});
+  await expect(page.locator('#cdWait')).toBeHidden({timeout: 300000});   // карты рыси целиком: отдельно ~1 мин, рядом с другими тяжёлыми тестами — больше 2 мин
   await expect(page.locator('#cards figure').first()).toBeVisible();
   await lynxTab(page, 'sheets');
   await page.evaluate(() => setTimeout(() => document.getElementById('shRun').click(), 0));

@@ -294,7 +294,7 @@ ok(run("nestGap('laser')===5&&nestGap('plasma')===7&&ngapAfterCut(5,false,'plasm
   &&/\$\('sCut'\)[^\n]*ST\.ngap=ngapAfterCut\(ST\.ngap,ST\.ngapOwn,ST\.cut\);\$\('sNGap'\)\.value=ST\.ngap/.test(UI)&&/\$\('sNGap'\)[^\n]*ST\.ngapOwn=true/.test(UI)&&/ngapOwn:false/.test(UI),
   "раскрой: «Между деталями на листе» от резки — лазер 5 мм, плазма 7; поменяли руками — смена резки не трогает");
 // скачивание (DXF, JSON): ссылка-blob живёт ≥ 60 с — iPad Safari не успевал за 2 с; все скачивания идут через saveBlob
-{const src=/const BLOB_TTL=\d+;\nfunction saveBlob[^\n]*/.exec(UI),ev=[],A={style:{},click(){ev.push('click:'+this.download+':'+this.href+':'+this.inDom);},remove(){this.inDom=false;}};
+{const src=/const BLOB_TTL=\d+;\r?\nfunction saveBlob[^\n]*/.exec(UI),ev=[],A={style:{},click(){ev.push('click:'+this.download+':'+this.href+':'+this.inDom);},remove(){this.inDom=false;}};
   const sb={document:{createElement:()=>A,body:{appendChild:a=>{a.inDom=true;}}},URL:{createObjectURL:()=>'blob:x',revokeObjectURL:u=>ev.push('revoke:'+u)},Blob:function(){},setTimeout:(f,ms)=>{ev.push('timer:'+ms);f();}};
   if(src){vm.createContext(sb);vm.runInContext(src[0]+';saveBlob("Д11_N2_raskroy.dxf",new Blob())',sb);}
   ok(src&&ev.join(' ')==='click:Д11_N2_raskroy.dxf:blob:x:true timer:'+(+/BLOB_TTL=(\d+)/.exec(UI)[1])+' revoke:blob:x'&&+/BLOB_TTL=(\d+)/.exec(UI)[1]>=60000
