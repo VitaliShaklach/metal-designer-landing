@@ -23,10 +23,10 @@ for(const f of CASES){
       assert.ok(![].concat(r.pt).some(p=>['wheels','bolts','wsh1','wsh2','nuts','plate','rings','logo'].includes(p)),'покупное по pt: '+r.n);});
   });
 
-  test('ножки, площадки, патрубок, заглушка и решётки на месте: '+name(f), ()=>{
-    const c=loadMangal(f),n=run(c,'massRows().rows.map(r=>r.n)').join('\n');
+  test('ножки, площадки, патрубок, заглушка на месте; решёток нет — только показ на 3D (#117): '+name(f), ()=>{
+    const c=loadMangal({...f,grillGrate:true,grates2:true}),n=run(c,'massRows().rows.map(r=>r.n)').join('\n');
     for(const re of [/^Ножка .*труба Ø40/m,/^Площадка под ножку/m,/^Патрубок ножки/m,/^Заглушка ножки/m,/^Площадка под колесо/m])assert.match(n,re);
-    if(f.mode!=='stove')for(const re of [/^Решётка в жаровне/m,/^Решётка сверху/m])assert.match(n,re);
+    assert.doesNotMatch(n,/решётка в жаровне|решётка сверху/i);
     if(f.rain)assert.match(n,/^Лист от дождя — профлист С8, оцинк\., 0,5 мм/m);
   });
 
@@ -54,8 +54,9 @@ for(const f of CASES){
   });
 }
 
-test('по умолчанию: мангал 63,1 кг, печь около 87,3 кг (без плиты)', ()=>{
-  assert.equal(Math.round(run(loadMangal({mode:'grill'}),'massRows().tot')*10)/10,63.1);
+// #117: решётки (0,9 + 2 × 1 кг) из раскроя ушли — только показ на 3D; было 63,1
+test('по умолчанию: мангал 60,2 кг, печь около 87,3 кг (без плиты)', ()=>{
+  assert.equal(Math.round(run(loadMangal({mode:'grill'}),'massRows().tot')*10)/10,60.2);
   const st=run(loadMangal({mode:'stove'}),'massRows().tot');
   assert.ok(Math.abs(st-87.3)<=.1,'печь '+st);
 });

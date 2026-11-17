@@ -12,7 +12,7 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
     addEventListener:()=>{},requestAnimationFrame:()=>{},ResizeObserver:U,MutationObserver:U,devicePixelRatio:1,performance:{now:()=>0},navigator:U,URLSearchParams,console,Math,JSON,Set,Object,Array,Number,String,Symbol,setTimeout,clearTimeout};
   vm.createContext(ctx);
   // классические скрипты делят одну лексическую область — склеиваем
-  const src=[P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','cards','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n');
+  const src=[P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','pics','nest','sheet-kit','views','sheets','cards','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n');
   try{vm.runInContext(src,ctx,{filename:'all.js'});
       vm.runInContext("dimVisible().forEach(r=>{try{r.fn()}catch(e){throw new Error('dim '+r.id+': '+e.message)}});drawCut();",ctx);
       // крыша от дождя: тексты шапки, «Общего», «Массы», проката и «Заметок» — с крышей есть, без неё ни слова; элемент «Крыша», её детали и размеры — только с крышей
@@ -29,11 +29,11 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
       vm.runInContext("{const N=nestJob(),res=N.groups.map(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);return v.value;});LIST.draw(N,res);nestUI();nestUI(true);}",ctx);
       // чертежи (без 3D виды — надпись): комплект собирается в любом режиме, раскрой — по листу на каждый лист каждой толщины
       vm.runInContext("{const o=ok;ok=false;try{const N=nestJob(),res=N.groups.map(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);return v.value;}),L=sheetsBuild(N,res),k=res.reduce((a,R)=>a+R.sheets.length,0);if(L.filter(s=>s.title==='Раскрой').length!==k)throw new Error('чертежи: листов раскроя '+L.filter(s=>s.title==='Раскрой').length+', ждали '+k);if(L[0].title!=='Общий вид')throw new Error('чертежи: первый лист не «Общий вид»');}finally{ok=o;}}",ctx);
-      // колосник мангала: в таблице листа 5 мм, когда он есть на модели; на лист — только с галочкой (по умолчанию снята); у половины 18 × 19 отверстий Ø10
-      vm.runInContext(`{const has=N=>N.groups.some(G=>G.types.some(t=>NEST_CGR(t.p))),on=N=>N.groups.reduce((a,G)=>a+G.items.filter(i=>NEST_CGR(i.ty.p)).length,0),a=nestJob(),b=nestJob({cgr:true}),want=gOn()&&S.cgr;
-        if(a.cgr)throw new Error('колосник мангала на листе по умолчанию');if(has(a)!==want||a.hasCgr!==want)throw new Error('колосник мангала: в таблице '+has(a)+', ждали '+want);
-        if(on(a))throw new Error('колосник мангала на листе при снятой галочке');if(on(b)!==(want?2:0))throw new Error('колосник мангала с галочкой: на листе '+on(b)+', ждали '+(want?2:0));
-        if(want){const ty=a.groups.flatMap(G=>G.types).filter(t=>NEST_CGR(t.p));if(ty.length!==2||ty.some(t=>t.p.mm!==5||t.m.circles.length!==342||t.m.circles.some(c=>c[2]!==5)))throw new Error('колосник мангала: не те половины/отверстия');}}`,ctx);
+      // колосник мангала (2 половины) — перфолист с металлобазы (#117): ни в laserParts, ни в задании; ручка колосника (лист 5 мм) — лазер, когда колосник есть
+      vm.runInContext(`{const N=nestJob(),cg=p=>/^grill_grate_[12]$/.test(p.file),want=gOn()&&S.cgr;
+        if(laserParts().some(cg)||N.groups.some(G=>G.types.some(t=>cg(t.p))))throw new Error('колосник мангала на лазере');
+        if(laserParts().some(p=>p.pt==='cgrH')!==want)throw new Error('пластины ручки колосника: ждали '+want);
+        if('cgr' in N||'hasCgr' in N)throw new Error('осталась галочка «Колосник на листе»');}`,ctx);
       // площадка под колесо — 5 мм, на основном листе; листа 6 мм нет
       vm.runInContext(`{const N=nestJob(),ps=laserParts().filter(p=>p.pt==='pads');if(ps.some(p=>p.mm!==5))throw new Error('площадка под колесо не 5 мм');if(N.groups.some(G=>G.mm===6))throw new Error('остался лист 6 мм');
         if(S.legs&&ps.length&&!N.groups.some(G=>G.mm===5&&G.types.some(t=>t.p.pt==='pads')))throw new Error('площадки под колесо нет на листе 5 мм');}`,ctx);
@@ -73,9 +73,9 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
           pts.forEach(([x,y])=>{if(!(x>=10-.02&&y>=10-.02&&x<=d.W-10+.02&&y<=d.H-10+.02))throw new Error(`DXF листа ${d.mm} мм: точка ${x},${y} вне листа`);});});
         cut.forEach(e=>[e['10']+','+e['20'],e['11']+','+e['21']].forEach(k=>deg[k]=(deg[k]||0)+1));
         const odd=Object.keys(deg).filter(k=>deg[k]%2);if(odd.length)throw new Error(`DXF листа ${d.mm} мм: незамкнутый контур у ${odd[0]}`);});
-      // «С листа» (#76): на листе все детали, кроме снятого колосника; вкладка рисуется; архив — листы и каждая деталь, имена без повторов; итоги; имя архива
+      // «С листа» (#76): на листе все детали задания; вкладка рисуется; архив — листы и каждая деталь, имена без повторов; итоги; имя архива
       vm.runInContext(`{const N=nestJob();
-        if(N.groups.reduce((a,G)=>a+G.items.length,0)!==N.groups.reduce((a,G)=>a+G.types.reduce((b,t)=>b+(t.offSheet?0:t.q),0),0))throw new Error('на листе не все детали (кроме снятого колосника)');
+        if(N.groups.reduce((a,G)=>a+G.items.length,0)!==N.groups.reduce((a,G)=>a+G.types.reduce((b,t)=>b+t.q,0),0))throw new Error('на листе не все детали');
         const res=N.groups.map(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);return v.value;});nestHtml(N,res);
         const F=res.flatMap((R,gi)=>R.sheets.map((sh,si)=>listOne(N,res,{act:'sheet',g:String(gi),s:String(si)})[0])),T=listTotals(N,res);
         if(new Set(F).size!==F.length)throw new Error('листы: имена повторяются '+F.join());
@@ -90,13 +90,13 @@ for(const [search,want] of [['',false],['?view=1,1,1,0,0,0',false],['?view=1,1,1
   const U=mk(),errs=[],ctx={THREE:U,document:U,window:{addEventListener:()=>{}},location:{hash:'',href:'http://x/',search},
     addEventListener:()=>{},requestAnimationFrame:()=>{},ResizeObserver:U,MutationObserver:U,devicePixelRatio:1,performance:{now:()=>0},navigator:U,URLSearchParams,console,Math,JSON,Set,Object,Array,Number,String,Symbol,setTimeout,clearTimeout};
   vm.createContext(ctx);
-  const src=[P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','cards','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n');
+  const src=[P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','pics','nest','sheet-kit','views','sheets','cards','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n');
   try{vm.runInContext(src,ctx,{filename:'all.js'});const r=vm.runInContext('S.rain',ctx);if(r!==want)throw new Error('S.rain='+r+', ждали '+want);}
   catch(e){errs.push(e.message+' '+((e.stack||'').split('\n')[1]||''));}
   console.log('крыша по ссылке',JSON.stringify(search.slice(0,40)),errs.length?'FAIL '+errs.join(' | '):'ok');fails+=errs.length;}
 
 // виды деталей на настоящих контурах: THREE.Shape/Path — простые заглушки (как в tools/dxf_side.js), остальное THREE — пустышка.
-// Гильотина (правило gilWhy, пересмотр 14.11): задвижки и скобы (уже 50 мм) и колосник печи 15 мм (толще 8 мм) не рубит, колосник мангала — по «Колосник на листе»,
+// Гильотина (правило gilWhy, пересмотр 14.11): задвижки, скобы и пластины ручки колосника (у́же 50 мм) и колосник печи 15 мм (толще 8 мм) не рубит,
 // остальные рубит (gilOn). Вид, если рубить: gil — прямоугольник без всего (дно жаровни), zag — всё остальное (задняя боковина жаровни: рез меньше;
 // в _zag.dxf BLANK — 4 отрезка, у CUT концы нечётной степени — на стороне заготовки; перегородка жаровни с ушками и ручкой — тоже zag; задвижка с отверстиями — zag).
 // Схема гильотины: только то, что гильотина рубит, кусков листа нет; все на листе, внутри листа с подрезкой, не пересекаются, полосы от левого края,
@@ -106,7 +106,7 @@ class SPath{constructor(){this.pts=[];this.curves=[];this.holes=[];}moveTo(x,y){
 const mkReal=(flags,search)=>{const U=mk(),TH=new Proxy({Shape:SPath,Path:SPath},{get:(t,k)=>k in t?t[k]:U});
   const ctx={THREE:TH,__U:U,document:U,window:{addEventListener:()=>{}},location:{hash:'',href:'http://x/',search:search||'?view=1,1,1,0,0,0&flags='+encodeURIComponent(JSON.stringify(flags))},
     addEventListener:()=>{},requestAnimationFrame:()=>{},ResizeObserver:U,MutationObserver:U,devicePixelRatio:1,performance:{now:()=>0},navigator:U,URLSearchParams,console,Math,JSON,Set,Object,Array,Number,String,Symbol,setTimeout,clearTimeout};
-  vm.createContext(ctx);vm.runInContext([P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','cards','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n'),ctx,{filename:'all.js'});return ctx;};
+  vm.createContext(ctx);vm.runInContext([P+'/../common/calc.js',...['params','parts','model','dims','cut','dxf','engrave','pics','nest','sheet-kit','views','sheets','cards','ui'].map(f=>P+'/js/'+f+'.js')].map(f=>fs.readFileSync(f,'utf8')).join('\n;\n'),ctx,{filename:'all.js'});return ctx;};
 const GILCHK=`(N,lbl)=>{const out=[];N.groups.forEach(G=>{const P=gilScheme(N,G),E=N.edge,e=1e-6;
     if(P.too.length)throw new Error(lbl+': на схеме не поместилось '+P.too.length);
     const want={},got={},k=r=>r.kind+r.no;
@@ -138,9 +138,9 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
     st=vm.runInContext(`(()=>{const lp=laserParts(),c={gil:0,zag:0,list:0},CHK=${GILCHK};let cl=0,cz=0;
       const N=nestJob({edge:10}),T=N.groups.flatMap(G=>G.types),K=pt=>{const t=T.find(t=>t.p.pt===pt);return t&&t.kind;};
       if(T.length!==lp.length)throw new Error('не все детали в таблице');
-      T.forEach(ty=>{const m=ty.m,want=ty.p.pt==='air'||ty.p.pt==='hook'||ty.p.pt==='cgrH'?'уже 50 мм':ty.p.mm>8?'толще 8 мм':'';if(!(m.w>0))throw new Error('нет контура: '+ty.p.name);
+      T.forEach(ty=>{const m=ty.m,want=ty.p.pt==='air'||ty.p.pt==='hook'||ty.p.pt==='cgrH'?'у́же 50 мм':ty.p.mm>8?'толще 8 мм':'';if(!(m.w>0))throw new Error('нет контура: '+ty.p.name);
         if(gilWhy(m,ty.p.mm)!==want)throw new Error('правило: '+ty.p.name+' '+m.w+' × '+m.h+' × '+ty.p.mm+' — «'+gilWhy(m,ty.p.mm)+'», ждали «'+want+'»');
-        const on=gilOn(ty,N);if(on!==(NEST_CGR(ty.p)?N.cgr:!want))throw new Error('рубим '+ty.p.name+': '+on);
+        const on=gilOn(ty);if(on!==!want)throw new Error('рубим '+ty.p.name+': '+on);
         const plain=!blankMM(ty.p,m).open&&m.loops.length===1&&!m.circles.length,k=plain?'gil':'zag';if(ty.kind!==k)throw new Error('вид '+ty.p.name+': '+ty.kind+', ждали '+k);
         c[on?ty.kind:'list']++;if(ty.p.mm===5){cl+=m.cut*ty.q;if(!on)cz+=m.cut*ty.q;else if(ty.kind==='zag')cz+=ty.b.cut*ty.q;}});
       if(gOn()){if(K('gBot')!=='gil')throw new Error('дно жаровни: '+K('gBot')+', ждали gil');
@@ -163,7 +163,7 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
   if(!airMM||!hookMM){console.log('раскладка: нет размеров задвижки/скобы из partMM FAIL');fails++;}
   const R=(w,h)=>[[0,0],[w,0],[w,h],[0,h]],set=[[800,195,2],[800,420,1],[410,195,1],[600,495,2],[600,440,1],[430,495,1],[150,430,1],[430,145,1],[300,160,1],[80,80,4],[150,150,4],[...(airMM||[800,30]),2],[...(hookMM||[12,30]),4]];   // [150,150,4] — площадки под колесо (с v1.2 — 5 мм); задвижки поддува и их скобы (с v1.3 — 5 мм), размеры — из partMM
   const mkItems=S=>{const I=[];S.forEach(([w,h,q],k)=>{for(let j=0;j<q;j++)I.push({id:I.length,no:k+1,pts:R(w,h)});});return I;};
-  // и с колосником мангала (2 половины 382 × 390 — тоже лист 5 мм)
+  // и плотнее: ещё две плиты 382 × 390 (раньше — половины колосника мангала; с #117 его на листе нет, набор оставлен как нагрузка на раскладку)
   for(const [gap,items,one,cg] of [[5,mkItems(set),1,0],[20,mkItems(set),0,0],[5,mkItems([...set,[382,390,2]]),1,1]]){const errs=[];let N;
     try{const g=ctx.nestGen(items,2500,1250,gap,10);let v;do{v=g.next();}while(!v.done);N=v.value;}catch(e){errs.push(e.message);}
     if(N){const all=N.sheets.flatMap(s=>s.items);
@@ -172,7 +172,7 @@ for(const mode of ['both','grill','stove'])for(const extra of [{},{cgr:true,div:
       N.sheets.forEach(s=>{const A=s.items;
         A.forEach(o=>{const xs=o.pts.map(p=>p[0]),ys=o.pts.map(p=>p[1]);if(Math.min(...xs)<10-1e-6||Math.min(...ys)<10-1e-6||Math.max(...xs)>2490+1e-6||Math.max(...ys)>1240+1e-6)errs.push('деталь '+o.no+' ближе 10 мм к краю');});
         for(let i=0;i<A.length;i++)for(let j=i+1;j<A.length;j++){const d=ctx.polyGap(A[i].pts,A[j].pts);if(d<gap-1e-6)errs.push(`зазор ${A[i].no}–${A[j].no} ${d.toFixed(2)} < ${gap}`);}});}
-    console.log(`раскладка, зазор ${gap}${cg?', с колосником мангала':''}:`,N?`${N.sheets.length} лист, ${N.sheets.reduce((a,s)=>a+s.items.length,0)} деталей, занято ${Math.round(N.used*100)} %`:'',errs.length?'FAIL '+errs.slice(0,5).join(' | '):'ok');fails+=errs.length;}}
+    console.log(`раскладка, зазор ${gap}${cg?', + 2 плиты 382 × 390':''}:`,N?`${N.sheets.length} лист, ${N.sheets.reduce((a,s)=>a+s.items.length,0)} деталей, занято ${Math.round(N.used*100)} %`:'',errs.length?'FAIL '+errs.slice(0,5).join(' | '):'ok');fails+=errs.length;}}
 // схема гильотины на прямоугольниках: 5-мм детали «печь + мангал» + 3 случайных набора — внутри листа с подрезкой, без пересечений, сквозные резы
 {const ctx={};vm.createContext(ctx);vm.runInContext(fs.readFileSync(P+'/js/nest.js','utf8'),ctx,{filename:'nest.js'});
   let sd=7;const rnd=()=>(sd=(sd*16807)%2147483647)/2147483647;

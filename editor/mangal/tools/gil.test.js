@@ -1,45 +1,49 @@
-// «Лазер · DXF → Гильотина» (#59, пересмотр 14.11): что рубить, решает правило (уже 50 мм, толще 8 мм — не рубится), галочек нет;
-// колосник мангала — по «Колосник на листе»; схема — полосы поперёк листа у выбранного края (слева | справа); итоги и архив гильотинщика
+// «Лазер · DXF → Гильотина» (#59, пересмотр 14.11): что рубить, решает правило (у́же 50 мм, толще 8 мм — не рубится), галочек нет;
+// колосника мангала в задании нет (#117: перфолист с металлобазы); схема — полосы поперёк листа у выбранного края (слева | справа); итоги и архив гильотинщика
 const test=require('node:test'),assert=require('node:assert/strict');
 const {loadMangal,run,page}=require('./load.js');
 
 // схема гильотины всех толщин по заданию N (как по кнопке «Рассчитать»)
 const RES='(N=>N.groups.map(G=>gilScheme(N,G)))';
 // что рубим: имена деталей (по одному на тип) и что на схеме
-const ON=`(N=>N.groups.flatMap(G=>G.types.filter(t=>gilOn(t,N)).map(t=>t.p.name)))`;
+const ON=`(N=>N.groups.flatMap(G=>G.types.filter(t=>gilOn(t)).map(t=>t.p.name)))`;
+// «у́же» — с ударением на «у» (U+0301), #117
+const UZHE='у́же 50 мм';
 const LAID=`(N=>${RES}(N).flatMap(P=>P.sheets.flatMap(s=>s.items.map(i=>i.r.ty.p.name))))`;
 
-test('правило гильотины: уже 50 мм и толще 8 мм — не рубится (с причиной), остальное рубим', ()=>{
+test('правило гильотины: у́же 50 мм и толще 8 мм — не рубится (с причиной), остальное рубим', ()=>{
   const c=loadMangal({mode:'grill'});
   assert.equal(run(c,'GIL_MIN_W'),50);
   assert.equal(run(c,'GIL_MAX_MM'),8);
-  assert.equal(run(c,'gilWhy({w:800,h:30},5)'),'уже 50 мм');
-  assert.equal(run(c,'gilWhy({w:12,h:30},5)'),'уже 50 мм');
+  assert.equal(run(c,'gilWhy({w:800,h:30},5)'),UZHE);
+  assert.equal(run(c,'gilWhy({w:12,h:30},5)'),UZHE);
+  assert.notEqual(UZHE,'уже 50 мм','без ударения читается как «уже»');
   assert.equal(run(c,'gilWhy({w:800,h:420},5)'),'');
   assert.equal(run(c,'gilWhy({w:400,h:400},15)'),'толще 8 мм');
   assert.equal(run(c,'gilWhy({w:400,h:400},8)'),'');
 });
 
-test('мангал: задвижки и скобы не рубятся, колосник снят; остальное на схеме; галочек и памяти md-gilsel2 нет', ()=>{
+test('мангал: задвижки, скобы и пластины ручки колосника не рубятся, колосника мангала нет; остальное на схеме; галочек и памяти md-gilsel2 нет', ()=>{
   const c=loadMangal({mode:'grill'});page(c,{'md-gilsel2':{grill_bottom:false,grill_air_slider:true}});   // старая память — не читается
-  const r=run(c,`(N=>({on:${ON}(N),laid:${LAID}(N),off:offRows(N,N.groups[0],'gil').map(o=>[o.ty.p.name,o.why]),html:gilHtml(N,${RES}(N)),
-    kinds:N.groups.flatMap(G=>gilRects(N,G).map(r=>r.kind)),q:N.groups[0].types.filter(t=>gilOn(t,N)).reduce((a,t)=>a+t.q,0)}))(nestJob())`);
-  for(const n of ['Задвижка поддува','Скоба задвижки','Колосник мангала 1 (левая половина)'])assert.ok(!r.laid.includes(n),'на схеме '+n);
+  const r=run(c,`(N=>({on:${ON}(N),laid:${LAID}(N),off:offRows(N,N.groups[0]).map(o=>[o.ty.p.name,o.why]),html:gilHtml(N,${RES}(N)),
+    kinds:N.groups.flatMap(G=>gilRects(N,G).map(r=>r.kind)),q:N.groups[0].types.filter(t=>gilOn(t)).reduce((a,t)=>a+t.q,0)}))(nestJob())`);
+  for(const n of ['Задвижка поддува','Скоба задвижки'])assert.ok(!r.laid.includes(n),'на схеме '+n);
+  assert.ok(!r.on.some(n=>/Колосник мангала/.test(n))&&!r.laid.some(n=>/Колосник мангала/.test(n)),'колосник мангала в гильотине');
   for(const n of ['Дно жаровни','Боковина жаровни задняя','Боковина жаровни передняя','Торец жаровни правый','Площадка под колесо'])assert.ok(r.laid.includes(n),'не рубим '+n);
-  assert.deepEqual(r.off,[['Колосник мангала 1 (левая половина)','снят «Колосник на листе»'],['Колосник мангала 2 (правая, у ручки)','снят «Колосник на листе»'],['Пластина ручки колосника','уже 50 мм'],['Задвижка поддува','уже 50 мм'],['Скоба задвижки','уже 50 мм']]);
+  assert.deepEqual(r.off,[['Пластина ручки колосника',UZHE],['Задвижка поддува',UZHE],['Скоба задвижки',UZHE]]);
   assert.ok(r.kinds.length>0&&r.kinds.every(k=>k==='gil'||k==='zag'),r.kinds.join(','));
   assert.doesNotMatch(r.html,/type="checkbox"|gchk|Рубим</,'галочки «рубим» остались');
   assert.doesNotMatch(r.html,/Не на схеме/);
   assert.doesNotMatch(r.html,/Не рубится:/,'длинная строка «Не рубится: …» осталась');
   const [main,off]=r.html.split('<section class="noff"');
   const gt=main.slice(main.indexOf('class="ntbl gtbl"'));
-  for(const n of ['Задвижка','Скоба','Колосник'])assert.doesNotMatch(gt,new RegExp(n),n+' в основной таблице');
+  for(const n of ['Задвижка','Скоба','Колосник мангала','Пластина ручки'])assert.doesNotMatch(gt,new RegExp(n),n+' в основной таблице');
   assert.ok(off,'нет блока «Не рубится»');
   assert.match(off,/<h4>Не рубится<\/h4>/);
-  assert.match(off,/Задвижка поддува(?:(?!<\/tr>)[\s\S])*уже 50 мм/);
-  assert.match(off,/Колосник мангала 1 \(левая половина\)(?:(?!<\/tr>)[\s\S])*снят «Колосник на листе»/);
+  assert.match(off,/Задвижка поддува(?:(?!<\/tr>)[\s\S])*у́же 50 мм/);
+  assert.doesNotMatch(off,/Колосник мангала|снят «Колосник на листе»/);
   assert.match(off,/data-act="part"/);
-  assert.match(r.html,/<p class="nfoot">12 деталей не на схеме — ниже<\/p>/);
+  assert.match(r.html,/<p class="nfoot">10 деталей не на схеме — ниже<\/p>/);
   assert.ok(r.html.indexOf('class="nfoot"')<r.html.indexOf('class="nestsv'),'сноска под схемой');
   // «Итого» основной таблицы — сумма её строк
   assert.match(main,new RegExp('На гильотину 5 мм: '+r.q+' шт'));
@@ -55,20 +59,13 @@ test('кнопка DXF детали в «Не рубится»: задвижка
 
 test('печь: колосник 15 мм не рубится — на листе 15 мм ничего, причина «толще 8 мм»', ()=>{
   const c=loadMangal({mode:'stove'});page(c);
-  const r=run(c,`(N=>({mm:N.groups.map(G=>G.mm),n15:gilRects(N,N.groups.find(G=>G.mm===15)).length,off:N.groups.map(G=>offRows(N,G,'gil').map(o=>[o.ty.p.name,o.why])),html:gilHtml(N,${RES}(N))}))(nestJob())`);
+  const r=run(c,`(N=>({mm:N.groups.map(G=>G.mm),n15:gilRects(N,N.groups.find(G=>G.mm===15)).length,off:N.groups.map(G=>offRows(N,G).map(o=>[o.ty.p.name,o.why])),html:gilHtml(N,${RES}(N))}))(nestJob())`);
   assert.deepEqual(r.mm,[5,3,15]);
   assert.equal(r.n15,0);
   assert.deepEqual(r.off,[[],[],[['Колосник печи','толще 8 мм']]]);
   assert.equal((r.html.match(/Ничего не рубим/g)||[]).length,1);
   const blk=r.html.split('<section class="nblock')[3];
   assert.match(blk,/Ничего не рубим/);assert.match(blk,/class="noff"/);assert.match(blk,/Колосник печи/);assert.match(blk,/толще 8 мм/);assert.doesNotMatch(blk,/Не рубится:/);
-});
-
-test('колосник мангала — «Колосник на листе»: включён — оба на схеме, выключен — нет', ()=>{
-  const c=loadMangal({mode:'grill'});page(c);
-  assert.equal(run(c,`${LAID}(nestJob({cgr:true}))`).filter(n=>/Колосник/.test(n)).length,2);
-  assert.equal(run(c,`${LAID}(nestJob())`).filter(n=>/Колосник/.test(n)).length,0);
-  assert.ok(!run(c,`(N=>offRows(N,N.groups[0],'gil').map(o=>o.ty.p.name))(nestJob({cgr:true}))`).some(n=>/Колосник/.test(n)));
 });
 
 test('угол листа: по умолчанию ↙ (lb), память md-corner — «rt» принимается, мусор и старый md-gilside — lb', ()=>{
@@ -85,9 +82,9 @@ test('угол листа: по умолчанию ↙ (lb), память md-cor
 test('схема — полосы поперёк листа от выбранного края, ряды в полосе — от выбранного края по вертикали; резы, занято, отход как у ↙', ()=>{
   const E=10,sch=(mode,o)=>{const c=loadMangal({mode});page(c);
     return run(c,`(N=>${RES}(N).map(P=>P.sheets.map(s=>({it:s.items.map(i=>[i.x,i.y,i.w,i.h]),cuts:s.cuts,ok:s.ok,used:s.used,waste:s.waste}))))(nestJob(${JSON.stringify(o)}))`);};
-  for(const corner of ['lb','lt','rb','rt'])for(const [mode,cgr] of [['grill',false],['grill',true],['stove',false],['both',true]])
+  for(const corner of ['lb','lt','rb','rt'])for(const mode of ['grill','stove','both'])
     for(const [W,H] of [[2500,1250],[3000,1500],[2000,1000]]){
-      const o={cgr,W,H,sk:W+'x'+H},base=sch(mode,{...o,corner:'lb'}),r=sch(mode,{...o,corner}),lbl=`${corner} ${mode} cgr=${cgr} ${H}×${W}`;
+      const o={W,H,sk:W+'x'+H},base=sch(mode,{...o,corner:'lb'}),r=sch(mode,{...o,corner}),lbl=`${corner} ${mode} ${H}×${W}`;
       r.forEach((sheets,gi)=>sheets.forEach((sh,si)=>{
         const it=sh.it,L=`${lbl} толщина ${gi} лист ${si}`,x0=Math.min(...it.map(i=>i[0])),x1=Math.max(...it.map(i=>i[0]+i[2]));
         if(corner[0]==='l')assert.ok(Math.abs(x0-E)<1e-6,L+': не у левого края, x0='+x0);
@@ -122,7 +119,7 @@ test('схема отрубает меньше листа по длине: ма�
 test('итоги «Гильотины»: листы, заготовки, резы — по схеме', ()=>{
   const c=loadMangal({mode:'grill'});page(c);
   const r=run(c,`(N=>{const res=${RES}(N);return {t:gilTotals(N,res),n:res.map(P=>P.sheets.reduce((a,s)=>a+s.items.length,0)),
-    cuts:res.map(P=>P.sheets.reduce((a,s)=>a+s.cuts,0)),ok:res.every(P=>P.sheets.every(s=>s.ok)),q:N.groups.map(G=>G.types.filter(t=>gilOn(t,N)).reduce((a,t)=>a+t.q,0))};})(nestJob())`);
+    cuts:res.map(P=>P.sheets.reduce((a,s)=>a+s.cuts,0)),ok:res.every(P=>P.sheets.every(s=>s.ok)),q:N.groups.map(G=>G.types.filter(t=>gilOn(t)).reduce((a,t)=>a+t.q,0))};})(nestJob())`);
   assert.equal(r.t.length,1);
   assert.deepEqual(r.t[0],{mm:5,sheets:1,blanks:r.q[0],cuts:r.cuts[0]});
   assert.equal(r.n[0],r.q[0]);
@@ -149,11 +146,10 @@ test('«Гильотина»: DXF листа gilotina_5mm_1250x2500.dxf, кно�
   figs.forEach(f=>{const a=f.indexOf('</figcaption>'),b=f.indexOf('data-act="gil"'),v=f.indexOf('<svg');assert.ok(a>0&&b>a&&v>b,'кнопка листа должна стоять над схемой');});
 });
 
-test('ключ «Гильотины» меняется от подрезки, листа, колосника; старая память галочек на него не влияет', ()=>{
+test('ключ «Гильотины» меняется от подрезки, листа, угла; старая память галочек на него не влияет', ()=>{
   const c=loadMangal({mode:'grill'});page(c);
   const k=o=>run(c,`gilKey(nestJob(${JSON.stringify(o)}))`),base=k({});
   assert.notEqual(k({edge:0}),base);
-  assert.notEqual(k({cgr:true}),base);
   assert.notEqual(k({W:3000,H:1500}),base);
   assert.notEqual(k({corner:'rt'}),base);
   assert.equal(run(c,`zagKey(nestJob({corner:'rt'}))`),run(c,'zagKey(nestJob())'));
@@ -162,14 +158,12 @@ test('ключ «Гильотины» меняется от подрезки, л
   assert.equal(run(d,'nestJob().key'),run(c,'nestJob().key'));
 });
 
-// #102: пластина ручки колосника — 30 мм уже порога, в «Не рубится»
-test('пластины ручки колосника не рубятся: блок «Не рубится», причина «уже 50 мм»', ()=>{
+// #102: пластина ручки колосника — 30 мм у́же порога, в «Не рубится»
+test('пластины ручки колосника не рубятся: блок «Не рубится», причина «у́же 50 мм»', ()=>{
   const c=loadMangal({mode:'grill'});page(c);
-  for(const cgr of [false,true]){
-    const r=run(c,`(N=>({laid:${LAID}(N),off:offRows(N,N.groups[0],'gil').filter(o=>o.ty.p.pt==='cgrH').map(o=>[o.ty.p.name,o.why])}))(nestJob({cgr:${cgr}}))`);
-    assert.ok(!r.laid.includes('Пластина ручки колосника'));
-    assert.deepEqual(r.off,[['Пластина ручки колосника','уже 50 мм']]);
-  }
+  const r=run(c,`(N=>({laid:${LAID}(N),off:offRows(N,N.groups[0]).filter(o=>o.ty.p.pt==='cgrH').map(o=>[o.ty.p.name,o.why])}))(nestJob())`);
+  assert.ok(!r.laid.includes('Пластина ручки колосника'));
+  assert.deepEqual(r.off,[['Пластина ручки колосника',UZHE]]);
 });
 
 // #106: в ряд идёт заготовка не выше ряда; заготовки ряда помечены номером it.row; подрезка сверху — сквозной рез
@@ -177,10 +171,10 @@ test('мангал по умолчанию, лист 1500 × 3000: в одном
   const c=loadMangal({mode:'grill'});page(c);
   const rows=run(c,`(N=>${RES}(N)[0].sheets.flatMap(s=>{if(!s.items.every(i=>Number.isInteger(i.row)))return [];const m={};s.items.forEach(i=>{(m[i.row]=m[i.row]||[]).push(i.h);});return Object.values(m).map(h=>Math.max(...h)-Math.min(...h));}))(nestJob({W:3000,H:1500,sk:'3000x1500'}))`);
   assert.ok(rows.some(d=>d>1),'ряда с заготовками разной высоты нет: '+rows.join(','));
-  for(const [mode,cgr] of [['grill',false],['grill',true],['stove',false],['both',true]]){
+  for(const mode of ['grill','stove','both']){
     const cc=loadMangal({mode});page(cc);
     const r=run(cc,`(()=>{const out=[];for(const corner of ['lb','lt','rb','rt'])for(const [W,H] of [[3000,1500],[2500,1250],[2000,1000]]){
-      const N=nestJob({cgr:${cgr},W,H,sk:W+'x'+H,corner});N.groups.forEach(G=>gilScheme(N,G).sheets.forEach(s=>out.push([corner+' '+W+'x'+H,s.ok])));}return out;})()`);
+      const N=nestJob({W,H,sk:W+'x'+H,corner});N.groups.forEach(G=>gilScheme(N,G).sheets.forEach(s=>out.push([corner+' '+W+'x'+H,s.ok])));}return out;})()`);
     assert.ok(r.length>0);
-    for(const [k,ok] of r)assert.ok(ok,`${mode} cgr=${cgr} ${k}: есть не сквозной рез`);}
+    for(const [k,ok] of r)assert.ok(ok,`${mode} ${k}: есть не сквозной рез`);}
 });

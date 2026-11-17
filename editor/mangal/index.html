@@ -12,9 +12,9 @@
 <meta property="og:url" content="https://vitalishaklach.github.io/metal-designer/mangal/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-15f">
-<link rel="stylesheet" href="../editor.css?v=2026-11-15f">
-<link rel="stylesheet" href="css/style.css?v=2026-11-15f">
+<link rel="stylesheet" href="../../fonts/fonts.css?v=2026-11-17">
+<link rel="stylesheet" href="../editor.css?v=2026-11-17">
+<link rel="stylesheet" href="css/style.css?v=2026-11-17">
 </head>
 <body>
 <div class="edbar">
@@ -105,9 +105,9 @@
           <label class="chk sub"><input type="checkbox" id="cCgrPlate2" checked><span>Колосник 2<small>правая половина, у ручки · снимите — видно уголки</small></span></label>
           <label class="chk sub"><input type="checkbox" id="cCgrAng" checked><span>Уголки под решётку</span></label>
           <label class="chk"><input type="checkbox" id="cDeep" checked><span>Глубокие прорези<small>4 шт. справа, глубина 60 мм — шампур ниже к углям</small></span></label>
-          <label class="chk"><input type="checkbox" id="cGAng" checked><span>Уголки в жаровне<small>2 шт. 30×30 на передней боковине, один за другим</small></span></label>
-          <label class="chk"><input type="checkbox" id="cGrillGrate"><span>Решётка в жаровне<small>на уголках спереди и в вырезе 60×60 мм сзади — опущена низко</small></span></label>
-          <label class="chk"><input type="checkbox" id="cGrates2"><span>2 решётки сверху<small>по 400 × 400 мм на краях жаровни, ручки к повару</small></span></label>
+          <label class="chk"><input type="checkbox" id="cGAng" checked><span>Уголки в жаровне<small>2 шт. 30×30 на передней боковине, один за другим</small><small class="kit">показ на модели · в комплекте всегда</small></span></label>
+          <label class="chk"><input type="checkbox" id="cGrillGrate"><span>Решётка в жаровне<small>на уголках спереди и в вырезе 60×60 мм сзади — опущена низко</small><small class="kit">только показ на модели · не делаем и не покупаем</small></span></label>
+          <label class="chk"><input type="checkbox" id="cGrates2"><span>2 решётки сверху<small>по 400 × 400 мм на краях жаровни, ручки к повару</small><small class="kit">только показ на модели · не делаем и не покупаем</small></span></label>
           <label class="chk"><input type="checkbox" id="cSkew"><span>Шампуры в прорезях</span></label>
           <label class="chk"><input type="checkbox" id="cSkewD"><span>Шампуры в глубоких прорезях<small>4 шт., на 60 мм ниже — ближе к углям</small></span></label>
         </div>
@@ -173,7 +173,7 @@
     </div>
 
     <div class="tabpane" id="tab-cut" role="tabpanel" hidden>
-      <div class="dimbar nestbar"><label>Лист <select id="nSheet"><option value="1000x2000">1000 × 2000</option><option value="1250x2500" selected>1250 × 2500</option><option value="1500x3000">1500 × 3000</option></select></label><label title="В каком углу листа стоят «С листа» и «Гильотина»: с другой стороны остаётся целый кусок">Угол листа <select id="nCorner"><option value="lb" selected>↙ слева снизу</option><option value="lt">↖ слева сверху</option><option value="rb">↘ справа снизу</option><option value="rt">↗ справа сверху</option></select></label><label id="nCgrBox"><input type="checkbox" id="nCgr"> Колосник на листе</label><label title="Номер детали гравируется лазером на внутренней стороне (слой ENGRAVE), чтобы снаружи было красиво: деталь в DXF лежит внутренней стороной вверх. У площадок под ножки и колёса, колосников, скоб и задвижек, перегородки — сторона, которой не видно на собранном мангале"><input type="checkbox" id="nEngrave" checked> Гравировка номеров</label></div>
+      <div class="dimbar nestbar"><label>Лист <select id="nSheet"><option value="1000x2000">1000 × 2000</option><option value="1250x2500" selected>1250 × 2500</option><option value="1500x3000">1500 × 3000</option></select></label><label title="В каком углу листа стоят «С листа» и «Гильотина»: с другой стороны остаётся целый кусок">Угол листа <select id="nCorner"><option value="lb" selected>↙ слева снизу</option><option value="lt">↖ слева сверху</option><option value="rb">↘ справа снизу</option><option value="rt">↗ справа сверху</option></select></label><label title="Номер детали гравируется лазером на внутренней стороне (слой ENGRAVE), чтобы снаружи было красиво: деталь в DXF лежит внутренней стороной вверх. У площадок под ножки и колёса, колосников, скоб и задвижек, перегородки — сторона, которой не видно на собранном мангале"><input type="checkbox" id="nEngrave" checked> Гравировка номеров</label></div>
       <div class="subtabs" role="tablist" aria-label="Кому файлы">
         <button role="tab" id="st-laser" data-sub="laser" aria-selected="true" aria-controls="sub-laser"><b>Лазер</b><small>лазерщику: с листа или из заготовок</small></button>
         <button role="tab" id="st-gil" data-sub="gil" aria-selected="false" aria-controls="sub-gil" tabindex="-1"><b>Гильотина</b><small>схема гильотины и заготовки</small></button>
@@ -237,7 +237,6 @@
             <li><a href="https://tm.by/koleso-povorotnoe-rezina-sc-42-100-mm-n-tor" target="_blank" rel="noopener">Колесо поворотное Ø100, без тормоза (TOR SC 42)</a> · 2 шт</li>
             <li data-m="s"><a href="https://tm.by/product/petlya-garazhnaya-s-sharom-14h70-bp-2-sht-v-upak-starfix-smp-21021-2" target="_blank" rel="noopener">Петля гаражная с шаром 14×70</a> · 2 шт · дверца печи</li>
             <li data-m="s"><a href="https://ozon.by/product/plita-s-perehodnymi-koltsami-dlya-pechi-pod-kazan-ili-mangala-45h45-sm-tolshchina-metalla-5mm-3555295837/" target="_blank" rel="noopener">Плита 450 × 450 × 5 с переходными кольцами</a> — проём Ø390, кольца Ø300, Ø210, Ø120 + заглушка · 1 шт</li>
-            <li data-m="g">Решётка 400 × 400 · 2 шт (сверху) и решётка 400 × 360 · 1 шт (низкая) — готовые или из прутка Ø8/Ø4</li>
             <li data-r>Профлист С8 оцинкованный 0,5 мм, ~1480 × 570 · 1 шт (крыша, волна спереди назад, свес 50 мм за стойки)</li>
             <li>Болт М8×20 + гайка + шайба · 16 шт (колёса)</li>
             <li data-r><a href="https://tm.by/product/bolt-m8h40-mm-shestigr-cink-klpr-88-din-933-5-sht-starfix" target="_blank" rel="noopener">Болт М8×40 шестигранный, DIN 933</a> · 4 шт · приварить к торцам стоек крыши</li>
@@ -245,7 +244,7 @@
             <li data-r><a href="https://tm.by/product/shayba-m8-ploskaya-uvelichennaya-cink-din-9021-10-sht-starfix-smz1-22766-10" target="_blank" rel="noopener">Шайба М8 увеличенная, DIN 9021</a> · 8 шт · крыша</li>
             <li>Гайка М16 · 4 шт, шпилька М16×40 · 4 шт (съёмные ножки)</li>
             <li data-m="s">Болт М8 с гайкой · 1 шт (вертушок дверцы)</li>
-            <li data-m="g">Деревянные рукоятки / втулки · 4 шт (ручка мангала, решётки)</li><li data-m="stove">Деревянная рукоятка / втулка · 1 шт (ручка печи)</li>
+            <li data-m="g">Деревянная рукоятка / втулка · 1 шт (ручка мангала)</li><li data-m="stove">Деревянная рукоятка / втулка · 1 шт (ручка печи)</li>
           </ul>
         </div>
         <div>
@@ -271,19 +270,20 @@
 <script src="../../vendor/three/three.min.js"></script>
 <script src="../../vendor/three/OrbitControls.js"></script>
 <script src="../../vendor/three/CSS2DRenderer.js"></script>
-<script src="js/params.js?v=2026-11-15f"></script>
-<script src="js/parts.js?v=2026-11-15f"></script>
-<script src="js/model.js?v=2026-11-15f"></script>
-<script src="js/dims.js?v=2026-11-15f"></script>
-<script src="js/cut.js?v=2026-11-15f"></script>
-<script src="js/dxf.js?v=2026-11-15f"></script>
-<script src="js/engrave.js?v=2026-11-15f"></script>
-<script src="../common/calc.js?v=2026-11-15f"></script>
-<script src="js/nest.js?v=2026-11-15f"></script>
-<script src="js/sheet-kit.js?v=2026-11-15f"></script>
-<script src="js/views.js?v=2026-11-15f"></script>
-<script src="js/sheets.js?v=2026-11-15f"></script>
-<script src="js/cards.js?v=2026-11-15f"></script>
-<script src="js/ui.js?v=2026-11-15f"></script>
+<script src="js/params.js?v=2026-11-17"></script>
+<script src="js/parts.js?v=2026-11-17"></script>
+<script src="js/model.js?v=2026-11-17"></script>
+<script src="js/dims.js?v=2026-11-17"></script>
+<script src="js/cut.js?v=2026-11-17"></script>
+<script src="js/dxf.js?v=2026-11-17"></script>
+<script src="js/engrave.js?v=2026-11-17"></script>
+<script src="js/pics.js?v=2026-11-17"></script>
+<script src="../common/calc.js?v=2026-11-17"></script>
+<script src="js/nest.js?v=2026-11-17"></script>
+<script src="js/sheet-kit.js?v=2026-11-17"></script>
+<script src="js/views.js?v=2026-11-17"></script>
+<script src="js/sheets.js?v=2026-11-17"></script>
+<script src="js/cards.js?v=2026-11-17"></script>
+<script src="js/ui.js?v=2026-11-17"></script>
 </body>
 </html>

@@ -18,7 +18,7 @@ for(const f of MODES){
     R.forEach(r=>assert.ok(mass.includes(r.n)||ROOF.some(re=>re.test(r.n)),'не из раскроя: '+r.n));
     // листовые детали с DXF в блок не попадают
     const n=names(c).join('\n');
-    for(const re of [/^Боковина/,/^Дно/,/^Торец/,/^Перегородка/,/^Задвижка поддува/,/^Скоба/,/^Площадка под/,/^Дверца/,/^Шибер/,/^Отсекатель/,/^Полоса у дверцы/,/^Глухой верх/,/^Колосник/,/^Пластины ручки/])
+    for(const re of [/^Боковина/,/^Дно/,/^Торец/,/^Перегородка/,/^Задвижка поддува/,/^Скоба/,/^Площадка под/,/^Дверца/,/^Шибер/,/^Отсекатель/,/^Полоса у дверцы/,/^Глухой верх/,/^Колосник — лист/,/^Пластины ручки/])
       assert.doesNotMatch(n,new RegExp(re.source,'m'),'деталь с DXF в блоке: '+re);
     assert.equal(R.length,new Set(R.map(r=>r.n)).size,'дубли');
   });
@@ -30,10 +30,11 @@ for(const f of MODES){
   });
 }
 
-test('мангал: уголки, трубы, решётки из прутка, ручка и ножки в блоке; печи в нём нет',()=>{
-  const n=names(loadMangal({mode:'grill'})).join('\n');
-  for(const re of [/^Уголок 30×30×3 в жаровне/m,/^Решётка в жаровне/m,/^Решётка сверху/m,/^Ручка — труба/m,/^Ножка жаровни/m])assert.match(n,re);
+test('мангал: уголки, трубы, ручка и ножки в блоке; печи и решёток в нём нет',()=>{
+  const n=names(loadMangal({mode:'grill',grillGrate:true,grates2:true})).join('\n');
+  for(const re of [/^Уголок 30×30×3 в жаровне/m,/^Ручка — труба/m,/^Ножка жаровни/m])assert.match(n,re);
   assert.doesNotMatch(n,/профтруба|Шибер|Заслонка|Направляющая/);
+  assert.doesNotMatch(n,/Решётка/,'решётки — только показ на 3D, их не делаем и не покупаем (#117)');
 });
 test('печь: профтрубы, заслонка, квадрат и полоса под шибер, уголок 40×40 в блоке; жаровни нет',()=>{
   const n=names(loadMangal({mode:'stove'})).join('\n');
@@ -45,11 +46,18 @@ test('печь с арматурой вместо плиты: арматура �
   assert.doesNotMatch(names(loadMangal({mode:'stove',grType:'plate'})).join('\n'),/Арматура Ø20|Колосник/);
 });
 
-test('колосник мангала: снята «Колосник на листе» — он в «Не на листе», в блок не попадает; пластины ручки тоже',()=>{
-  const c=loadMangal({mode:'grill',cgr:true});page(c);
-  const r=run(c,`(N=>({prep:prepHtml(),list:nestHtml(N,N.groups.map(G=>({sheets:[],too:[]})))}))(nestJob({cgr:false}))`);
-  assert.doesNotMatch(r.prep,/Колосник|Пластины/);
-  assert.match(r.list,/<h4>Не на листе<\/h4>[\s\S]*Колосник мангала 1/);
+test('колосник мангала (#117): строкой в блоке — перфолист 5–10 мм с металлобазы, без DXF; пластины ручки — лазер, в блок не идут',()=>{
+  for(const mode of ['grill','both']){
+    const c=loadMangal({mode,cgr:true});page(c);
+    const R=run(c,'prepRows()'),g=R.filter(r=>/^Колосник 1 и Колосник 2/.test(r.n));
+    assert.equal(g.length,1,mode+': строк колосника '+g.length);
+    assert.equal(g[0].q,2);
+    assert.match(g[0].note,/перфолист 5–10 мм, с металлобазы, подрезать в размер/);
+    assert.ok(!R.some(r=>/^Пластины ручки/.test(r.n)),mode+': пластины ручки — лазер');
+    const h=run(c,'prepHtml()');assert.doesNotMatch(h,/data-act|dxfbtn/);
+  }
+  assert.ok(!run(loadMangal({mode:'grill',cgr:false}),'prepRows()').some(r=>/Колосник 1/.test(r.n)),'без колосниковой решётки строки нет');
+  assert.ok(!run(loadMangal({mode:'stove'}),'prepRows()').some(r=>/Колосник 1/.test(r.n)),'в печи колосника мангала нет');
 });
 
 test('блок: заголовок, подпись, колонки, строка про «Что купить», кнопок DXF нет; «С листа» и «Гильотина» показывают его под таблицами',()=>{
@@ -57,7 +65,7 @@ test('блок: заголовок, подпись, колонки, строка
   const h=run(c,'prepHtml()');
   assert.match(h,/<h4>Подготовить отдельно<\/h4>/);
   assert.match(h,/Уголки, трубы, арматура, профлист: на схеме их нет, режутся и готовятся отдельно/);
-  assert.match(h,/<th>Название<\/th><th class="r">Кол-во<\/th><th>Размер, мм<\/th><th>Как делать<\/th>/);
+  assert.match(h,/<th>Деталь<\/th><th>Эскиз<\/th><th class="r">Кол-во<\/th><th>Размер, мм<\/th><th>Как делать<\/th>/);   // #117: «Эскиз», номера и DXF нет
   assert.match(h,/Покупное \(колёса, крепёж\) — во вкладке «Что купить»/);
   assert.doesNotMatch(h,/data-act|dxfbtn|DXF/);
   assert.match(h,/class="ntbl ptbl"/);
@@ -73,4 +81,15 @@ test('ключ расчёта «С листа» и «Гильотины» мен
   const k1=run(c,'prepKey()');
   const c2=loadMangal({mode:'both'});page(c2);
   assert.notEqual(k1,run(c2,'prepKey()'));
+});
+
+// #117: галочки «Решётка в жаровне», «2 решётки сверху», «Уголки в жаровне» — только показ на 3D: состав, раскрой и блок не меняются.
+// Уголки в жаровне в комплекте всегда; решёток нет нигде, кроме модели (как шампуры)
+test('галочки показа решёток и уголков в жаровне состав не меняют',()=>{
+  // и тексты строк («Как делать», «Заметки»): проём у колосника сужен уголками всегда
+  const sig=f=>{const c=loadMangal({mode:'grill',...f});return run(c,'({m:massRows().rows.map(r=>[r.n,r.q,r.s,r.note||"",r.asm||""]),p:prepRows().map(r=>r.n),l:laserParts().map(p=>p.file)})');};
+  const on=sig({grillGrate:true,grates2:true,gAng:true});
+  assert.deepEqual(sig({grillGrate:false,grates2:false,gAng:false}),on);
+  assert.ok(on.p.some(n=>/^Уголок 30×30×3 в жаровне/.test(n)),'уголки в жаровне');
+  assert.ok(!on.m.some(([n])=>/Решётка/.test(n)),'решёток нет в раскрое');
 });

@@ -1,5 +1,5 @@
 // «Лазер · DXF → Из заготовок» (#60, пересмотр 14.11): постоянный список — все детали, которым нужен лазер (вид zag), от «Гильотины» не зависит;
-// колосник мангала — по «Колосник на листе»; итоги и архив _zag.dxf
+// колосника мангала нет (#117: перфолист с металлобазы); итоги и архив _zag.dxf
 const test=require('node:test'),assert=require('node:assert/strict');
 const {loadMangal,run,page}=require('./load.js');
 
@@ -16,13 +16,14 @@ test('список: все детали, которым нужен лазер (�
   assert.deepEqual(run(s,`${NAMES}(nestJob())`),['Боковина печи задняя','Дно печи','Колосник печи']);
 });
 
-test('от «Гильотины» не зависит: старая память галочек «рубим» и подрезка список не меняют; колосник — по «Колосник на листе»', ()=>{
+test('от «Гильотины» не зависит: старая память галочек «рубим» и подрезка список не меняют; колосника мангала нет', ()=>{
   const c=loadMangal({mode:'grill'});page(c);
   const base=run(c,`${NAMES}(nestJob())`);
   const d=loadMangal({mode:'grill'});page(d,{'md-gilsel2':{grill_side_back:false,grill_air_slider:false}});
   assert.deepEqual(run(d,`${NAMES}(nestJob())`),base);
   assert.deepEqual(run(c,`${NAMES}(nestJob({edge:0}))`),base);
-  assert.equal(run(c,`${NAMES}(nestJob({cgr:true}))`).filter(n=>/Колосник мангала/.test(n)).length,2);
+  const g=loadMangal({mode:'grill',cgr:true});page(g,{'md-ncgr2':true});
+  assert.equal(run(g,`${NAMES}(nestJob())`).filter(n=>/Колосник мангала/.test(n)).length,0);
 });
 
 test('итоги: рез и врезки по заготовкам (с запасом), число заготовок — с учётом кол-ва', ()=>{
@@ -67,10 +68,10 @@ test('вкладка: итоги и таблица, без «Не на схем�
   assert.match(h,/_zag\.dxf/);
 });
 
-test('ключ «Из заготовок» меняется от колосника; от листа, зазора, подрезки — нет', ()=>{
+test('ключ «Из заготовок» меняется от состава деталей; от листа, зазора, подрезки — нет', ()=>{
   const c=loadMangal({mode:'grill'});page(c);
   const k=o=>run(c,`zagKey(nestJob(${JSON.stringify(o)}))`),base=k({});
-  assert.notEqual(k({cgr:true}),base);
+  run(c,'S.div=false');assert.notEqual(k({}),base);run(c,'S.div=true');
   assert.equal(k({W:3000,H:1500}),base);
   assert.equal(k({gap:8}),base);
   assert.equal(k({edge:0}),base);

@@ -31,10 +31,8 @@ const CARD_UNITS = [
   {id: 'hook', tags: ['hook'], name: 'Скоба задвижки', laser: 'hook', rows: [/^Скоба задвижки/]},
   {id: 'air', tags: ['air'], name: 'Задвижка поддува', laser: 'air', rows: [/^Задвижка поддува/], bends: airBends},
   {id: 'handle', tags: ['handle'], name: 'Ручка', rows: [/^Ручка — труба/], inner: 'два кронштейна — к хвату по кругу, под 90°'},
-  {id: 'cgr', tags: ['cgr1'], twin: ['cgr2'], name: 'Колосник', laser: 'cgr1', rows: [/^Колосник 1 и Колосник 2/, /^Пластины ручки колосника/],
+  {id: 'cgr', tags: ['cgr1'], twin: ['cgr2'], name: 'Колосник', rows: [/^Колосник 1 и Колосник 2/, /^Пластины ручки колосника/],
     twinTxt: 'Колосник 2 (правый, у ручки) — такой же', inner: 'ручку из двух пластин — сначала сварить в уголок, потом первую приварить к колоснику нижней кромкой, поперёк жаровни'},
-  {id: 'gGrate', tags: ['gGrate'], name: 'Решётка в жаровне', rows: [/^Решётка в жаровне/]},
-  {id: 'g2', tags: ['g2'], name: 'Решётка сверху', rows: [/^Решётка сверху/]},
   {id: 'div', tags: ['div'], name: 'Перегородка жаровни', laser: 'div', rows: [/^Перегородка жаровни/]},
   // печь (#69); в «оба» перегородка печи — левый торец жаровни, строка «Перегородка (задняя стенка печи) = …»
   {id: 'sBot', tags: ['sBot'], name: 'Дно печи', laser: 'sBot', rows: [/^Дно печи/]},
@@ -69,7 +67,7 @@ const JOINS = [
   ['legs', 'gBot', 'weld'], ['legs', 'pads', 'weld'], ['legs', 'feet', 'weld'],
   ['hook', 'side0', 'weld'], ['hook', 'side1', 'weld'], ['handle', 'gEnd', 'weld'],
   ['air', 'hook', 'in'], ['div', 'side0', 'in'], ['div', 'side1', 'in'],
-  ['cgr', 'cgrAng', 'lay'], ['gGrate', 'gAng', 'lay'], ['g2', 'side0', 'lay'], ['g2', 'side1', 'lay'],
+  ['cgr', 'cgrAng', 'lay'],
   // печь (#69). Дверца — петлями к задней боковине, проушина — к передней; труба вварена в заднюю боковину;
   // удлинитель приваривается на месте с зазором 3 мм (шов считается с допуском); колосник и шибер кладутся
   ['sK0', 'sBot', 'weld'], ['sK1', 'sBot', 'weld'], ['wall', 'sBot', 'weld'], ['wall', 'sK0', 'weld'], ['wall', 'sK1', 'weld'],
@@ -81,11 +79,11 @@ const JOINS = [
   ['gBot', 'wall', 'weld'], ['side0', 'wall', 'weld'], ['side1', 'wall', 'weld'],
 ];
 
-// Решётки и перегородка на 3D по умолчанию выключены, а в «Раскрое и массе» есть: модель для карт строится с ними, но на картах других
-// деталей их нет — иначе верхняя решётка закрыла бы жаровню. Шампуры — случайные куски мяса, на картах им не место
+// Перегородка на 3D по умолчанию выключена, а в «Раскрое и массе» есть: модель для карт строится с ней, но на картах других
+// деталей её нет. Решётки и шампуры — только показ на 3D (не делаем и не покупаем, #117): на картах им не место
 // Печь: дверца закрыта и шибер на месте (иначе их положение случайное), плиты, казана и дров нет — закрывают топку.
-const CARD_FLAGS = {grillGrate: true, grates2: true, div: true, skew: false, skewD: false, doorOpen: false, sh: 'in', plate: false, kazan: false, wood: false},
-  CARD_ONLY_OWN = ['gGrate', 'g2', 'div'];
+const CARD_FLAGS = {grillGrate: false, grates2: false, div: true, skew: false, skewD: false, doorOpen: false, sh: 'in', plate: false, kazan: false, wood: false},
+  CARD_ONLY_OWN = ['div'];
 
 // fn с галочками f, потом всё как было
 function withFlags(f, fn) {

@@ -11,7 +11,8 @@ const seams=(u,to)=>u.joins.find(j=>j.to===to).seams;
 const kgTxt=v=>v.toFixed(2).replace('.',',');
 
 // по порядку сборки; с колёсами на ножках — площадки под колёса
-const IDS=['gBot','side0','side1','gEnd','gEnd0','gAng','cgrAng','legs','pads','hook','air','handle','cgr','gGrate','g2','div'];
+// решёток (в жаровне и сверху) нет: только показ на 3D, их не делаем и не покупаем (#117)
+const IDS=['gBot','side0','side1','gEnd','gEnd0','gAng','cgrAng','legs','pads','hook','air','handle','cgr','div'];
 
 test('count: карта на каждую деталь цеха, по порядку сборки; покупных нет',()=>{
   const c=open();
@@ -83,9 +84,9 @@ test('welds: у каждой детали с соседом по сварке ш
   assert.ok(/к № \d+ Ножка · 4 шва по 320 мм по контуру/.test(s));
 });
 
-test('lay и in: колосник, решётки, перегородка не варятся',()=>{
+test('lay и in: колосник и перегородка не варятся',()=>{
   const c=open(),d=Object.fromEntries(data(c).map(u=>[u.id,u]));
-  for(const id of ['cgr','gGrate','g2','div']){
+  for(const id of ['cgr','div']){
     assert.ok(d[id].joins.length&&d[id].joins.every(j=>j.kind!=='weld'&&j.mine),id);
     const s=text(cards(c).find(x=>x.id===id).svg);
     assert.ok(/(кладётся на|вставляется в) № /.test(s)&&s.includes('не варить'),id);
@@ -117,6 +118,12 @@ test('laser: у листовых деталей — файл DXF, лист, ре
   assert.ok(L.div.includes('grill_divider_5mm_x1.dxf')&&L.div.includes('Как режут'));
   assert.ok(!L.handle.includes('.dxf')&&!L.gAng.includes('.dxf'));
   assert.ok(L.handle.includes('Ручка — труба Ø25×2'));
+  // #117: колосник мангала — перфолист с металлобазы: карта есть (виды, сборка), но без развёртки и DXF — как у проката (ручка, уголки):
+  // под «Как режут» только таблица строк раскроя
+  assert.ok(L.cgr,'нет карты «Колосник»');
+  assert.ok(!L.cgr.includes('.dxf')&&!/лист \d+ мм · .*пунктир — гиб/.test(L.cgr),'у колосника мангала развёртка или DXF');
+  assert.ok(L.cgr.includes('Колосник 1 и Колосник 2 — перфолист'));
+  assert.equal(data(c).find(u=>u.id==='cgr').laser,null);
 });
 
 test('noWebGL: без 3D вместо видов надпись, а заготовка, швы и сборка на месте',()=>{

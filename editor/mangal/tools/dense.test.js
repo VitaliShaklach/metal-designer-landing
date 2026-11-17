@@ -8,24 +8,23 @@ const {loadMangal,run,page}=require('./load.js');
 // Не подгонять под результат: поменялись состав деталей или лист — эталон снимают заново до правки раскладки, отдельным шагом.
 const DENSE_BEFORE={
   'grill 1500x3000':{len:855,sheets:1},'grill 1250x2500':{len:1010,sheets:1},'grill 1000x2000':{len:1315,sheets:1},
-  'grill+cgr 1500x3000':{len:1087,sheets:1},'grill+cgr 1250x2500':{len:1287,sheets:1},'grill+cgr 1000x2000':{len:1572,sheets:1},
-  'stove 1500x3000':{len:1895,sheets:3},'stove 1250x2500':{len:2045,sheets:3},'stove 1000x2000':{len:2765,sheets:3},
-  'both+cgr 1500x3000':{len:2812,sheets:3},'both+cgr 1250x2500':{len:3227,sheets:3},'both+cgr 1000x2000':{len:4089,sheets:4}};
-// задание: мангал по умолчанию; мангал с «Колосник на листе»; печь; «оба» с колосником
-const JOBS=[['grill',false,'grill'],['grill',true,'grill+cgr'],['stove',false,'stove'],['both',true,'both+cgr']];
+  'stove 1500x3000':{len:1895,sheets:3},'stove 1250x2500':{len:2045,sheets:3},'stove 1000x2000':{len:2765,sheets:3}};
+// задание: мангал по умолчанию; печь. Задания «мангал с колосником на листе» и «оба с колосником» убраны вместе с галочкой (#117):
+// колосника мангала на листе больше нет, а их эталоны снимались с ним. Цифры оставшихся заданий не менялись
+const JOBS=[['grill','grill'],['stove','stove']];
 const SHEETS=['1500x3000','1250x2500','1000x2000'];
 
-const LAY=(sk,cgr,corner)=>`(()=>{const [W,H]=NEST_SHEETS['${sk}'],N=nestJob({cgr:${cgr},W,H,sk:'${sk}',gap:5,corner:'${corner||'lb'}'});
+const LAY=(sk,corner)=>`(()=>{const [W,H]=NEST_SHEETS['${sk}'],N=nestJob({W,H,sk:'${sk}',gap:5,corner:'${corner||'lb'}'});
   return {W,H,gap:N.gap,groups:N.groups.map(G=>{const g=nestGen(G.items,N.W,N.H,N.gap,NEST_EDGE);let v;do{v=g.next();}while(!v.done);
     const R=nestCorner(v.value,N.W,N.H,N.corner);return {mm:G.mm,n:G.items.length,too:R.too.length,sheets:R.sheets.map(s=>({len:s.len,items:s.items.map(o=>({no:o.no,pts:o.pts,bb:o.bb})),dxf:nestDxf(N,G,s)}))};})};})()`;
 const totals=L=>({len:L.groups.reduce((a,g)=>a+g.sheets.reduce((b,s)=>b+s.len,0),0),sheets:L.groups.reduce((a,g)=>a+g.sheets.length,0)});
 const cache=new Map();
-function lay(mode,cgr,sk,corner){const k=[mode,cgr,sk,corner].join();if(!cache.has(k))cache.set(k,run(loadMangal({mode}),LAY(sk,cgr,corner)));return cache.get(k);}
+function lay(mode,sk,corner){const k=[mode,sk,corner].join();if(!cache.has(k))cache.set(k,run(loadMangal({mode}),LAY(sk,corner)));return cache.get(k);}
 
 test('плотность: на каждом задании длина и число листов не больше эталона, на одном длина строго меньше', ()=>{
   let less=[];
-  for(const [mode,cgr,name] of JOBS)for(const sk of SHEETS){
-    const L=lay(mode,cgr,sk),t=totals(L),b=DENSE_BEFORE[name+' '+sk];
+  for(const [mode,name] of JOBS)for(const sk of SHEETS){
+    const L=lay(mode,sk),t=totals(L),b=DENSE_BEFORE[name+' '+sk];
     assert.ok(L.groups.every(g=>g.too===0),name+' '+sk+': не поместилось');
     assert.ok(t.len<=b.len+1e-6,`${name} ${sk}: длина ${t.len} > эталона ${b.len}`);
     assert.ok(t.sheets<=b.sheets,`${name} ${sk}: листов ${t.sheets} > эталона ${b.sheets}`);
@@ -38,8 +37,8 @@ test('плотность: на каждом задании длина и чис�
 const cutLines=t=>{const a=t.split(String.fromCharCode(13,10)),out=[];for(let i=0;i<a.length;i++)if(a[i]==='LINE'&&a[i+2]==='CUT')out.push([4,6,10,12].map(k=>Number(a[i+k])));return out;};
 
 test('контракт: зазор, отступ от края 10 мм, DXF равен рисунку — на всех заданиях и листах', ()=>{
-  for(const [mode,cgr,name] of JOBS)for(const sk of SHEETS){
-    const L=lay(mode,cgr,sk),m=10,gap=L.gap,cx=loadMangal({mode});
+  for(const [mode,name] of JOBS)for(const sk of SHEETS){
+    const L=lay(mode,sk),m=10,gap=L.gap,cx=loadMangal({mode});
     L.groups.forEach(g=>g.sheets.forEach(s=>{
       s.items.forEach(o=>o.pts.forEach(([x,y])=>assert.ok(x>=m-1e-6&&y>=m-1e-6&&x<=L.W-m+1e-6&&y<=L.H-m+1e-6,`${name} ${sk}: деталь ${o.no} ближе края`)));
       const A=s.items;
@@ -52,9 +51,9 @@ test('контракт: зазор, отступ от края 10 мм, DXF ра
 });
 
 test('«Угол листа» работает поверх: в каждом из четырёх углов раскладка прижата к своему углу, длина занятой полосы та же', ()=>{
-  const sk='1250x2500',base=lay('grill',false,sk,'lb'),[bt]=[totals(base)];
+  const sk='1250x2500',base=lay('grill',sk,'lb'),[bt]=[totals(base)];
   for(const corner of ['lb','lt','rb','rt']){
-    const L=lay('grill',false,sk,corner),t=totals(L);
+    const L=lay('grill',sk,corner),t=totals(L);
     assert.ok(Math.abs(t.len-bt.len)<1e-6,corner+': длина полосы поменялась');
     L.groups.forEach(g=>g.sheets.forEach(s=>{const xs=s.items.flatMap(o=>[o.bb[0],o.bb[2]]),ys=s.items.flatMap(o=>[o.bb[1],o.bb[3]]);
       const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
@@ -67,16 +66,14 @@ test('«Угол листа» работает поверх: в каждом и�
 // Не подгонять под результат: поменялись состав деталей или лист — эталон снимают заново до правки, отдельным шагом. Рядом с DENSE_BEFORE («С листа»), но отдельно.
 const GIL_BEFORE={
   'grill 1500x3000':{len:820,sheets:1,cuts:28},'grill 1250x2500':{len:945,sheets:1,cuts:29},'grill 1000x2000':{len:1140,sheets:1,cuts:33},
-  'grill+cgr 1500x3000':{len:1157,sheets:1,cuts:35},'grill+cgr 1250x2500':{len:1282,sheets:1,cuts:31},'grill+cgr 1000x2000':{len:1522,sheets:1,cuts:37},
-  'stove 1500x3000':{len:1455,sheets:2,cuts:37},'stove 1250x2500':{len:1607,sheets:2,cuts:41},'stove 1000x2000':{len:2040,sheets:2,cuts:34},
-  'both+cgr 1500x3000':{len:2260,sheets:2,cuts:56},'both+cgr 1250x2500':{len:2604,sheets:2,cuts:55},'both+cgr 1000x2000':{len:3250,sheets:3,cuts:49}};
-const GILM=(sk,cgr)=>`(()=>{const [W,H]=NEST_SHEETS['${sk}'],N=nestJob({cgr:${cgr},W,H,sk:'${sk}'});let len=0,sh=0,cuts=0,ok=true;
+  'stove 1500x3000':{len:1455,sheets:2,cuts:37},'stove 1250x2500':{len:1607,sheets:2,cuts:41},'stove 1000x2000':{len:2040,sheets:2,cuts:34}};
+const GILM=sk=>`(()=>{const [W,H]=NEST_SHEETS['${sk}'],N=nestJob({W,H,sk:'${sk}'});let len=0,sh=0,cuts=0,ok=true;
   N.groups.forEach(G=>{const P=gilScheme(N,G);P.sheets.forEach(s=>{sh++;len+=Math.max(...s.items.map(i=>i.x+i.w));cuts+=s.cuts;ok=ok&&s.ok;});});return {len,sheets:sh,cuts,ok};})()`;
 
 test('гильотина плотнее (#106): длина и листов не больше эталона, на одном задании длина строго меньше; резов не больше эталона + 25 %; все резы сквозные', ()=>{
   const less=[];
-  for(const [mode,cgr,name] of JOBS)for(const sk of SHEETS){
-    const cx=loadMangal({mode});page(cx);const r=run(cx,GILM(sk,cgr)),b=GIL_BEFORE[name+' '+sk];
+  for(const [mode,name] of JOBS)for(const sk of SHEETS){
+    const cx=loadMangal({mode});page(cx);const r=run(cx,GILM(sk)),b=GIL_BEFORE[name+' '+sk];
     assert.ok(r.ok,name+' '+sk+': не все резы сквозные');
     assert.ok(r.len<=b.len+1e-6,`${name} ${sk}: длина ${r.len} > эталона ${b.len}`);
     assert.ok(r.sheets<=b.sheets,`${name} ${sk}: листов ${r.sheets} > эталона ${b.sheets}`);

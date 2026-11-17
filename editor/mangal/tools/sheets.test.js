@@ -39,10 +39,12 @@ test('«Раскрой»: по листу на каждый лист каждо�
   }
 });
 
-test('«Раскрой»: колосник мангала — только с галочкой «Колосник на листе»', ()=>{
-  const c=loadMangal({mode:'grill'});page(c);
-  const cnt=over=>{const R=sheets(c,over).filter(s=>s.title==='Раскрой');return (R[0].svg.match(/data-no="\d+"/g)||[]).length;};
-  assert.equal(cnt('{cgr:true}')-cnt('{cgr:false}'),2);
+test('«Раскрой»: колосника мангала на листе нет — перфолист с металлобазы (#117)', ()=>{
+  const c=loadMangal({mode:'grill',cgr:true});page(c);
+  const R=sheets(c,'{}').filter(s=>s.title==='Раскрой');
+  assert.ok(R.length>0);
+  assert.doesNotMatch(R.map(s=>s.svg).join(''),/Колосник мангала/);
+  assert.equal((R[0].svg.match(/data-no="\d+"/g)||[]).length,run(c,'nestJob().groups[0].items.length'));
 });
 
 test('«Раскрой»: боковина лежит с прорезями — контур тот же, что в DXF (26 прорезей шагом 30, шампуры через одну — 60)', ()=>{
@@ -148,6 +150,14 @@ test('«Порядок сборки»: в печи шаги печи — две�
   }
   const g=loadMangal({mode:'grill'});page(g);
   assert.ok(!run(g,'ok=false;asmSteps().flatMap(s=>s.parts)').some(p=>['sK0','door','grate'].includes(p)),'в мангале шагов печи нет');
+});
+
+// #117: решётки — только показ на 3D: в шагах сборки их нет и на снимках сборки они спрятаны, даже с включёнными галочками
+test('«Порядок сборки»: решёток нет ни в шагах, ни на снимках; колосник с перегородкой — «кладутся»', ()=>{
+  const c=loadMangal({mode:'both',grillGrate:true,grates2:true});page(c);
+  assert.ok(!run(c,'ASM_STEPS.flatMap(s=>s.parts)').some(p=>['gGrate','g2'].includes(p)));
+  assert.ok(['gGrate','g2'].every(p=>run(c,'ASM_HIDE').includes(p)),'решётки на снимках сборки');
+  assert.ok(run(c,'ok=false;asmSteps().map(s=>s.title)').includes('Колосник и перегородка — кладутся'));
 });
 
 test('«Детали» и «Раскрой» печи: каждая лазерная деталь под своим номером; колосник 15 мм — на своём листе', ()=>{

@@ -15,17 +15,18 @@ test('галочка «Гравировка номеров»: по умолча�
 
 test('все детали мангала получают номер; ENGR_MIRROR и ENGR_HIDDEN', ()=>{
   const c=loadMangal({mode:'grill'});
-  const miss=run(c,'nestJob({cgr:true}).groups.flatMap(G=>G.types.filter(ty=>!ty.eng||!ty.eng.length).map(ty=>ty.p.name))');
+  const miss=run(c,'nestJob().groups.flatMap(G=>G.types.filter(ty=>!ty.eng||!ty.eng.length).map(ty=>ty.p.name))');
   assert.deepEqual(miss,[]);
   assert.deepEqual(run(c,'[...ENGR_MIRROR].sort()'),['gEnd0','lintel','sK1','side1']);
   const h=run(c,'ENGR_HIDDEN');
-  for(const pt of ['legs','pads','cgr1','cgr2','grate','hook','air','shib','div'])assert.ok(h[pt]==='top'||h[pt]==='bottom',pt);
+  assert.ok(!('cgr1' in h)&&!('cgr2' in h),'колосника мангала на лазере нет (#117)');
+  for(const pt of ['legs','pads','cgrH','grate','hook','air','shib','div'])assert.ok(h[pt]==='top'||h[pt]==='bottom',pt);
 });
 
 test('DXF листа: слой ENGRAVE, номер на каждой детали листа, внутри её контура', ()=>{
   const c=loadMangal({mode:'grill'});
   const r=run(c,`(N=>{const res=${RES}(N),sh=res[0].sheets[0],G=N.groups[0];
-    return {txt:nestDxf(N,G,sh),items:sh.items.map(it=>({pts:it.pts,n:G.items[it.id].ty.eng.length}))};})(nestJob({cgr:true}))`);
+    return {txt:nestDxf(N,G,sh),items:sh.items.map(it=>({pts:it.pts,n:G.items[it.id].ty.eng.length}))};})(nestJob())`);
   const L=lines(r.txt,'ENGRAVE');
   assert.equal(L.length,r.items.reduce((a,i)=>a+i.n,0),'число отрезков = сумма по деталям листа');
   assert.ok(L.length>100);
@@ -34,13 +35,13 @@ test('DXF листа: слой ENGRAVE, номер на каждой детал�
 test('DXF листа: каждый отрезок ENGRAVE внутри контура какой-то детали на листе', ()=>{
   const c=loadMangal({mode:'grill'});
   const r=run(c,`(N=>{const res=${RES}(N),sh=res[0].sheets[0],G=N.groups[0];
-    return {txt:nestDxf(N,G,sh),polys:sh.items.map(it=>it.pts)};})(nestJob({cgr:true}))`);
+    return {txt:nestDxf(N,G,sh),polys:sh.items.map(it=>it.pts)};})(nestJob())`);
   for(const l of lines(r.txt,'ENGRAVE'))assert.ok(r.polys.some(P=>inside(P,[l.x1,l.y1])&&inside(P,[l.x2,l.y2])),'отрезок вне контура: '+JSON.stringify(l));
 });
 
 test('DXF детали: ENGRAVE внутри контура, у задней боковины вырез под ручку на 220–280 мм', ()=>{
   const c=loadMangal({mode:'grill'});
-  const r=run(c,`(N=>N.groups[0].types.map(ty=>({pt:ty.p.pt,P:ty.P,txt:partFile(ty)[1],h:ty.m.h})))(nestJob({cgr:true}))`);
+  const r=run(c,`(N=>N.groups[0].types.map(ty=>({pt:ty.p.pt,P:ty.P,txt:partFile(ty)[1],h:ty.m.h})))(nestJob())`);
   for(const d of r){const L=lines(d.txt,'ENGRAVE');assert.ok(L.length>0,d.pt);
     for(const l of L)assert.ok(inside(d.P,[l.x1,l.y1])&&inside(d.P,[l.x2,l.y2]),d.pt+' вне контура');}
   const s0=r.find(d=>d.pt==='side0'),cut=lines(s0.txt,'CUT');
@@ -69,8 +70,8 @@ test('галочка снята: ENGRAVE нет нигде, гравировка
 
 test('итоги «С листа» и «Из заготовок»: длина гравировки, рез не меняется', ()=>{
   const c=loadMangal({mode:'grill'});
-  const on=run(c,`(N=>{const res=${RES}(N);return {tot:listTotals(N,res)[0],html:nestHtml(N,res)};})(nestJob({cgr:false}))`),
-    off=run(c,`(N=>listTotals(N,${RES}(N))[0])(nestJob({cgr:false,engr:false}))`);
+  const on=run(c,`(N=>{const res=${RES}(N);return {tot:listTotals(N,res)[0],html:nestHtml(N,res)};})(nestJob())`),
+    off=run(c,`(N=>listTotals(N,${RES}(N))[0])(nestJob({engr:false}))`);
   assert.ok(on.tot.eng>500,'гравировка, мм '+on.tot.eng);assert.equal(on.tot.cut,off.cut);assert.equal(on.tot.pierce,off.pierce);
   assert.match(on.html,/Гравировка <b>[\d,]+ м<\/b>/);
   const z=run(c,`(N=>({t:zagTotals(N,N.groups.map(G=>zagTypes(N,G)))[0],h:zagHtml(N,N.groups.map(G=>zagTypes(N,G)))}))(nestJob())`);
@@ -113,6 +114,6 @@ test('печь: гравировка у всех деталей', ()=>{
 test('«С листа»: у деталей без внутренней стороны подписана грань гравировки; с выключенной галочкой подписи нет', ()=>{
   const c=loadMangal({mode:'grill'});
   const h=o=>run(c,`(N=>nestHtml(N,${RES}(N)))(nestJob(${o}))`);
-  assert.match(h('{cgr:true}'),/номер — на нижней грани/);
-  assert.ok(!/номер — на/.test(h('{cgr:true,engr:false}')));
+  assert.match(h('{}'),/номер — на нижней грани/);
+  assert.ok(!/номер — на/.test(h('{engr:false}')));
 });

@@ -2,7 +2,7 @@
 // THREE.Shape/Path — простые заглушки с точками (как mkReal в smoke.js), чтобы контуры деталей были настоящими.
 const fs=require('fs'),vm=require('vm'),path=require('path');
 const P=path.join(__dirname,'..');
-const FILES=['params','parts','model','dims','cut','dxf','engrave','nest','sheet-kit','views','sheets','cards','ui'];
+const FILES=['params','parts','model','dims','cut','dxf','engrave','pics','nest','sheet-kit','views','sheets','cards','ui'];
 const mk=()=>{const U=new Proxy(function(){},{get:(t,k)=>{if(k===Symbol.toPrimitive)return()=>0;if(k===Symbol.iterator)return function*(){};if(k==='then')return undefined;return U;},apply:()=>U,construct:()=>U,set:()=>true});return U;};
 class SPath{constructor(){this.pts=[];this.curves=[];this.holes=[];}moveTo(x,y){this.pts.push({x,y});}lineTo(x,y){const l=this.pts[this.pts.length-1];if(!l||l.x!==x||l.y!==y)this.pts.push({x,y});}
   absarc(x,y,r){this.curves=[{isEllipseCurve:true,aX:x,aY:y,xRadius:r}];}getPoints(){return this.pts;}}
@@ -24,9 +24,9 @@ function loadMangal(flags={},{real=false}={}){
   if(real){ctx.__flags=flags;vm.runInContext('Object.assign(S,__flags);recompute();',ctx);}
   return ctx;}
 
-// поля «Лазер · DXF» как на странице (колосник на листе снят, подрезка 10, полосы гильотины слева) и память браузера ls — {ключ: значение}
+// поля «Лазер · DXF» как на странице (подрезка 10, полосы гильотины слева) и память браузера ls — {ключ: значение}
 function page(ctx,ls={}){const mem=Object.fromEntries(Object.entries(ls).map(([k,v])=>[k,typeof v==='string'?v:JSON.stringify(v)]));
-  ctx.__mem=mem;ctx.__els={nGap:{value:'5'},nSheet:{value:'1250x2500'},nCgr:{checked:false},nEdge:{value:'10'},nCorner:{value:'lb'}};
+  ctx.__mem=mem;ctx.__els={nGap:{value:'5'},nSheet:{value:'1250x2500'},nEdge:{value:'10'},nCorner:{value:'lb'}};
   run(ctx,`(()=>{const on=new Map(),D0=document,el=id=>{const e=__els[id];if(!e)return D0.getElementById(id);e.addEventListener=e.addEventListener||((t,f)=>on.set(id+':'+t,f));return e;};
     localStorage={getItem:k=>k in __mem?__mem[k]:null,setItem:(k,v)=>{__mem[k]=String(v);}};
     document=new Proxy({},{get:(t,k)=>k==='getElementById'?el:D0[k]});

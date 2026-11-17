@@ -83,24 +83,24 @@ function nestLoop(l){if(!Array.isArray(l))return null;const P=[],same=(a,b)=>Mat
   for(const p of l){if(!Array.isArray(p)||!Number.isFinite(p[0])||!Number.isFinite(p[1]))return null;if(!P.length||!same(P[P.length-1],p))P.push([p[0],p[1]]);}
   while(P.length>1&&same(P[0],P[P.length-1]))P.pop();
   return P.length>=3&&Math.abs(area2(P))>1?P:null;}
-// значения полей: зазор 1…50 мм с шагом 0,5; лист — из списка (общий для «С листа», «Из заготовок» и «Гильотины»); cgr — колосник мангала на листе
-// (галочка, по умолчанию снята: два колосника — половина реза и почти все врезки листа, а подойдёт готовый перфолист; память браузера md-ncgr2, старый md-ncgr не читается);
+// значения полей: зазор 1…50 мм с шагом 0,5; лист — из списка (общий для «С листа», «Из заготовок» и «Гильотины»).
+// Галочки «Колосник на листе» нет (#117): колосник мангала — перфолист с металлобазы, в laserParts его нет; память md-ncgr2 и md-ncgr не читается;
 // edge — подрезка кромки на схеме гильотины 0…30 мм, целые (по умолчанию 10, поле во вкладке «Гильотина», память md-nedge);
 // engr — гравировка номеров деталей, слой ENGRAVE (галочка nEngrave, по умолчанию включена, память md-nengr; engrave.js);
 // corner — угол листа, в котором стоят «С листа» и «Гильотина»: lb ↙ (по умолчанию) | lt ↖ | rb ↘ | rt ↗ (общее поле nCorner, память md-corner; старый md-gilside не читается).
 // Галочек «рубим» нет (пересмотр 14.11): что рубить, решает правило gilWhy. Старые md-gilsel2, md-gilsel, md-ngil не читаются
 const NEST_CORNERS=['lb','lt','rb','rt'],nestFlip=corner=>[corner[0]==='r',corner[1]==='t'];   // угол → отражать по горизонтали, по вертикали
-const NEST_CGR=p=>p.pt==='cgr1'||p.pt==='cgr2';
-function nestOpts(){const gi=document.getElementById('nGap'),si=document.getElementById('nSheet'),ci=document.getElementById('nCgr'),ei=document.getElementById('nEdge'),di=document.getElementById('nCorner'),ni=document.getElementById('nEngrave');
+function nestOpts(){const gi=document.getElementById('nGap'),si=document.getElementById('nSheet'),ei=document.getElementById('nEdge'),di=document.getElementById('nCorner'),ni=document.getElementById('nEngrave');
   let gap=parseFloat(String(gi&&gi.value!=null?gi.value:'').replace(',','.'));if(!Number.isFinite(gap))gap=5;gap=Math.min(50,Math.max(1,Math.round(gap*2)/2));
   let edge=parseFloat(String(ei&&ei.value!=null?ei.value:'').replace(',','.'));if(!Number.isFinite(edge))edge=10;edge=Math.min(30,Math.max(0,Math.round(edge)));
   const v=si&&typeof si.value==='string'?si.value:'',sk=NEST_SHEETS[v]?v:'1250x2500',[W,H]=NEST_SHEETS[sk],corner=NEST_CORNERS.includes(di&&di.value)?di.value:'lb';
-  return {gap,sk,W,H,edge,corner,cgr:!!(ci&&ci.checked===true),engr:!(ni&&ni.checked===false)};}
-// почему гильотина деталь не рубит: уже GIL_MIN_W (полоса — её берут готовой или режут иначе) или лист толще GIL_MAX_MM; рубит — ''
-const gilWhy=(m,mm)=>Math.min(m.w,m.h)<GIL_MIN_W?'уже 50 мм':mm>GIL_MAX_MM?'толще 8 мм':'';
-// причина для детали задания: колосник мангала без «Колосник на листе» — его режут отдельно или берут перфолист; контура нет — не рубится
-const gilOff=(ty,o)=>ty.kind==='list'?'нет контура':NEST_CGR(ty.p)&&!o.cgr?'снят «Колосник на листе»':gilWhy(ty.m,ty.p.mm);
-const gilOn=(ty,o)=>!gilOff(ty,o);
+  return {gap,sk,W,H,edge,corner,engr:!(ni&&ni.checked===false)};}
+// почему гильотина деталь не рубит: у́же GIL_MIN_W (полоса — её берут готовой или режут иначе) или лист толще GIL_MAX_MM; рубит — ''.
+// «у́же» — с ударением (U+0301), чтобы не читалось как «уже»
+const gilWhy=(m,mm)=>Math.min(m.w,m.h)<GIL_MIN_W?'у́же 50 мм':mm>GIL_MAX_MM?'толще 8 мм':'';
+// причина для детали задания: контура нет — не рубится, иначе — правило gilWhy
+const gilOff=ty=>ty.kind==='list'?'нет контура':gilWhy(ty.m,ty.p.mm);
+const gilOn=ty=>!gilOff(ty);
 // гравировка номера детали: отрезки в её координатах (мм, округлены до 0,01), обходят отверстия; null — не поместилась или галочка снята
 // расчёт дорогой (~0,2 с на все детали), а nestJob зовут при каждой правке, — результат по номеру и контурам держим в памяти
 const ENGR_MEMO=new Map();
@@ -109,19 +109,18 @@ function engrOf(ty){const f=v=>Math.round(v*100)/100,m=ty.m,k=JSON.stringify([ty
     if(ENGR_MEMO.size>200)ENGR_MEMO.clear();ENGR_MEMO.set(k,g&&g.map(z=>z.map(f)));}
   return ENGR_MEMO.get(k);}
 // задание: группы по толщине (5 мм первой), в каждой — типы деталей (номер, контур, кол-во) и штуки для раскладки; key — для кэша.
-// over — поменять поля (тесты: {cgr:true}, {edge:0}, {corner:'rt'}); hasCgr — есть ли колосник мангала (показать галочку).
-// Колосник мангала в типах всегда (строка и DXF в таблице), на лист — только с cgr; без cgr у типа offSheet — нет на листе и в «Итого».
+// over — поменять поля (тесты: {edge:0}, {corner:'rt'}). Все детали задания — на листе.
 // У типа kind — вид детали, если её рубить (partKind: gil — после гильотины готова, zag — заготовка под лазер; list — контура нет, не рубится),
-// b — геометрия по заготовке (blankMM, только у zag). Рубит ли гильотина — gilOn (правило gilWhy и «Колосник на листе»)
-function nestJob(over){const o=Object.assign(nestOpts(),over),all=laserParts(),hasCgr=all.some(NEST_CGR),ths=[...new Set(all.map(p=>p.mm))].sort((a,b)=>(b===5)-(a===5)||a-b),groups=[];let no=0;
+// b — геометрия по заготовке (blankMM, только у zag). Рубит ли гильотина — gilOn (правило gilWhy)
+function nestJob(over){const o=Object.assign(nestOpts(),over),all=laserParts(),ths=[...new Set(all.map(p=>p.mm))].sort((a,b)=>(b===5)-(a===5)||a-b),groups=[];let no=0;
   ths.forEach(mm=>{const G={mm,types:[],items:[]};
     all.filter(p=>p.mm===mm&&p.q>0).forEach(p=>{let m=null;try{m=partMM(p);}catch(e){}const P=m&&nestLoop(m.loops[0]);if(!P)return;   // пустой или вырожденный контур — пропускаем
-      const kind=partKind(m,'gil'),ty={no:++no,p,m,P,q:p.q,kind,b:kind==='zag'?blankMM(p,m):null,offSheet:!o.cgr&&NEST_CGR(p)};
+      const kind=partKind(m,'gil'),ty={no:++no,p,m,P,q:p.q,kind,b:kind==='zag'?blankMM(p,m):null};
       ty.eng=o.engr?engrOf(ty):null;ty.engLen=segsLen(ty.eng);if(ty.b)ty.b.engr=ty.eng;G.types.push(ty);
-      if(!ty.offSheet)for(let j=0;j<p.q;j++)G.items.push({id:G.items.length,no:ty.no,pts:P,ty});});
+      for(let j=0;j<p.q;j++)G.items.push({id:G.items.length,no:ty.no,pts:P,ty});});
     if(G.types.length)groups.push(G);});
-  const key=JSON.stringify([o.W,o.H,o.gap,o.corner,o.engr?1:0,groups.map(G=>[G.mm,G.items.length,G.types.map(ty=>[ty.no,ty.q,ty.offSheet?1:0,ty.P.map(q=>q.map(v=>Math.round(v*10)))])])]);
-  return {...o,groups,key,hasCgr};}
+  const key=JSON.stringify([o.W,o.H,o.gap,o.corner,o.engr?1:0,groups.map(G=>[G.mm,G.items.length,G.types.map(ty=>[ty.no,ty.q,ty.P.map(q=>q.map(v=>Math.round(v*10)))])])]);
+  return {...o,groups,key};}
 
 /* ---------- рисунок листа (SVG, мм) ---------- */
 const n1=v=>Math.round(v*10)/10;
@@ -163,7 +162,7 @@ function nestDxf(N,G,sh){const f=v=>Math.round(v*100)/100,m={sheet:[[0,0],[N.W,0
 const nestFile=(N,G,R,si)=>`list_${G.mm}mm_${N.sk}${R.sheets.length>1?'_'+(si+1):''}.dxf`;
 // гильотина (вкладка «Гильотина»): что она рубит в этой толщине — gilOn: gil — готовая, zag — заготовка под лазер
 const GIL_KIND={gil:'готовая деталь',zag:'заготовка под лазер'};
-const gilRows=(N,G)=>G.types.filter(ty=>gilOn(ty,N)).map(ty=>({no:ty.no,name:ty.p.name,w:ty.m.w,h:ty.m.h,q:ty.q,kind:ty.kind}));
+const gilRows=(N,G)=>G.types.filter(ty=>gilOn(ty)).map(ty=>({no:ty.no,name:ty.p.name,w:ty.m.w,h:ty.m.h,q:ty.q,kind:ty.kind}));
 
 /* ---------- схема гильотины: прямоугольники заготовок на листе, только сквозные резы ----------
    Гильотина режет от края до края, ширины реза нет — зазор между заготовками 0, от края листа — подрезка кромки (поле, edge).
@@ -172,7 +171,7 @@ const gilRows=(N,G)=>G.types.filter(ty=>gilOn(ty,N)).map(ty=>({no:ty.no,name:ty.
    в полосе ряды снизу вверх. Перебор: 4 сортировки × 4 правила поворота на 90°; не влезло на лист — следующий лист.
    Лучший вариант — меньше листов, при равенстве — меньше отрублено по длине (сумма по листам: с другой стороны — целый остаток), затем меньше занятый прямоугольник.
    Полосы — от края листа выбранного угла («Угол листа»: ↙ по умолчанию), ряды в полосе — от края по вертикали; вся схема отражается по рамкам заготовок. */
-const GIL_MIN_W=50;   // мм: деталь, у которой меньшая сторона уже 50, гильотина не рубит: узкую полосу 5 мм ведёт винтом или саблей (задвижки 800 × 30, скобы 12 × 30)
+const GIL_MIN_W=50;   // мм: деталь, у которой меньшая сторона у́же 50, гильотина не рубит: узкую полосу 5 мм ведёт винтом или саблей (задвижки 800 × 30, скобы 12 × 30)
 const GIL_MAX_MM=8;   // мм: лист толще гильотина не рубит — колосник печи 15 мм гильотина цеха не берёт
 function gilTry(rects,W,H,E,dir,sort,pol,low){const v=dir==='v',LS=(v?W:H)-2*E,LW=(v?H:W)-2*E,e=1e-6,fits=([a,b])=>a<=LS+e&&b<=LW+e;
   // ориентация — [поперёк полосы, вдоль полосы]; pol 0 — длинной стороной поперёк, 1 — вдоль, 2 и 3 — как выгоднее (новая полоса: 2 — уже, 3 — шире)
@@ -220,7 +219,7 @@ function gilPack(rects,W,H,edge,corner='lb'){let best=null;const e=1e-6,len=r=>r
     Object.assign(sh,{cuts:c.cuts,ok:c.ok,used:a/(W*H),waste:(bx-a)/(W*H)});});   // отход — обрезки внутри занятого прямоугольника (от выбранного угла листа), с подрезкой; дальше — целый остаток листа
   return {sheets:best.sheets,too:best.too,W,H,edge};}
 // заготовки для схемы: каждая штука детали, которую гильотина рубит (gilOn), — габарит детали; что не рубится, на схему не идёт
-function gilRects(N,G){const r=[];G.types.forEach(ty=>{if(gilOn(ty,N))for(let j=0;j<ty.q;j++)r.push({w:ty.m.w,h:ty.m.h,kind:ty.kind,ty,no:ty.no});});return r;}
+function gilRects(N,G){const r=[];G.types.forEach(ty=>{if(gilOn(ty))for(let j=0;j<ty.q;j++)r.push({w:ty.m.w,h:ty.m.h,kind:ty.kind,ty,no:ty.no});});return r;}
 const gilScheme=(N,G)=>G.gil||(G.gil=gilPack(gilRects(N,G),N.W,N.H,N.edge,N.corner));   // G — группа задания: схему считаем один раз
 // схема гильотины (SVG, мм): рамка листа, заготовки — серые (готовая деталь) и светло-оранжевые (дальше на лазер), внутри номер и размер; линий лазера нет
 function gilSvg(N,G,sh,isOn,big){const W=N.W,H=N.H,fk=big?1:2,fs=Math.round(H*.035*fk),pd=Math.round(fs*1.6),Y=y=>H-y;
@@ -245,7 +244,7 @@ const gilFile=(N,G,P,si)=>`gilotina_${G.mm}mm_${N.sk}${P.sheets.length>1?'_'+(si
 const nestSelOn=ty=>!!S.sel.el&&inSel(PDF_ELEM(ty.p.pt),ty.p.pt);
 // широкий экран — шрифт на листах мельче, рисунок крупнее; узкий (телефон) — крупнее, иначе номера ~4 px. Вкладка скрыта — по окну
 const nestWide=id=>{const box=document.getElementById(id),bw=box&&box.clientWidth||(typeof innerWidth==='number'?innerWidth:0);return !(bw>0&&bw<600);};
-// итоги «С листа» для лазерщика по толщинам: рез (мм) и врезки — по деталям, которые легли на лист (снятый колосник и «Не поместилось» не входят),
+// итоги «С листа» для лазерщика по толщинам: рез (мм) и врезки — по деталям, которые легли на лист («Не поместилось» не входит),
 // листов, заполнение — доля металла деталей в листах
 const listTotals=(N,res)=>N.groups.map((G,gi)=>{const R=res[gi]||{sheets:[]},laid=R.sheets.flatMap(s=>s.items),m=it=>G.items[it.id].ty.m;
   return {mm:G.mm,cut:laid.reduce((a,it)=>a+m(it).cut,0),eng:laid.reduce((a,it)=>a+G.items[it.id].ty.engLen,0),pierce:laid.reduce((a,it)=>a+m(it).pierce,0),sheets:R.sheets.length,fill:R.sheets.length?laid.reduce((a,it)=>a+it.area,0)/(R.sheets.length*N.W*N.H):0};});
@@ -255,23 +254,34 @@ const engSpan=(N,mm)=>N.engr?`<span>Гравировка <b>${fmt(mm/1000,2)} м
 const engSide=(N,p)=>N.engr&&ENGR_HIDDEN[p.pt]?`<small>номер — на ${ENGR_HIDDEN[p.pt]==='top'?'верхней':'нижней'} грани, как стоит на мангале (её не видно)</small>`:'';
 const sheetsWord=n=>n%10===1&&n%100!==11?'лист':[2,3,4].includes(n%10)&&![12,13,14].includes(n%100)?'листа':'листов';
 const detWord=n=>n%10===1&&n%100!==11?'деталь':[2,3,4].includes(n%10)&&![12,13,14].includes(n%100)?'детали':'деталей';
-// что не на листе (#92): «С листа» (v='list') — типы offSheet, «Гильотина» (v='gil') — что гильотина не рубит; с причиной. Основная таблица — только то, что на листе
-const offRows=(N,G,v)=>G.types.map((ty,ti)=>({ty,ti,why:v==='gil'?(gilOn(ty,N)?'':gilOff(ty,N)):(ty.offSheet?'снят «Колосник на листе»':'')})).filter(o=>o.why);
-// сноска над схемой: «N деталей не на схеме — ниже» (штуки); пусто — ''
-function offNote(rows,v){const n=rows.reduce((a,o)=>a+o.ty.q,0);return rows.length?`<p class="nfoot">${n} ${detWord(n)} не ${v==='gil'?'на схеме':'на листе'} — ниже</p>`:'';}
-// блок под основной таблицей: эскиз, название, кол-во, причина, DXF детали (data-t — индекс в G.types)
-function offHtml(N,G,gi,v){const rows=offRows(N,G,v);if(!rows.length)return '';
+// что гильотина не рубит (#92): лазерные детали с причиной (у́же 50 мм, толще 8 мм). Основная таблица — только то, что рубим.
+// Блока «Не на листе» в «С листа» нет (#117): все детали задания — на листе
+const offRows=(N,G)=>G.types.map((ty,ti)=>({ty,ti,why:gilOff(ty)})).filter(o=>o.why);
+// сноска над схемой гильотины: «N деталей не на схеме — ниже» (штуки); пусто — ''
+function offNote(rows){const n=rows.reduce((a,o)=>a+o.ty.q,0);return rows.length?`<p class="nfoot">${n} ${detWord(n)} не на схеме — ниже</p>`:'';}
+// блок «Не рубится» под таблицей гильотины: эскиз, название, кол-во, причина, DXF детали (data-t — индекс в G.types)
+function offHtml(N,G,gi){const rows=offRows(N,G);if(!rows.length)return '';
   const t='<thead><tr><th class="r">№</th><th>Деталь</th><th>Эскиз</th><th class="r">Кол-во</th><th>Причина</th><th class="r dl">Скачать</th></tr></thead><tbody>'+
-    rows.map(o=>{const ty=o.ty,p=ty.p;return `<tr${nestSelOn(ty)?' class="on"':''}><td class="n r">${ty.no}</td><td>${p.name}${p.note?`<small>${p.note}</small>`:''}<small class="fn">${dxfName(p)}</small></td><td>${dxfSketch(ty.m,v==='gil'?ty.kind:'list',v==='gil'?ty.b:undefined)}</td><td class="n r">${ty.q}</td><td>${o.why}</td>`+
+    rows.map(o=>{const ty=o.ty,p=ty.p;return `<tr${nestSelOn(ty)?' class="on"':''}><td class="n r">${ty.no}</td><td>${p.name}${p.note?`<small>${p.note}</small>`:''}<small class="fn">${dxfName(p)}</small></td><td>${dxfSketch(ty.m,ty.kind,ty.b)}</td><td class="n r">${ty.q}</td><td>${o.why}</td>`+
       `<td class="r dl"><button class="dxfbtn dl" data-act="part" data-g="${gi}" data-t="${o.ti}" title="Скачать DXF детали" aria-label="Скачать DXF детали">⬇︎ DXF</button></td></tr>`;}).join('')+'</tbody>';
-  return `<section class="noff"><h4>${v==='gil'?'Не рубится':'Не на листе'}</h4><div class="tbl"><table class="ntbl otbl">${t}</table></div></section>`;}
+  return `<section class="noff"><h4>Не рубится</h4><div class="tbl"><table class="ntbl otbl">${t}</table></div></section>`;}
 // «Подготовить отдельно» (#107): металл без DXF — под таблицами «С листа» и «Гильотина» (лазерщик видит всё, что готовится не на лазере). Без кнопок DXF
 const prepKey=()=>JSON.stringify(prepRows().map(r=>[r.n,r.q,r.s]));
+// Колонки (#117): Деталь | Эскиз | Кол-во | Размер, мм | Как делать; «Эскиз» — объёмная картинка детали (prepPic, pics.js), номера и DXF нет
 function prepHtml(){const rows=prepRows();if(!rows.length)return '';
-  const t='<thead><tr><th>Название</th><th class="r">Кол-во</th><th>Размер, мм</th><th>Как делать</th></tr></thead><tbody>'+
-    rows.map(r=>`<tr><td>${r.n}</td><td class="n r">${r.q}</td><td class="n">${r.s}</td><td>${r.note||'—'}</td></tr>`).join('')+'</tbody>';
+  const t='<thead><tr><th>Деталь</th><th>Эскиз</th><th class="r">Кол-во</th><th>Размер, мм</th><th>Как делать</th></tr></thead><tbody>'+
+    rows.map(r=>`<tr><td>${r.n}</td><td class="pk">${prepPic(r)}</td><td class="n r">${r.q}</td><td class="n">${r.s}</td><td>${r.note||'—'}</td></tr>`).join('')+'</tbody>';
   return `<section class="prep"><h4>Подготовить отдельно</h4><p class="pnote">Уголки, трубы, арматура, профлист: на схеме их нет, режутся и готовятся отдельно</p>`+
     `<div class="tbl"><table class="ntbl ptbl">${t}</table></div><p class="pnote">Покупное (колёса, крепёж) — во вкладке «Что купить»</p></section>`;}
+// «Эскиз» блока — в одну вертикаль с «Эскизом» последней таблицы деталей листа над ним (#117). Колонки двух таблиц тянутся по содержимому,
+// поэтому ширину первой колонки блока ставим по замеру: после отрисовки (nestVariant) и при смене размера вкладки (ResizeObserver в nestInit).
+// Скрытая вкладка (ширина 0) — не трогаем. На телефоне таблицы шире экрана и листаются каждая сама: замер идёт по текущей прокрутке,
+// вертикаль там не требуется (#117: только 1440), ширина первой колонки — просто разумная
+function prepAlign(box){if(!box||!box.querySelector)return;const P=box.querySelector('table.ptbl');if(!P)return;
+  const T=[...box.querySelectorAll('table.ntbl:not(.ptbl):not(.otbl)')].pop(),sk=T&&T.querySelector('thead th:nth-child(3)'),c=P.querySelector('thead th:first-child');
+  if(!sk||!c||!P.offsetWidth)return;
+  const w=Math.round(sk.getBoundingClientRect().left-P.getBoundingClientRect().left);
+  if(w>0&&c.style.width!==w+'px')c.style.width=w+'px';}
 // кнопка «Скачать DXF листа» над схемой листа (act: sheet — «С листа», gil — «Гильотина»); n — листов в толщине, номер — если больше одного
 const sheetBtn=(act,gi,si,n)=>`<div class="nbtns"><button class="dxfbtn" data-act="${act}" data-g="${gi}" data-s="${si}">Скачать DXF листа${n>1?' '+(si+1):''}</button></div>`;
 // вкладка «С листа»: на каждую толщину (5 → 3 → 15 мм) — заголовок, итоги для оценки, кнопки скачивания, лист, под ним детали этого листа;
@@ -280,16 +290,15 @@ function nestHtml(N,res){const tot=listTotals(N,res),wide=nestWide('nestBox');
   return N.groups.length?N.groups.map((G,gi)=>{const R=res[gi]||{sheets:[],too:[]},main=G.mm===5,ns=R.sheets.length,T=tot[gi];
     let h=`<section class="nblock${main?' main':''}"><h3>Лист ${G.mm} мм</h3>`;
     h+=`<p class="ntot"><span>Рез <b>${fmt(T.cut/1000,2)} м</b></span><span>Врезки <b>${T.pierce}</b></span>${engSpan(N,T.eng)}<span>Лист <b>${ns} ${sheetsWord(ns)} ${N.H} × ${N.W}</b></span><span>Заполнение <b>${Math.round(T.fill*100)} %</b></span></p>`;
-    h+=offNote(offRows(N,G,'list'),'list');
     R.sheets.forEach((sh,si)=>{h+=`<figure class="nsheet"><figcaption>${ns>1?`Лист ${si+1} из ${ns} · `:''}${N.H} × ${N.W} · деталей ${sh.items.length} · занято ${Math.round(sh.used*100)} % · зазор ${fmt(N.gap,1)} мм, от края ${NEST_EDGE} мм</figcaption>${sheetBtn('sheet',gi,si,ns)}${nestSvg(N,G,sh,nestSelOn,wide)}</figure>`;});
     if(R.too.length){const c={};R.too.forEach(o=>c[o.no]=(c[o.no]||0)+1);
       h+=`<p class="nwarn">Не поместилось: ${Object.keys(c).map(no=>{const ty=G.types.find(t=>t.no===+no);return `${no} ${ty.p.name}${c[no]>1?` × ${c[no]}`:''}`;}).join(', ')}</p>`;}
     let tq=0,t=`<thead><tr><th class="r">№</th><th>Деталь</th><th>Эскиз</th><th class="r">Кол-во</th><th>Габарит, мм</th><th class="r">Рез, м</th><th class="r">Врезок</th><th class="r dl">Скачать</th></tr></thead><tbody>`;
     const btn=ti=>`<button class="dxfbtn dl" data-act="part" data-g="${gi}" data-t="${ti}" title="Скачать DXF детали" aria-label="Скачать DXF детали">⬇︎ DXF</button>`;
-    G.types.forEach((ty,ti)=>{const p=ty.p,m=ty.m;if(ty.offSheet)return;tq+=ty.q;
+    G.types.forEach((ty,ti)=>{const p=ty.p,m=ty.m;tq+=ty.q;
       t+=`<tr${nestSelOn(ty)?' class="on"':''}><td class="n r">${ty.no}</td><td>${p.name}${p.note?`<small>${p.note}</small>`:''}${engSide(N,p)}<small class="fn">${dxfName(p)}</small></td><td>${dxfSketch(m,'list')}</td><td class="n r">${ty.q}</td><td class="n">${fmt(m.w,1)} × ${fmt(m.h,1)}</td><td class="n r">${fmt(m.cut/1000,2)}</td><td class="n r">${m.pierce}</td><td class="r dl">${btn(ti)}</td></tr>`;});
     t+=`<tr class="tot"><td colspan="5">Итого по листу ${G.mm} мм: ${tq} шт, рез и врезки — с учётом количества</td><td class="n r">${fmt(T.cut/1000,2)}</td><td class="n r">${T.pierce}</td><td class="dl"></td></tr></tbody>`;
-    h+=`<div class="tbl"><table class="ntbl">${t}</table></div>`+offHtml(N,G,gi,'list');
+    h+=`<div class="tbl"><table class="ntbl">${t}</table></div>`;
     return h+'</section>';}).join('')+prepHtml():'<p class="tabnote">Листовых деталей нет</p>'+prepHtml();}
 const partFile=ty=>[dxfName(ty.p),dxfText(ty.eng?{...ty.m,engr:ty.eng}:ty.m)];   // DXF одной детали: [имя, текст]
 // кнопка DXF внутри «С листа» (data-act sheet — лист, part — деталь): [имя, текст] или null
@@ -298,10 +307,10 @@ function listOne(N,res,d){const G=N.groups[+d.g],R=res[+d.g];if(!G)return null;
   return d.act==='part'&&G.types[+d.t]?partFile(G.types[+d.t]):null;}
 
 /* ---------- «Гильотина» (#59, пересмотр 14.11): схема гильотины по кнопке «Рассчитать» ----------
-   Что рубить, решает правило (gilOff): уже 50 мм, толще 8 мм, колосник без «Колосник на листе» — не рубится: со схемы и из цифр уходит,
+   Что рубить, решает правило (gilOff): у́же 50 мм, толще 8 мм — не рубится: со схемы и из цифр уходит,
    в блоке «Не рубится» под таблицей (с причиной и DXF), над схемой — сноска «N деталей не на схеме — ниже». Галочек нет, на «Из заготовок» не влияет. */
 // ключ схемы: лист, подрезка, край, по каждой детали — рубим ли, кол-во, габарит, вид. Ключ другой — схема устарела
-const gilKey=N=>JSON.stringify([N.W,N.H,N.edge,N.corner,N.groups.map(G=>[G.mm,G.types.map(ty=>[ty.no,ty.p.file,ty.q,gilOn(ty,N)?1:0,n1(ty.m.w),n1(ty.m.h),ty.kind])])]);
+const gilKey=N=>JSON.stringify([N.W,N.H,N.edge,N.corner,N.groups.map(G=>[G.mm,G.types.map(ty=>[ty.no,ty.p.file,ty.q,gilOn(ty)?1:0,n1(ty.m.w),n1(ty.m.h),ty.kind])])]);
 // итоги для оценки металла и рубки по толщинам: листов, заготовок, резов — по схеме
 const gilTotals=(N,res)=>N.groups.map((G,gi)=>{const P=res[gi]||{sheets:[]};
   return {mm:G.mm,sheets:P.sheets.length,blanks:P.sheets.reduce((a,s)=>a+s.items.length,0),cuts:P.sheets.reduce((a,s)=>a+s.cuts,0)};});
@@ -312,28 +321,28 @@ function gilOne(N,res,d){const G=N.groups[+d.g],P=res[+d.g],sh=d.act==='gil'&&P&
 // вкладка «Гильотина»: на каждую толщину — итоги (лист, заготовки, резы), «Не рубится: …», кнопки DXF схемы, схема, легенда, таблица деталей
 // (что не рубится — серой строкой с причиной). Нечего рубить в толщине — «Ничего не рубим»
 function gilHtml(N,res){const tot=gilTotals(N,res),wide=nestWide('gilBox');
-  return N.groups.length?N.groups.map((G,gi)=>{const P=res[gi]||{sheets:[],too:[]},T=tot[gi],np=P.sheets.length,off=offRows(N,G,'gil'),rub=gilRows(N,G).length;
+  return N.groups.length?N.groups.map((G,gi)=>{const P=res[gi]||{sheets:[],too:[]},T=tot[gi],np=P.sheets.length,off=offRows(N,G),rub=gilRows(N,G).length;
     let h=`<section class="nblock${G.mm===5?' main':''}"><h3>Лист ${G.mm} мм</h3>`;
     if(!rub){h+='<p class="gnone">Ничего не рубим</p>';}
     else{h+=`<p class="ntot"><span>Лист <b>${np} ${sheetsWord(np)} ${N.H} × ${N.W}</b></span><span>Заготовки <b>${T.blanks}</b></span><span>Резы <b>${T.cuts}</b></span></p>`;
-      h+=offNote(off,'gil');
+      h+=offNote(off);
       P.sheets.forEach((sh,si)=>{h+=`<figure class="nsheet"><figcaption>${np>1?`Лист ${si+1} из ${np} · `:''}${N.H} × ${N.W} · резов ${sh.cuts}, заготовок ${sh.items.length} · занято ${Math.round(sh.used*100)} %, отход ${Math.round(sh.waste*100)} % · подрезка кромки ${N.edge} мм</figcaption>${sheetBtn('gil',gi,si,np)}${gilSvg(N,G,sh,nestSelOn,wide)}</figure>`;});
       if(np)h+='<p class="glegend"><span><i class="lg gil">▪</i> серый — готовая деталь, лазер не нужен</span><span><i class="lg las">▪</i> оранжевый — заготовка, дальше на лазер</span></p>';
       if(P.too.length){const c={};P.too.forEach(r=>c[r.no]=(c[r.no]||0)+1);
         h+=`<p class="nwarn">Не помещается на лист с подрезкой кромки: ${Object.keys(c).map(no=>{const ty=G.types.find(t=>t.no===+no);return `${no} ${ty.p.name}${c[no]>1?` × ${c[no]}`:''}`;}).join(', ')}</p>`;}}
     let tq=0,t='<thead><tr><th class="r">№</th><th>Деталь</th><th>Эскиз</th><th class="r">Кол-во</th><th>Заготовка, мм</th><th>Вид</th></tr></thead><tbody>';
-    G.types.forEach(ty=>{const p=ty.p,m=ty.m;if(!gilOn(ty,N))return;tq+=ty.q;
+    G.types.forEach(ty=>{const p=ty.p,m=ty.m;if(!gilOn(ty))return;tq+=ty.q;
       t+=`<tr${nestSelOn(ty)?' class="on"':''}><td class="n r">${ty.no}</td><td>${p.name}</td><td>${dxfSketch(m,ty.kind,ty.b)}</td>`+
         `<td class="n r">${ty.q}</td><td class="n">${fmt(m.w,0)} × ${fmt(m.h,0)}</td><td>${GIL_KIND[ty.kind]}</td></tr>`;});
     t+=`<tr class="tot"><td colspan="6">На гильотину ${G.mm} мм: ${tq} шт</td></tr></tbody>`;
-    return h+(rub?`<div class="tbl"><table class="ntbl gtbl">${t}</table></div>`:'')+offHtml(N,G,gi,'gil')+'</section>';}).join('')+prepHtml():'<p class="tabnote">Листовых деталей нет</p>'+prepHtml();}
+    return h+(rub?`<div class="tbl"><table class="ntbl gtbl">${t}</table></div>`:'')+offHtml(N,G,gi)+'</section>';}).join('')+prepHtml():'<p class="tabnote">Листовых деталей нет</p>'+prepHtml();}
 
 /* ---------- «Из заготовок» (#60, пересмотр 14.11): лазерщику, когда металл уже в заготовках ----------
    Постоянный список: все детали, которым нужен лазер (вид zag: отверстия, пазы, фигурный контур), откуда бы ни пришла заготовка
-   (гильотина, полоса). От «Гильотины» не зависит; колосник мангала — по «Колосник на листе». Готовые прямоугольники (gil) сюда не идут.
+   (гильотина, полоса). От «Гильотины» не зависит. Готовые прямоугольники (gil) сюда не идут.
    Деталь — по заготовке (blankMM): лазер режет только то, что не лежит на сторонах заготовки; врезки с запасом — каждый паз с кромки
    считается врезкой (решение Виталия). */
-const zagTypes=(N,G)=>G.types.filter(ty=>ty.kind==='zag'&&!ty.offSheet);
+const zagTypes=(N,G)=>G.types.filter(ty=>ty.kind==='zag');
 // ключ: по каждой такой детали — номер, кол-во и её DXF по заготовке. Лист, зазор, подрезка кромки его не меняют
 const zagKey=N=>JSON.stringify(N.groups.map(G=>[G.mm,zagTypes(N,G).map(ty=>[ty.no,ty.p.file,ty.q,dxfText(ty.b)])]));
 // итоги для оценки по толщинам: рез (мм) и врезки по заготовкам, число заготовок — с учётом кол-ва
@@ -358,7 +367,7 @@ function zagHtml(N,res){const tot=zagTotals(N,res),was=v=>`<small class="was">с
 
 /* ---------- когда считать: только по кнопке «Рассчитать» (editor/common/calc.js) ----------
    Результат держится, пока не поменялось задание: любая правка зовёт nestUI, через 0,3 с ключ каждого варианта сравнивается
-   с ключом его результата. Другой (размеры, режим, детали, лист, край, зазор, колосник, подрезка) — результат убран, кнопка снова активна;
+   с ключом его результата. Другой (размеры, режим, детали, лист, край, зазор, подрезка) — результат убран, кнопка снова активна;
    тот же (вращение, размеры на модели, галочки вида, выбор детали) — результат перерисован. */
 const NST={t:0,init:false};   // t — задержка сравнения ключей; init — поля и кнопки «Лазер · DXF» уже подключены
 const nestCnt=t=>document.querySelectorAll('.nestCnt').forEach(e=>{e.textContent=t;});
@@ -380,8 +389,8 @@ const quickCalc=f=>(live,accept,fail)=>setTimeout(()=>{if(!live())return;let N,r
 function nestVariant(v,{ids,key,calc,html,one}){const $=id=>document.getElementById(id),V={v,key,res:null,cur:null};let btn=null;
   // кнопка «Рассчитать» (makeCalc) — при первом обращении: nest.js грузится и без страницы (тесты раскладки в smoke.js)
   V.calc=()=>btn||(btn=makeCalc({btn:$(ids.run),box:$(ids.box),wait:$(ids.wait),key:()=>key(nestJob()),
-    run:(done,live)=>calc(live,(N,res)=>{if(done(html(N,res))){V.res=res;V.cur={N,res};}},()=>btn.stale())}));   // результат принят — его и качаем
-  V.draw=(N,res)=>{const b=$(ids.box);if(!b)return;V.cur={N,res};b.innerHTML=html(N,res);};
+    run:(done,live)=>calc(live,(N,res)=>{if(done(html(N,res))){V.res=res;V.cur={N,res};prepAlign($(ids.box));}},()=>btn.stale())}));   // результат принят — его и качаем
+  V.draw=(N,res)=>{const b=$(ids.box);if(!b)return;V.cur={N,res};b.innerHTML=html(N,res);prepAlign(b);};
   // перед скачиванием ключ сверяется сразу: правка могла быть меньше 0,3 с назад, а старый результат качать нельзя
   V.fresh=()=>{const c=V.calc();c.check();return c.ready()&&!!V.cur;};
   V.click=e=>{const b=e.target.closest&&e.target.closest('button[data-act]');if(!b||!V.cur||!V.fresh())return;const f=one(V.cur.N,V.cur.res,b.dataset);if(f)saveDxf(f[0],f[1],b);};
@@ -391,16 +400,19 @@ const LIST=nestVariant('list',{ids:{box:'nestBox',run:'nestRun',wait:'nestWait'}
 const ZAG=nestVariant('zag',{ids:{box:'zagBox',run:'zagRun',wait:'zagWait'},key:zagKey,calc:quickCalc(N=>N.groups.map(G=>zagTypes(N,G))),html:zagHtml,one:zagOne});
 const GIL=nestVariant('gil',{ids:{box:'gilBox',run:'gilRun',wait:'gilWait'},key:N=>gilKey(N)+prepKey(),calc:quickCalc(N=>N.groups.map(G=>gilScheme(N,G))),html:gilHtml,one:gilOne});
 const VARS=[LIST,ZAG,GIL];
-// общие поля «Лист», «Угол листа» (md-corner) и галочка колосника, «Между деталями» лазера и «Подрезка кромки» гильотины (md-nedge):
+// общие поля «Лист», «Угол листа» (md-corner), «Гравировка номеров», «Между деталями» лазера и «Подрезка кромки» гильотины (md-nedge):
 // значения из памяти браузера (store — в ui.js, к первому показу вкладки он уже есть); кнопки вариантов
 function nestInit(){if(NST.init)return;NST.init=true;const gi=document.getElementById('nGap'),si=document.getElementById('nSheet'),ei=document.getElementById('nEdge'),di=document.getElementById('nCorner');if(!gi||!si)return;
-  const g=store('md-ngap'),s=store('md-sheet'),c=store('md-ncgr2'),ed=store('md-nedge'),sd=store('md-corner'),ci=document.getElementById('nCgr'),ni=document.getElementById('nEngrave'),ng=store('md-nengr');if(Number.isFinite(+g)&&g!==null)gi.value=g;if(s&&NEST_SHEETS[s])si.value=s;if(ci&&typeof c==='boolean')ci.checked=c;if(ni&&typeof ng==='boolean')ni.checked=ng;
+  const g=store('md-ngap'),s=store('md-sheet'),ed=store('md-nedge'),sd=store('md-corner'),ni=document.getElementById('nEngrave'),ng=store('md-nengr');if(Number.isFinite(+g)&&g!==null)gi.value=g;if(s&&NEST_SHEETS[s])si.value=s;if(ni&&typeof ng==='boolean')ni.checked=ng;
   if(ei&&Number.isFinite(+ed)&&ed!==null)ei.value=ed;
   if(di)di.value=NEST_CORNERS.includes(sd)?sd:'lb';
-  const ch=()=>{const o=nestOpts();store('md-ngap',o.gap);store('md-sheet',o.sk);store('md-ncgr2',o.cgr);store('md-nengr',o.engr);store('md-nedge',o.edge);store('md-corner',o.corner);nestUI();};
-  gi.addEventListener('input',ch);gi.addEventListener('change',()=>{gi.value=nestOpts().gap;ch();});si.addEventListener('change',ch);if(ci)ci.addEventListener('change',ch);if(ni)ni.addEventListener('change',ch);if(di)di.addEventListener('change',ch);
+  const ch=()=>{const o=nestOpts();store('md-ngap',o.gap);store('md-sheet',o.sk);store('md-nengr',o.engr);store('md-nedge',o.edge);store('md-corner',o.corner);nestUI();};
+  gi.addEventListener('input',ch);gi.addEventListener('change',()=>{gi.value=nestOpts().gap;ch();});si.addEventListener('change',ch);if(ni)ni.addEventListener('change',ch);if(di)di.addEventListener('change',ch);
   if(ei){ei.addEventListener('input',ch);ei.addEventListener('change',()=>{ei.value=nestOpts().edge;ch();});}
-  VARS.forEach(V=>V.init());}
+  VARS.forEach(V=>V.init());
+  // «Эскиз» блока «Подготовить отдельно» — заново по ширине вкладки: окно поменяли или вкладку («С листа» / «Гильотина») показали
+  if(typeof ResizeObserver==='function'){const ro=new ResizeObserver(es=>es.forEach(e=>prepAlign(e.target)));
+    ['nestBox','gilBox'].forEach(id=>{const b=document.getElementById(id);if(b&&b.nodeType===1)ro.observe(b);});}}
 // любая правка (build3D, drawCut, поля и галочки «Лазер · DXF») и показ вкладки; сам ничего не считает. У каждого варианта свой ключ
 function nestUI(now){clearTimeout(NST.t);if(!now){NST.t=setTimeout(()=>nestUI(true),300);return;}
   if(typeof sheetsUI==='function')sheetsUI();   // «Чертежи»: ключ другой — листы убраны (тот же срок 0,3 с)
@@ -410,5 +422,4 @@ function nestUI(now){clearTimeout(NST.t);if(!now){NST.t=setTimeout(()=>nestUI(tr
   if(!vis&&!VARS.some(V=>V.calc().held()))return;   // вкладка закрыта, результатов нет — сравнивать нечего (nestJob считает контуры всех деталей)
   const N=nestJob();VARS.forEach(V=>V.calc().check(V.key(N)));   // от правки поменялся бы результат — он убран, «Рассчитать» снова активна
   if(!vis)return;
-  const cb=document.getElementById('nCgrBox');if(cb)cb.hidden=!N.hasCgr;   // галочка колосника — только когда он есть (мангал, «Колосниковая решётка»)
   VARS.forEach(V=>{if(V.calc().ready())V.draw(N,V.res);});}   // тот же результат — перерисовать: выбор на модели, отверстия, единицы

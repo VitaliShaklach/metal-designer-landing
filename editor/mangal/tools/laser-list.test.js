@@ -12,19 +12,18 @@ test('архивов нет: zipName, variantFiles, listFiles, gilCsv, gilFiles,
   assert.equal(run(c,'typeof zipFiles'),'function');   // saveDxf на опубликованной странице кладёт DXF в .zip
 });
 
-test('DXF листа «С листа»: имя list_5mm_1250x2500.dxf, в тексте лист и рез; колосник без галочки на листе нет', ()=>{
+test('DXF листа «С листа»: имя list_5mm_1250x2500.dxf, в тексте лист и рез; все детали задания — на листе', ()=>{
   const c=loadMangal({mode:'grill'});
-  const f=run(c,`(N=>listOne(N,${RES}(N),{act:'sheet',g:'0',s:'0'}))(nestJob({cgr:false}))`);
+  const f=run(c,`(N=>listOne(N,${RES}(N),{act:'sheet',g:'0',s:'0'}))(nestJob())`);
   assert.equal(f[0],'list_5mm_1250x2500.dxf');
   assert.match(f[1],/\r\nSHEET\r\n/);assert.match(f[1],/\r\nCUT\r\n/);
   assert.equal(run(c,`(N=>listOne(N,${RES}(N),{act:'sheet',g:'0',s:'5'}))(nestJob())`),null);
-  // деталь — прежний DXF детали (в таблице кнопки остаются), колосник без галочки — только деталью
-  const p=run(c,`(N=>listOne(N,${RES}(N),{act:'part',g:'0',t:'0'}))(nestJob({cgr:false}))`);
+  // деталь — прежний DXF детали (в таблице кнопки остаются)
+  const p=run(c,`(N=>listOne(N,${RES}(N),{act:'part',g:'0',t:'0'}))(nestJob())`);
   assert.match(p[0],/\.dxf$/);
   const parts=run(c,'laserParts().map(dxfName)');
-  assert.ok(run(c,`(N=>N.groups[0].types.map(t=>partFile(t)[0]))(nestJob({cgr:false}))`).every(n=>parts.includes(n)));
-  const on=run(c,`(N=>${RES}(N)[0].sheets[0].items.length)(nestJob({cgr:true}))`),off=run(c,`(N=>${RES}(N)[0].sheets[0].items.length)(nestJob({cgr:false}))`);
-  assert.equal(on-off,2);
+  assert.ok(run(c,`(N=>N.groups[0].types.map(t=>partFile(t)[0]))(nestJob())`).every(n=>parts.includes(n)));
+  assert.equal(run(c,`(N=>${RES}(N)[0].sheets.reduce((a,s)=>a+s.items.length,0))(nestJob())`),run(c,'nestJob().groups[0].items.length'));
 });
 
 test('печь и «оба»: кнопки листа 5, 3 и 15 мм', ()=>{
@@ -42,20 +41,16 @@ test('печь и «оба»: кнопки листа 5, 3 и 15 мм', ()=>{
   }
 });
 
-// цифры из спеки (2026-11-09-mangal-cut-tabs-design.md, «Лазер → С листа»): лист 5 мм мангала по умолчанию — 46,14 м реза и 771 врезка (до перегородки по умолчанию, #101; с ней — 47,47 м и 772),
-// из них два колосника — 24,58 м и 686; без колосника остаётся 21,56 м и 85 (с перегородкой — 22,90 м и 86)
-test('итоги «С листа»: рез, врезки, листы, заполнение — без снятого колосника и с ним', ()=>{
+// цифры из спеки (2026-11-09-mangal-cut-tabs-design.md, «Лазер → С листа»): лист 5 мм мангала по умолчанию без колосника — 21,56 м и 85 (с перегородкой — 22,90 м и 86);
+// колосник мангала с лазера убран совсем (#117) — цифры те же, что были «без снятого колосника»
+test('итоги «С листа»: рез, врезки, листы, заполнение — колосника мангала нет', ()=>{
   const c=loadMangal({mode:'grill'});
-  const [g]=run(c,`(N=>listTotals(N,${RES}(N)))(nestJob({cgr:false}))`);
+  const [g]=run(c,`(N=>listTotals(N,${RES}(N)))(nestJob())`);
   assert.equal(g.mm,5);
   assert.equal(g.sheets,1);
   assert.ok(Math.abs(g.cut/1000-23.78)<0.02,'рез '+g.cut);
   assert.equal(g.pierce,90);
   assert.ok(g.fill>0.25&&g.fill<0.4,'заполнение '+g.fill);
-  const [g2]=run(c,`(N=>listTotals(N,${RES}(N)))(nestJob({cgr:true}))`);
-  assert.ok(Math.abs(g2.cut/1000-48.35)<0.02,'рез с колосником '+g2.cut);
-  assert.equal(g2.pierce,776);
-  assert.ok(g2.fill>g.fill);
 });
 
 test('итоги «С листа»: «Не поместилось» в рез и врезки не входит', ()=>{
@@ -73,7 +68,7 @@ test('«С листа» в каждом углу: прижато к своему
   const W=2500,H=1250,E=10;
   for(const mode of ['grill','both']){
     const c=loadMangal({mode});
-    const get=corner=>run(c,`(N=>${RES}(N).map(R=>(nestCorner(R,N.W,N.H,N.corner),R.sheets.map(s=>s.items.map(it=>({id:it.id,tr:it.tr,pts:it.pts,bb:it.bb}))))))(nestJob({cgr:true,corner:'${corner}'}))`);
+    const get=corner=>run(c,`(N=>${RES}(N).map(R=>(nestCorner(R,N.W,N.H,N.corner),R.sheets.map(s=>s.items.map(it=>({id:it.id,tr:it.tr,pts:it.pts,bb:it.bb}))))))(nestJob({corner:'${corner}'}))`);
     const L=get('lb');
     for(const corner of ['lb','lt','rb','rt']){
       const R=get(corner),mx=corner[0]==='r',my=corner[1]==='t';
@@ -115,9 +110,9 @@ test('«С листа» на 1000 × 2000: несколько листов, уг
   for(const corner of ['lb','lt','rb','rt']){
     const r=run(c,`(N=>${RES}(N).map(R=>(nestCorner(R,N.W,N.H,N.corner),R.sheets.map(s=>{let g=1e9;
       for(let i=0;i<s.items.length;i++)for(let j=i+1;j<s.items.length;j++)g=Math.min(g,polyGap(s.items[i].pts,s.items[j].pts));
-      return {bb:s.items.map(it=>it.bb),gap:g};}))))(nestJob({cgr:true,corner:'${corner}',W:${W},H:${H},sk:'${W}x${H}',gap:${gap}}))`);
+      return {bb:s.items.map(it=>it.bb),gap:g};}))))(nestJob({corner:'${corner}',W:${W},H:${H},sk:'${W}x${H}',gap:${gap}}))`);
     assert.ok(r.some(sheets=>sheets.length>1),'ждали несколько листов в толщине');
-    if(corner==='lb'){const h=run(c,`(N=>nestHtml(N,${RES}(N)))(nestJob({cgr:true,W:${W},H:${H},sk:'${W}x${H}',gap:${gap}}))`);
+    if(corner==='lb'){const h=run(c,`(N=>nestHtml(N,${RES}(N)))(nestJob({W:${W},H:${H},sk:'${W}x${H}',gap:${gap}}))`);
       assert.ok(h.includes('>Скачать DXF листа 1<')&&h.includes('>Скачать DXF листа 2<'),'нет кнопок «Скачать DXF листа 1» и «… 2»');}
     r.forEach(sheets=>sheets.forEach((s,si)=>{const L=`${corner} лист ${si+1}`;
       if(corner[0]==='r')assert.ok(Math.abs(Math.max(...s.bb.map(b=>b[2]))-(W-E))<1e-6,L);else assert.ok(Math.abs(Math.min(...s.bb.map(b=>b[0]))-E)<1e-6,L);
@@ -130,11 +125,11 @@ test('пластины ручки: деталь grill_grate_handle ×4, 5 мм; 
   const c=loadMangal({mode:'grill'});
   const p=run(c,`laserParts().filter(p=>p.file==='grill_grate_handle').map(p=>[p.q,p.mm,p.pt,p.name,dxfName(p)])`);
   assert.deepEqual(p,[[4,5,'cgrH','Пластина ручки колосника','grill_grate_handle_5mm_x4.dxf']]);
-  for(const cgr of [false,true]){
+  {
     const r=run(c,`(N=>{const R=${RES}(N)[0],G=N.groups[0],no=G.types.find(t=>t.p.pt==='cgrH').no;
       const its=R.sheets.flatMap(s=>s.items).filter(it=>G.items[it.id].ty.no===no);
       let g=1e9;R.sheets.forEach(s=>{for(let i=0;i<s.items.length;i++)for(let j=i+1;j<s.items.length;j++)g=Math.min(g,polyGap(s.items[i].pts,s.items[j].pts));});
-      return {n:its.length,g,gap:N.gap,h:nestHtml(N,[R])};})(nestJob({cgr:${cgr}}))`);
+      return {n:its.length,g,gap:N.gap,h:nestHtml(N,[R])};})(nestJob())`);
     assert.equal(r.n,4);assert.ok(r.g>=r.gap-0.01,'зазор '+r.g);
     assert.match(r.h,/grill_grate_handle_5mm_x4\.dxf/);
   }
@@ -149,7 +144,7 @@ const sheetOf=(c,over)=>run(c,`(N=>{const res=${RES}(N),G=N.groups[0],sh=res[0].
   return {H:N.H,svg:nestSvg(N,G,sh,()=>false,true),dxf:nestDxf(N,G,sh),n:sh.items.length,no:sh.items.map(it=>G.items[it.id].ty.no),eng:sh.items.map(it=>G.items[it.id].ty.eng&&G.items[it.id].ty.eng.length||0)};})(nestJob(${over}))`);
 
 test('схема «С листа»: штрихи номера = слой ENGRAVE в DXF листа (0,01 мм), у такой детали нет текстового номера',()=>{
-  const c=loadMangal({mode:'grill'}),r=sheetOf(c,'{cgr:true}');
+  const c=loadMangal({mode:'grill'}),r=sheetOf(c,'{}');
   const sv=svgSegs(r.svg).map(s=>[s[0],r.H-s[1],s[2],r.H-s[3]]),dx=dxfEngr(r.dxf);
   assert.ok(dx.length>100,'штрихов мало');assert.equal(sv.length,dx.length);
   const key=s=>s.map(v=>Math.round(v*100)).join(',');
@@ -163,17 +158,17 @@ test('схема «С листа»: штрихи номера = слой ENGRAVE
 });
 
 test('схема «С листа»: гравировка снята — штрихов нет, номера текстом, DXF без ENGRAVE',()=>{
-  const c=loadMangal({mode:'grill'}),r=sheetOf(c,'{cgr:true,engr:false}');
+  const c=loadMangal({mode:'grill'}),r=sheetOf(c,'{engr:false}');
   assert.ok(!/class="engr"/.test(r.svg));assert.ok(!/ENGRAVE/.test(r.dxf));
   assert.ok((r.svg.match(/<g class="np[^>]*>.*?<\/g>/g)||[]).some(g=>/<text/.test(g)));
 });
 
 test('схема «С листа»: номер не влез (нет штрихов) — текстовый номер, без штрихов',()=>{
   const c=loadMangal({mode:'grill'});
-  const r=run(c,`(N=>{N.groups[0].types.forEach(ty=>{ty.eng=null;});const res=${RES}(N),G=N.groups[0],sh=res[0].sheets[0];return nestSvg(N,G,sh,()=>false,true);})(nestJob({cgr:true}))`);
+  const r=run(c,`(N=>{N.groups[0].types.forEach(ty=>{ty.eng=null;});const res=${RES}(N),G=N.groups[0],sh=res[0].sheets[0];return nestSvg(N,G,sh,()=>false,true);})(nestJob())`);
   assert.ok(!/class="engr"/.test(r));assert.ok(/<g class="np[^>]*>[^]*?<text/.test(r));
   // смешанный лист: у одной детали штрихов нет — у неё текст, у остальных штрихи
-  const m=run(c,`(N=>{const G=N.groups[0];G.types[0].eng=null;const res=${RES}(N),sh=res[0].sheets[0];return {svg:nestSvg(N,G,sh,()=>false,true),no:G.types[0].no,k:G.items.filter(i=>i.ty===G.types[0]).length};})(nestJob({cgr:true}))`);
+  const m=run(c,`(N=>{const G=N.groups[0];G.types[0].eng=null;const res=${RES}(N),sh=res[0].sheets[0];return {svg:nestSvg(N,G,sh,()=>false,true),no:G.types[0].no,k:G.items.filter(i=>i.ty===G.types[0]).length};})(nestJob())`);
   const gs=m.svg.match(/<g class="np[^>]*>.*?<\/g>/g);
   const first=gs.filter(g=>g.includes(`<title>${m.no} — `));
   assert.ok(first.length>0);first.forEach(g=>{assert.ok(!/class="engr"/.test(g));});
@@ -182,6 +177,6 @@ test('схема «С листа»: номер не влез (нет штрих�
 
 test('схема гильотины гравировку не показывает',()=>{
   const c=loadMangal({mode:'grill'});
-  const s=run(c,`(N=>{const G=N.groups[0],sc=gilScheme(N,G);return gilSvg(N,G,sc.sheets[0],()=>false,true);})(nestJob({cgr:true}))`);
+  const s=run(c,`(N=>{const G=N.groups[0],sc=gilScheme(N,G);return gilSvg(N,G,sc.sheets[0],()=>false,true);})(nestJob())`);
   assert.ok(!/engr/.test(s));
 });
