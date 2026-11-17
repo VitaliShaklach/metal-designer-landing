@@ -246,7 +246,8 @@ test('lynx: «Лазер · DXF», «Чертежи», «Карты»: откр�
   await expect(page.locator('.nestwait:visible')).toHaveCount(0);
 });
 
-test('lynx: «Рассчитать» на «Чертежах» без раскроя — листы с «Раскрой листа» появляются, PDF только с ними', async ({page}) => {
+test('lynx: «Рассчитать» на «Чертежах» без раскроя — листы с «Раскрой листа» появляются, PDF только с ними', async ({page}, info) => {
+  test.skip(info.project.name === 'phone', 'расчёт не зависит от ширины экрана — только desktop');
   test.slow();   // «Рассчитать» у рыси: под нагрузкой дольше 30 с
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
@@ -272,7 +273,8 @@ test('lynx: «Рассчитать» на «Чертежах» без раскр
   await expect(page.locator('#nestRun')).toBeEnabled();
 });
 
-test('lynx: изменение фигуры, точек и толщины убирает листы; смена вкладки и вида 3D — нет', async ({page}) => {
+test('lynx: изменение фигуры, точек и толщины убирает листы; смена вкладки и вида 3D — нет', async ({page}, info) => {
+  test.skip(info.project.name === 'phone', 'расчёт не зависит от ширины экрана — только desktop');
   test.slow();   // «Рассчитать» у рыси: под нагрузкой дольше 30 с
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
@@ -313,7 +315,8 @@ test('lynx: изменение фигуры, точек и толщины уби
   await check(false);
 });
 
-test('lynx: «Лазер · DXF» — DXF раскроя и DXF деталей скачиваются после «Рассчитать»', async ({page}) => {
+test('lynx: «Лазер · DXF» — DXF раскроя и DXF деталей скачиваются после «Рассчитать»', async ({page}, info) => {
+  test.skip(info.project.name === 'phone', 'расчёт не зависит от ширины экрана — только desktop');
   test.slow();   // «Рассчитать» у рыси: под нагрузкой дольше 30 с
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
@@ -329,7 +332,8 @@ test('lynx: «Лазер · DXF» — DXF раскроя и DXF деталей �
 });
 
 // рысь целиком: раскрой считается минутами — «Чертежи» (раскрой запускают они сами) и «Лазер · DXF» отдельными тестами
-test('lynx: рысь целиком — «Чертежи» по «Рассчитать» сами считают раскрой, PDF', async ({page}) => {
+test('lynx: рысь целиком — «Чертежи» по «Рассчитать» сами считают раскрой, PDF', async ({page}, info) => {
+  test.skip(info.project.name === 'phone', 'расчёт не зависит от ширины экрана — только desktop');
   test.setTimeout(420000);
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
@@ -344,7 +348,8 @@ test('lynx: рысь целиком — «Чертежи» по «Рассчит
   await expect.poll(() => page.evaluate(() => window.__printed)).toBeGreaterThan(0);
 });
 
-test('lynx: рысь целиком — DXF раскроя скачивается после «Рассчитать»', async ({page}) => {
+test('lynx: рысь целиком — DXF раскроя скачивается после «Рассчитать»', async ({page}, info) => {
+  test.skip(info.project.name === 'phone', 'расчёт не зависит от ширины экрана — только desktop');
   test.setTimeout(420000);
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
@@ -1013,7 +1018,8 @@ test('mangal: детали поменяли во время счёта — ус�
   expect(r.errors).toEqual([]);
 });
 
-test('lynx: во время раскроя виден индикатор', async ({page}) => {
+test('lynx: во время раскроя виден индикатор', async ({page}, info) => {
+  test.skip(info.project.name === 'phone', 'расчёт не зависит от ширины экрана — только desktop');
   test.slow();   // «Рассчитать» у рыси: под нагрузкой дольше 30 с
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
@@ -1032,7 +1038,8 @@ test('lynx: во время раскроя виден индикатор', async
   expect(seen.size).toBeGreaterThan(1);
 });
 
-test('lynx: индикатор виден в «Чертежах» и «Картах деталей»', async ({page}) => {
+test('lynx: индикатор виден в «Чертежах» и «Картах деталей»', async ({page}, info) => {
+  test.skip(info.project.name === 'phone', 'расчёт не зависит от ширины экрана — только desktop');
   test.setTimeout(420000);
   await openEditor(page, '/editor/lynx/');
   await lynxReady(page);
