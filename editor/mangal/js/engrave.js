@@ -25,6 +25,17 @@ const ENGR_HIDDEN={
 const DIGITS={0:[[[0,0],[1,0],[1,2],[0,2],[0,0]]],1:[[[.5,0],[.5,2],[.2,1.7]],[[.2,0],[.8,0]]],2:[[[0,2],[1,2],[1,1],[0,1],[0,0],[1,0]]],3:[[[0,2],[1,2],[1,0],[0,0]],[[0,1],[1,1]]],
   4:[[[0,2],[0,1],[1,1]],[[1,2],[1,0]]],5:[[[1,2],[0,2],[0,1],[1,1],[1,0],[0,0]]],6:[[[1,2],[0,2],[0,0],[1,0],[1,1],[0,1]]],7:[[[0,2],[1,2],[1,0]]],
   8:[[[0,0],[1,0],[1,2],[0,2],[0,0]],[[0,1],[1,1]]],9:[[[1,1],[0,1],[0,2],[1,2],[1,0]]]};
+// буквы для слова «низ» на дне (#119): та же клетка 1×2, ломаные. «з» — со скосами в углах, у «3» углы прямые: не спутать
+const LETTERS={н:[[[0,0],[0,2]],[[1,0],[1,2]],[[0,1],[1,1]]],и:[[[0,2],[0,0],[1,2],[1,0]]],
+  з:[[[0,1.75],[.25,2],[.75,2],[1,1.75],[1,1.25],[.75,1],[.25,1]],[[.75,1],[1,.75],[1,.25],[.75,0],[.25,0],[0,.25]]]};
+const GLYPHS={...DIGITS,...LETTERS};
+// отрезки строки t: клетка символа u × 2u мм, левый нижний угол (ox, oy), шаг 1,5 клетки. Неизвестный символ — ошибка, не пропуск
+function glyphSegs(t,ox,oy,u){const seg=[];
+  [...t].forEach((ch,i)=>{const G=GLYPHS[ch];if(!G)throw new Error(`гравировка: нет символа «${ch}»`);
+    G.forEach(L=>{for(let k=0;k+1<L.length;k++)seg.push([ox+(i*1.5+L[k][0])*u,oy+L[k][1]*u,ox+(i*1.5+L[k+1][0])*u,oy+L[k+1][1]*u]);});});
+  return seg;}
+// строка str по центру в (x, y), высота символа h мм → отрезки [x1,y1,x2,y2]
+function textSegs(str,x,y,h){const t=String(str),u=h/2,uw=t.length*1.5-.5;return glyphSegs(t,x-uw*u/2,y-h/2,u);}
 // самое просторное место внутри детали P: точка, дальше всего от кромок (перебор по сетке + уточнение).
 // o.holes — внутренние контуры, o.circ — окружности [x, y, r]: место не в отверстии и дальше всего от их краёв
 function innerPoint(P,o={}){const dP=polyDist(P),H=(o.holes||[]).map(l=>[l,polyDist(l)]),C=o.circ||[],
@@ -41,9 +52,8 @@ function innerPoint(P,o={}){const dP=polyDist(P),H=(o.holes||[]).map(l=>[l,polyD
 function engraveSegs(no,P,o={}){
   const at=(ip,tight)=>{if(!ip)return null;const t=String(no),n=t.length,uw=n*1.5-.5,uh=2,clear=tight?1.5:(o.clear??2),
       u=Math.min((o.maxH||20)/2,(ip.r-clear)/Math.hypot(uw/2,uh/2));if(2*u<(o.minH||3))return null;
-    const ox=ip.p[0]-uw*u/2,oy=ip.p[1]-uh*u/2,seg=[];
-    [...t].forEach((ch,i)=>(DIGITS[ch]||[]).forEach(L=>{for(let k=0;k+1<L.length;k++)seg.push([ox+(i*1.5+L[k][0])*u,oy+L[k][1]*u,ox+(i*1.5+L[k+1][0])*u,oy+L[k+1][1]*u]);}));
-    return seg;};
+    const ox=ip.p[0]-uw*u/2,oy=ip.p[1]-uh*u/2;
+    return glyphSegs(t,ox,oy,u);};
   const withHoles=(o.holes&&o.holes.length)||(o.circ&&o.circ.length);
   const ip=innerPoint(P);   // узкая деталь (скоба 12 мм): двузначный номер не влезает с отступом 2 мм — второй заход с 1,5 мм, высота цифр всё равно не меньше minH
   return (withHoles&&at(innerPoint(P,o)))||at(ip)||at(ip,true);}

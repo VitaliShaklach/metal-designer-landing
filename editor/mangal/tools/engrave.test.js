@@ -117,3 +117,35 @@ test('«С листа»: у деталей без внутренней стор�
   assert.match(h('{}'),/номер — на нижней грани/);
   assert.ok(!/номер — на/.test(h('{engr:false}')));
 });
+
+// ---------- #122: буквы «н», «и», «з» и строка текста ----------
+const GOLD=require('./engrave-golden.json');   // engraveSegs до #122: номера 1, 12, 123 на четырёх контурах
+
+test('буквы «н», «и», «з»: не пустые, внутри клетки 1 × 2; «з» не «3»', ()=>{
+  const c=loadMangal({mode:'grill'});
+  const G=run(c,'GLYPHS');
+  for(const ch of ['н','и','з']){
+    assert.ok(G[ch]&&G[ch].length>0,ch);
+    for(const L of G[ch]){assert.ok(L.length>=2,ch);for(const [x,y] of L)assert.ok(x>=0&&x<=1&&y>=0&&y<=2,ch+' вне клетки: '+x+','+y);}}
+  assert.notDeepEqual(G['з'],G['3']);
+  assert.deepEqual(run(c,`textSegs('з',0,0,2)`).length>0,true);
+  assert.notDeepEqual(run(c,`textSegs('з',0,0,2)`),run(c,`textSegs('3',0,0,2)`));
+});
+
+test('textSegs: «низ» по центру (100, 50), высота 20 — в прямоугольнике 40 × 20; неизвестный символ — ошибка', ()=>{
+  const c=loadMangal({mode:'grill'});
+  const s=run(c,`textSegs('низ',100,50,20)`),E=1e-9;
+  assert.ok(s.length>0);
+  for(const z of s)for(const [x,y] of [[z[0],z[1]],[z[2],z[3]]])assert.ok(x>=80-E&&x<=120+E&&y>=40-E&&y<=60+E,x+','+y);
+  const xs=s.flatMap(z=>[z[0],z[2]]),ys=s.flatMap(z=>[z[1],z[3]]);
+  assert.ok(Math.abs(Math.min(...xs)-80)<E&&Math.abs(Math.max(...xs)-120)<E,'на всю ширину');
+  assert.ok(Math.abs(Math.min(...ys)-40)<E&&Math.abs(Math.max(...ys)-60)<E,'на всю высоту');
+  assert.throws(()=>run(c,`textSegs('нИз',0,0,10)`),/И/);
+  assert.throws(()=>run(c,`textSegs('a',0,0,10)`));
+});
+
+test('engraveSegs: номера 1, 12, 123 — те же отрезки, что до букв (#122)', ()=>{
+  const c=loadMangal({mode:'grill'});
+  assert.equal(GOLD.length,12);
+  for(const g of GOLD)assert.deepEqual(run(c,`engraveSegs(${g.no},${JSON.stringify(g.P)},${JSON.stringify(g.o)})`),g.segs,'номер '+g.no);
+});
