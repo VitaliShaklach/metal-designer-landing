@@ -239,3 +239,13 @@ test('карта боковины: штрихи гравировки в «Как
   run(c2,'__els.nEngrave={checked:false}');
   assert.ok(!/class="engr"/.test(cards(c2).find(x=>x.id==='side0').svg));
 });
+
+// разметка на дне (#123): на карте дна в «Как режут» — те же штрихи, что в DXF: номер, «низ» и квадраты под площадки ножек
+test('карта дна жаровни: штрихи гравировки с квадратами под ножки — как ty.eng детали',()=>{
+  for(const [mode,n] of [['grill',4],['both',2]]){
+    const c=open({mode}),bot=cards(c).find(x=>x.id==='gBot');
+    const d=[...bot.svg.matchAll(/<path class="engr" d="([^"]*)"/g)].map(m=>m[1]).join('');
+    const eng=run(c,`nestJob().groups.flatMap(G=>G.types).find(t=>t.p.pt==='gBot').eng`);
+    assert.equal((d.match(/M/g)||[]).length,eng.length,mode+': на карте все отрезки гравировки дна');
+    assert.equal(eng.filter(z=>Math.abs(Math.hypot(z[2]-z[0],z[3]-z[1])-80)<.01).length,4*n,mode+': квадратов '+n);}
+});

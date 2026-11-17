@@ -180,3 +180,97 @@ test('дно жаровни и печи: рез, врезки, размеры п
       else assert.deepEqual(m,was,mode+' '+pt);});
   }
 });
+
+// ---------- #123: разметка на дне — квадраты под площадки ножек и «низ» ----------
+const MODES={grill:{gBot:4},stove:{sBot:4},both:{gBot:2,sBot:2}};
+// дно в задании «С листа»: тип детали, метки и части гравировки
+const bot=(c,pt,over='{}')=>run(c,`(()=>{const N=nestJob(${over}),ty=N.groups.flatMap(G=>G.types).find(t=>t.p.pt==='${pt}');if(!ty)return null;
+  const mk=bottomMarks(ty.p),o={holes:ty.m.loops.slice(1).map(nestLoop).filter(Boolean),circ:ty.m.circles};
+  return {mk,parts:mk&&bottomEngr(ty.no,ty.P,o,mk),eng:ty.eng,m:ty.m,P:ty.P,no:ty.no,file:partFile(ty)[1],geo:ty.p.geo(),legs:legsList(),box:BOT_BOX['${pt}']()};})()`);
+const segs=L=>L.slice(0,-1).map((a,i)=>[a,L[i+1]]);
+const segX=(a,b,c,d)=>{const o=(p,q,r)=>Math.sign((q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]));return o(a,b,c)*o(a,b,d)<0&&o(c,d,a)*o(c,d,b)<0;};
+
+test('дно: квадратов по legsList — grill 4 / stove 4 / both 2 + 2; без ножек квадратов нет, «низ» есть', ()=>{
+  for(const [mode,want] of Object.entries(MODES)){const c=loadMangal({mode,draft:true});
+    for(const pt of ['gBot','sBot']){const b=bot(c,pt);
+      if(!want[pt]){assert.equal(b,null,mode+' '+pt);continue;}
+      assert.equal(b.mk.squares.length,want[pt],mode+' '+pt);
+      assert.ok(b.parts.word.length>=8,mode+' '+pt+' «низ»');assert.ok(b.parts.num.length>0,mode+' '+pt+' номер');}}
+  const c=loadMangal({mode:'grill',legs:false}),b=bot(c,'gBot');
+  assert.equal(b.mk.squares.length,0);assert.equal(b.parts.sq.length,0);assert.ok(b.parts.word.length>=8,'«низ» без ножек');
+  assert.ok(!/квадраты/.test(run(c,`(N=>nestHtml(N,${RES}(N)))(nestJob())`)));
+});
+
+test('дно: центры квадратов, перевёрнутые обратно в модель, — центры ножек (±0,01 мм); зеркало один раз', ()=>{
+  for(const [mode,want] of Object.entries(MODES)){const c=loadMangal({mode,draft:true});
+    for(const pt of Object.keys(want)){const b=bot(c,pt),xs=[],ys=[];b.geo.loops.forEach(l=>l.forEach(([x,y])=>{xs.push(x);ys.push(y);}));
+      const mx=Math.min(...xs),my=Math.min(...ys),[x0,x1,z0,z1]=b.box;
+      // мм детали → вид сверху (см): снять зеркало по X (дно в ENGR_MIRROR), сдвиг обратно; вид сверху y = −z
+      const back=b.mk.squares.map(S=>{const cx=(S[0][0]+S[2][0])/2,cy=(S[0][1]+S[2][1])/2;return [(b.m.w-cx)/10+mx,-(cy/10+my)];});
+      const legs=b.legs.filter(([x,z])=>x>x0&&x<x1&&z>z0&&z<z1).map(([x,z])=>[x,z]);
+      assert.equal(back.length,legs.length);
+      const key=p=>p.map(v=>Math.round(v*100)).join(),srt=a=>a.map(p=>[p[0],p[1]]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+      srt(back).forEach((p,i)=>{const q=srt(legs)[i];assert.ok(Math.abs(p[0]-q[0])*10<.01&&Math.abs(p[1]-q[1])*10<.01,mode+' '+pt+' '+key(p)+' ≠ '+key(q));});
+      for(const S of b.mk.squares){assert.ok(Math.abs(S[2][0]-S[0][0]-80)<1e-6&&Math.abs(S[2][1]-S[0][1]-80)<1e-6,'80 × 80');}}}
+  // «оба»: ножки жаровни у правого торца (x ≈ L1 − LX) — на дне, перевёрнутом низом вверх, у левого края (x < середины)
+  const c=loadMangal({mode:'both'}),b=bot(c,'gBot');
+  assert.ok(b.mk.squares.every(S=>S[0][0]<b.m.w/2),'квадраты «оба» на жаровне — у левого края детали');
+});
+
+test('дно: квадраты целиком внутри; на дне печи с поддувалом не задевают отверстия', ()=>{
+  for(const [mode,want] of Object.entries(MODES)){const c=loadMangal({mode,draft:true});
+    for(const pt of Object.keys(want)){const b=bot(c,pt);
+      for(const S of b.mk.squares){for(const [x,y] of S)assert.ok(x>0&&x<b.m.w&&y>0&&y<b.m.h,mode+' '+pt+' квадрат за дном');
+        const [ax,ay]=S[0],[bx,by]=S[2];
+        for(const [x,y,r] of b.m.circles){const dx=Math.max(ax-x,0,x-bx),dy=Math.max(ay-y,0,y-by);assert.ok(Math.hypot(dx,dy)>r,mode+' '+pt+' квадрат задевает отверстие');}}
+      if(pt==='sBot')assert.ok(b.m.circles.length>0,'поддувало включено');}}
+});
+
+test('дно: номер и «низ» внутри дна, не заходят в квадраты и не пересекают их', ()=>{
+  for(const [mode,want] of Object.entries(MODES)){const c=loadMangal({mode,draft:true});
+    for(const pt of Object.keys(want)){const b=bot(c,pt),T=[...b.parts.num,...b.parts.word];
+      for(const z of T){const a=[z[0],z[1]],e=[z[2],z[3]];
+        for(const q of [a,e]){assert.ok(inside(b.P,q),mode+' '+pt+' вне дна');for(const S of b.mk.squares)assert.ok(!inside(S,q),mode+' '+pt+' в квадрате');}
+        for(const S of b.mk.squares)for(const [p,r] of segs(S))assert.ok(!segX(a,e,p,r),mode+' '+pt+' пересекает квадрат');}
+      // «низ» не налезает на номер
+      const bx=L=>{const xs=L.flatMap(z=>[z[0],z[2]]),ys=L.flatMap(z=>[z[1],z[3]]);return [Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];},
+        n=bx(b.parts.num),w=bx(b.parts.word);
+      assert.ok(w[2]<n[0]||w[0]>n[2]||w[3]<n[1]||w[1]>n[3],mode+' '+pt+' «низ» на номере');}}
+});
+
+test('дно: «низ» под номером той же высоты, зазор 0,5 высоты (дно жаровни, grill)', ()=>{
+  const c=loadMangal({mode:'grill'}),b=bot(c,'gBot');
+  const bx=L=>{const xs=L.flatMap(z=>[z[0],z[2]]),ys=L.flatMap(z=>[z[1],z[3]]);return [Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];},
+    n=bx(b.parts.num),w=bx(b.parts.word),h=n[3]-n[1];
+  assert.ok(Math.abs((w[3]-w[1])-h)<1e-6,'высота как у номера');
+  assert.ok(Math.abs((n[1]-w[3])-h/2)<1e-6,'под номером, зазор 0,5 h');
+  assert.deepEqual(b.parts.word,run(c,`textSegs('низ',${(w[0]+w[2])/2},${(w[1]+w[3])/2},${h})`));
+});
+
+test('дно: рез и врезки прежние; галочка снята — гравировки нет; DXF детали — квадраты, номер и «низ» в ENGRAVE', ()=>{
+  for(const [mode,want] of Object.entries(MODES)){const c=loadMangal({mode,draft:true});
+    for(const pt of Object.keys(want)){const on=bot(c,pt),off=bot(c,pt,'{engr:false}');
+      assert.equal(on.m.cut,off.m.cut);assert.equal(on.m.pierce,off.m.pierce);assert.equal(off.eng,null,mode+' '+pt);
+      const L=lines(on.file,'ENGRAVE'),n=on.parts;
+      assert.equal(n.sq.length,4*want[pt]);
+      assert.equal(L.length,n.sq.length+n.num.length+n.word.length,mode+' '+pt+' ENGRAVE');
+      assert.equal(on.eng.length,L.length);
+      assert.equal(lines(on.file,'CUT').length,lines(off.file,'CUT').length);}}
+});
+
+test('дно: смена режима grill → both → stove меняет квадраты (кэш гравировки не отдаёт старые)', ()=>{
+  const c=loadMangal({mode:'grill'});
+  // квадраты в ty.eng — отрезки по 80 мм (цифры и буквы не выше 20 мм): считаем их в том, что отдал nestJob (через ENGR_MEMO)
+  const n=pt=>run(c,`(()=>{const ty=nestJob().groups.flatMap(G=>G.types).find(t=>t.p.pt==='${pt}');return ty?ty.eng.filter(z=>Math.abs(Math.hypot(z[2]-z[0],z[3]-z[1])-80)<.01).length/4:null;})()`);
+  assert.equal(n('gBot'),4);
+  run(c,`S.mode='both';recompute();`);assert.equal(n('gBot'),2,'жаровня в «оба»');assert.equal(n('sBot'),2,'печь в «оба»');
+  run(c,`S.mode='stove';recompute();`);assert.equal(n('sBot'),4,'печь');assert.equal(n('gBot'),null);
+  run(c,`S.mode='grill';recompute();`);assert.equal(n('gBot'),4,'снова мангал');
+});
+
+test('«С листа»: подпись стороны у дна — номер, квадраты под площадки ножек и «низ» на нижней грани', ()=>{
+  const c=loadMangal({mode:'grill'});
+  const h=run(c,`(N=>nestHtml(N,${RES}(N)))(nestJob())`);
+  assert.match(h,/номер, квадраты под площадки ножек и «низ» — на нижней грани/);
+  assert.match(h,/номер — на нижней грани/,'у остальных деталей подпись прежняя');
+});

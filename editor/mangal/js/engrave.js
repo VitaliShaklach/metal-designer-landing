@@ -61,5 +61,31 @@ function engraveSegs(no,P,o={}){
   const withHoles=(o.holes&&o.holes.length)||(o.circ&&o.circ.length);
   const ip=innerPoint(P);   // узкая деталь (скоба 12 мм): двузначный номер не влезает с отступом 2 мм — второй заход с 1,5 мм, высота цифр всё равно не меньше minH
   return (withHoles&&at(innerPoint(P,o)))||at(ip)||at(ip,true);}
+// ---------- разметка на дне жаровни и печи (#123): квадраты под площадки ножек и «низ» ----------
+// Дно лежит низом вверх (ENGR_MIRROR, #121): лазер гравирует наружную сторону, к ней сварщик ставит площадки 80 × 80 (шов по краю закроет контур).
+// bottomMarks(p) — квадраты (замкнутые контуры, мм детали) с центрами в ножках legsList(), что стоят на этом дне
+// (в «оба» у жаровни LEGS_M, у печи LEGS_K); без ножек (S.legs снята) — пусто. Не дно — null
+function bottomMarks(p){const B=BOT_BOX[p.pt];if(!B)return null;const [x0,x1,z0,z1]=B(),T=partXY(p),a=LEG_PL*10/2;
+  const squares=(S.legs?legsList():[]).filter(([x,z])=>x>x0&&x<x1&&z>z0&&z<z1).map(([x,z])=>{const [cx,cy]=T.xy(botXY([x,z]));
+    return [[cx-a,cy-a],[cx+a,cy-a],[cx+a,cy+a],[cx-a,cy+a],[cx-a,cy-a]];});
+  return {squares};}
+const BOT_WORD='низ';
+// гравировка дна: num — номер (квадраты обходит, как отверстия), word — «низ» той же высоты под номером с зазором 0,5 высоты
+// (не влез — над номером; и там нет — в самом просторном месте мимо номера), sq — стороны квадратов. o — отверстия детали ({holes, circ}, как у engraveSegs)
+function bottomEngr(no,P,o,mk){const holes=[...(o.holes||[]),...mk.squares.map(nestLoop).filter(Boolean)],circ=o.circ||[],clear=2;
+  const sq=mk.squares.flatMap(L=>L.slice(0,-1).map((a,i)=>[a[0],a[1],L[i+1][0],L[i+1][1]])),num=engraveSegs(no,P,{holes,circ});
+  const box=G=>{const xs=G.flatMap(z=>[z[0],z[2]]),ys=G.flatMap(z=>[z[1],z[3]]);return [Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];};
+  // прямоугольник [x0,y0,x1,y1] внутри детали не ближе clear к кромке и не ближе clear к отверстиям и квадратам
+  const dP=polyDist(P),free=([a,b,c,d])=>{const R=[[a,b],[c,b],[c,d],[a,d]];
+    if(!R.every(q=>inPoly(q,P)&&dP(q)>=clear))return false;
+    if(R.some((q,i)=>P.some((e,j)=>segX(q,R[(i+1)%4],e,P[(j+1)%P.length]))))return false;
+    if(holes.some(l=>{const [hx0,hy0,hx1,hy1]=box(l.map((q,i)=>[...q,...l[(i+1)%l.length]]));return hx0<c+clear&&hx1>a-clear&&hy0<d+clear&&hy1>b-clear;}))return false;
+    return !circ.some(([x,y,r])=>Math.hypot(Math.max(a-x,0,x-c),Math.max(b-y,0,y-d))<r+clear);};
+  let word=null;
+  if(num){const [nx0,ny0,nx1,ny1]=box(num),h=ny1-ny0,cx=(nx0+nx1)/2,ww=(BOT_WORD.length*1.5-.5)*h/2;
+    for(const cy of [ny0-h,ny1+h])if(free([cx-ww/2,cy-h/2,cx+ww/2,cy+h/2])){word=textSegs(BOT_WORD,cx,cy,h);break;}
+    if(!word){const g=clear;word=engraveSegs(BOT_WORD,P,{holes:[...holes,[[nx0-g,ny0-g],[nx1+g,ny0-g],[nx1+g,ny1+g],[nx0-g,ny1+g]]],circ});}}
+  else word=engraveSegs(BOT_WORD,P,{holes,circ});
+  return {num:num||[],word:word||[],sq};}
 // длина отрезков, мм
 const segsLen=S=>S?S.reduce((a,z)=>a+Math.hypot(z[2]-z[0],z[3]-z[1]),0):0;

@@ -694,6 +694,27 @@ test('mangal: гравировка на схеме «С листа» — штр�
 });
 
 // #102: ручка колосника — четыре пластины 30 × 80 × 5: строка с DXF в «С листа», в «Гильотине» — «Не рубится»
+// #123: на дне жаровни лазер гравирует квадраты 80 × 80 под площадки ножек и «низ» — у дна на схеме штрихов больше, чем у одного номера
+test('mangal: «С листа» — у дна жаровни красные квадраты под площадки ножек и «низ», не только номер', async ({page}, info) => {
+  test.skip(info.project.name === 'phone', 'расчёт не зависит от ширины экрана — только desktop');
+  test.slow();
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await mangalCut(page);
+  // по детали схемы: подпись и отрезки штрихов (SVG в мм — длина отрезка в мм при любом повороте детали)
+  const parts = await page.locator('#nestBox svg.nestsv .np').evaluateAll(gs => gs.map(g => {
+    const d = (g.querySelector('path.engr') || {getAttribute: () => ''}).getAttribute('d') || '';
+    const seg = [...d.matchAll(/M([-\d.]+),([-\d.]+)L([-\d.]+),([-\d.]+)/g)].map(m => Math.hypot(m[3] - m[1], m[4] - m[2]));
+    return {t: g.querySelector('title').textContent, n: seg.length, sq: seg.filter(l => Math.abs(l - 80) < .05).length};
+  }));
+  const bot = parts.filter(p => /— Дно жаровни$/.test(p.t));
+  expect(bot).toHaveLength(1);
+  expect(bot[0].sq).toBe(16);                                        // 4 квадрата × 4 стороны
+  expect(bot[0].n).toBeGreaterThanOrEqual(16 + 17 + 3);              // + «низ» (17 штрихов) + номер
+  expect(bot[0].n).toBeGreaterThan(Math.max(...parts.filter(p => !/Дно/.test(p.t)).map(p => p.n)));
+  await expect(page.locator('#nestBox')).toContainText('номер, квадраты под площадки ножек и «низ» — на нижней грани');
+  expect(r.errors).toEqual([]);
+});
+
 test('mangal: пластины ручки колосника — DXF в «С листа», в «Гильотине» «Не рубится: у́же 50 мм»', async ({page}) => {
   test.slow();
   const r = await openEditor(page, '/editor/mangal/#cut');

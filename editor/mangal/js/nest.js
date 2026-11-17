@@ -104,8 +104,10 @@ const gilOn=ty=>!gilOff(ty);
 // гравировка номера детали: отрезки в её координатах (мм, округлены до 0,01), обходят отверстия; null — не поместилась или галочка снята
 // расчёт дорогой (~0,2 с на все детали), а nestJob зовут при каждой правке, — результат по номеру и контурам держим в памяти
 const ENGR_MEMO=new Map();
-function engrOf(ty){const f=v=>Math.round(v*100)/100,m=ty.m,k=JSON.stringify([ty.no,ty.P,m.loops.slice(1),m.circles]);
-  if(!ENGR_MEMO.has(k)){const g=engraveSegs(ty.no,ty.P,{holes:m.loops.slice(1).map(nestLoop).filter(Boolean),circ:m.circles});
+// у дна жаровни и печи к номеру добавляются квадраты под площадки ножек и «низ» (bottomEngr, #123); они зависят от режима и ножек — входят в ключ
+function engrOf(ty){const f=v=>Math.round(v*100)/100,m=ty.m,mk=bottomMarks(ty.p),k=JSON.stringify([ty.no,ty.P,m.loops.slice(1),m.circles,mk]);
+  if(!ENGR_MEMO.has(k)){const o={holes:m.loops.slice(1).map(nestLoop).filter(Boolean),circ:m.circles};
+    let g;if(mk){const b=bottomEngr(ty.no,ty.P,o,mk);g=[...b.num,...b.word,...b.sq];}else g=engraveSegs(ty.no,ty.P,o);
     if(ENGR_MEMO.size>200)ENGR_MEMO.clear();ENGR_MEMO.set(k,g&&g.map(z=>z.map(f)));}
   return ENGR_MEMO.get(k);}
 // задание: группы по толщине (5 мм первой), в каждой — типы деталей (номер, контур, кол-во) и штуки для раскладки; key — для кэша.
@@ -251,7 +253,7 @@ const listTotals=(N,res)=>N.groups.map((G,gi)=>{const R=res[gi]||{sheets:[]},lai
 // «Гравировка 1,2 м» в итогах для оценки лазера — только с галочкой «Гравировка номеров»
 const engSpan=(N,mm)=>N.engr?`<span>Гравировка <b>${fmt(mm/1000,2)} м</b></span>`:'';
 // у деталей без явной внутренней стороны — подпись, какой гранью вверх гравировать (ENGR_HIDDEN)
-const engSide=(N,p)=>N.engr&&ENGR_HIDDEN[p.pt]?`<small>номер — на ${ENGR_HIDDEN[p.pt]==='top'?'верхней':'нижней'} грани, как стоит на мангале (её не видно)</small>`:'';
+const engSide=(N,p)=>N.engr&&ENGR_HIDDEN[p.pt]?`<small>${BOT_BOX[p.pt]?(S.legs?'номер, квадраты под площадки ножек и «низ»':'номер и «низ»'):'номер'} — на ${ENGR_HIDDEN[p.pt]==='top'?'верхней':'нижней'} грани, как стоит на мангале (её не видно)</small>`:'';
 const sheetsWord=n=>n%10===1&&n%100!==11?'лист':[2,3,4].includes(n%10)&&![12,13,14].includes(n%100)?'листа':'листов';
 const detWord=n=>n%10===1&&n%100!==11?'деталь':[2,3,4].includes(n%10)&&![12,13,14].includes(n%100)?'детали':'деталей';
 // что гильотина не рубит (#92): лазерные детали с причиной (у́же 50 мм, толще 8 мм). Основная таблица — только то, что рубим.

@@ -25,13 +25,19 @@ const airHookGeo=()=>{const P=ahProfile();return {loops:[[...P,P[0]]],circles:[]
 // колосник печи: лист 15 мм с отверстиями Ø20
 function stoveGrateGeo(){const z0=W/2-GP_W/2;return {loops:[rect(GR_LEN,GP_W)],circles:gpX().flatMap(x=>gpZ().map(z=>[x-GR_X0,z-z0,GP_D/2])),bends:[]};}
 const geoR=(w,h)=>({loops:[rect(w,h)],circles:[],bends:[]});
+// дно жаровни и печи: прямоугольник в модели [x0, x1, z0, z1] и перевод вида сверху в плоскость детали — x → x, z → −y (как holedPlate).
+// Одним переводом строятся контур дна и разметка под ножки (bottomMarks, engrave.js): квадраты не уедут от ножек (#123)
+const BOT_BOX={gBot:()=>[0,L1,0,W],sBot:()=>[-L2,0,ZK0,ZK1]};
+const botXY=([x,z])=>[x,-z];
+function botGeo(pt){const [x0,x1,z0,z1]=BOT_BOX[pt]();return {loops:[[[x0,z1],[x1,z1],[x1,z0],[x0,z0],[x0,z1]].map(botXY)],circles:[],bends:[]};}
+const LEG_PL=8;   // площадка под ножку 80 × 80 (leg_mount_plate), см
 
 // список листовых деталей текущего проекта (режим и галочки — как на модели)
 function laserParts(){const g=gOn(),k=sOn(),LL=legsList(),r=[];
   const add=(file,name,mm,q,pt,geo,note='')=>r.push({file,name,mm,q,pt,geo,note});
   if(g){add('grill_side_back','Боковина жаровни задняя',5,1,'side0',()=>shapeGeo(grillWallShape(true)),'с вырезом под ручку решётки');
     add('grill_side_front','Боковина жаровни передняя',5,1,'side1',()=>shapeGeo(grillWallShape(false)));
-    add('grill_bottom','Дно жаровни',5,1,'gBot',()=>geoR(L1,W));
+    add('grill_bottom','Дно жаровни',5,1,'gBot',()=>botGeo('gBot'));
     add('grill_end_right','Торец жаровни правый',5,1,'gEnd',()=>geoR(W-2*t,H1-t));
     if(S.mode==='grill')add('grill_end_left','Торец жаровни левый',5,1,'gEnd0',()=>logoWallGeo(t,W-2*t,B+t,H1-t),S.logo?'с логотипом':'');
     if(S.div)add('grill_divider','Перегородка жаровни',5,1,'div',dividerGeo,'тело, ушки и ручка — одна деталь');
@@ -41,7 +47,7 @@ function laserParts(){const g=gOn(),k=sOn(),LL=legsList(),r=[];
     if(S.hook)add('grill_air_hook','Скоба задвижки',Math.round(AH_T*10),4,'hook',airHookGeo,`плоская, ставится ребром, приварить к боковине по ребру ${us(AH_HEEL)}`);}
   if(k){add('stove_side_back','Боковина печи задняя',5,1,'sK0',()=>shapeGeo(stoveWallShape(true)),S.chim?'с отверстием трубы 60 × 60':'');
     add('stove_side_front','Боковина печи передняя',5,1,'sK1',()=>shapeGeo(stoveWallShape(false)));
-    add('stove_bottom','Дно печи',5,1,'sBot',()=>S.draft?shapeGeo(holedPlate(-L2,0,ZK0,ZK1)):geoR(L2,WK),S.draft?`${DR_X.length*DR_Z.length} отв. Ø20`:'');
+    add('stove_bottom','Дно печи',5,1,'sBot',()=>S.draft?shapeGeo(holedPlate(...BOT_BOX.sBot())):botGeo('sBot'),S.draft?`${DR_X.length*DR_Z.length} отв. Ø20`:'');
     add('stove_partition','Перегородка печи',5,1,'wall',()=>geoR(WK-2*t,H2-t));
     if(S.tie)add('stove_tie','Полоса у дверцы',5,1,'tie',()=>geoR(TIE_W,WK-2*t));
     if(S.lintel)add('stove_lintel','Глухой верх топки',5,1,'lintel',()=>logoWallGeo(ZK0+t,WK-2*t,T-FL_H,FL_H-t),S.logo?'с логотипом':'');
@@ -49,17 +55,21 @@ function laserParts(){const g=gOn(),k=sOn(),LL=legsList(),r=[];
     if(S.door)add('stove_door','Дверца топки',3,1,'door',()=>geoR(WK,DH()));
     if(S.draft)add('stove_shiber','Шибер поддувала',3,1,'shib',()=>geoR(SH_L,SH_W),'край отогнуть вниз на 25 мм — ручка');
     if(S.grate&&S.grType==='plate')add('stove_grate','Колосник печи',15,1,'grate',stoveGrateGeo);}
-  if(S.legs){add('leg_mount_plate','Площадка под ножку (на дно)',5,LL.length,'legs',()=>geoR(8,8));
+  if(S.legs){add('leg_mount_plate','Площадка под ножку (на дно)',5,LL.length,'legs',()=>geoR(LEG_PL,LEG_PL));
     const nW=LL.filter(l=>l[3]).length;if(nW)add('wheel_pad','Площадка под колесо',5,nW,'pads',()=>geoR(PADX,PADZ),'4 отверстия под колесо — сверлить по факту');}
   return r;}
 
-// деталь → мм, сдвиг в (0,0), длина реза и врезки
-function partMM(p){const G=p.geo(),xs=[],ys=[];G.loops.forEach(l=>l.forEach(([x,y])=>{xs.push(x);ys.push(y);}));
+// точка геометрии детали (см) → мм детали: сдвиг в (0,0), округление 0,01 мм, зеркало по X у ENGR_MIRROR.
+// Им же переводится разметка на дне (bottomMarks): контур и метки — одним преобразованием
+function partXY(p,G=p.geo()){const xs=[],ys=[];G.loops.forEach(l=>l.forEach(([x,y])=>{xs.push(x);ys.push(y);}));
   const mx=Math.min(...xs),my=Math.min(...ys),f=v=>Math.round(v*1000)/100,P=([x,y])=>[f(x-mx),f(y-my)];
-  const w=f(Math.max(...xs)-mx),mir=ENGR_MIRROR.has(p.pt),M=([x,y])=>mir?[Math.round((w-x)*100)/100,y]:[x,y];   // зеркало: вверх сторона под гравировку — у стенок внутренняя, у дна наружная (engrave.js)
-  const loops=G.loops.map(l=>l.map(P).map(M)),circles=G.circles.map(([x,y,r])=>[...M(P([x,y])),f(r)]),bends=G.bends.map(b=>b.map(P).map(M));
+  const w=f(Math.max(...xs)-mx),h=f(Math.max(...ys)-my),mir=ENGR_MIRROR.has(p.pt),M=([x,y])=>mir?[Math.round((w-x)*100)/100,y]:[x,y];   // зеркало: вверх сторона под гравировку — у стенок внутренняя, у дна наружная (engrave.js)
+  return {xy:q=>M(P(q)),f,w,h};}
+// деталь → мм, сдвиг в (0,0), длина реза и врезки
+function partMM(p){const G=p.geo(),T=partXY(p,G),f=T.f,w=T.w;
+  const loops=G.loops.map(l=>l.map(T.xy)),circles=G.circles.map(([x,y,r])=>[...T.xy([x,y]),f(r)]),bends=G.bends.map(b=>b.map(T.xy));
   let cut=0;loops.forEach(l=>{for(let i=0;i<l.length-1;i++)cut+=Math.hypot(l[i+1][0]-l[i][0],l[i+1][1]-l[i][1]);});circles.forEach(c=>cut+=2*Math.PI*c[2]);
-  return {loops,circles,bends,w,h:f(Math.max(...ys)-my),cut,pierce:loops.length+circles.length};}
+  return {loops,circles,bends,w,h:T.h,cut,pierce:loops.length+circles.length};}
 /* ---------- заготовки с гильотины: металл режут в размер на гильотине, на лазер везут готовый прямоугольник ----------
    Рубит ли гильотина деталь, решает правило (gilOn / gilWhy в nest.js: у́же 50 мм, толще 8 мм — нет). Вид детали, если её рубить:
    gil  — готовая деталь: наружный контур — прямоугольник по габариту, внутри ничего — лазер не нужен;
