@@ -13,10 +13,13 @@ const VIEWS = {
 (() => {
   const d = new THREE.Vector3(1, .75, 1.5).normalize(), r = new THREE.Vector3(0, 1, 0).cross(d).normalize();
   VIEWS.iso = {r: r.toArray(), up: d.clone().cross(r).toArray(), d: d.toArray()};
+  // изометрия снизу (#118): то, что приварено под дном, смотрим снизу — тот же угол, камера под изделием
+  const l = new THREE.Vector3(1, -.75, 1.5).normalize(), rl = new THREE.Vector3(0, 1, 0).cross(l).normalize();
+  VIEWS.isoLow = {r: rl.toArray(), up: l.clone().cross(rl).toArray(), d: l.toArray()};
 })();
 
 const SHOT_OUT = new Set(['man', 'wood']);   // не детали изделия
-const SHOT_EDGE = 0x1c2a40, SHOT_HL = 0xc4480c, SHOT_MAX = 4096;   // рёбра, подсветка, предел картинки в px
+const SHOT_EDGE = 0x1c2a40, SHOT_HL = 0xc4480c, SHOT_GHOST_EDGE = 0x5a6b85, SHOT_MAX = 4096;   // рёбра, подсветка, бледные рёбра «призрака», предел картинки в px
 
 // Детали на снимке: вся модель, как на экране без выбора детали (выбор на 3D листы не меняет), кроме hide.
 // only — верхние объекты group, которые только и снимаются (один экземпляр детали на карте); null — все.
@@ -60,6 +63,19 @@ function modelBoxMm(view) {
   return {w: (e.hi[0] - e.lo[0]) * 10, h: (e.hi[1] - e.lo[1]) * 10};
 }
 
+// Рамка кадра вокруг объектов objs (#118, «где стоит»): их проекция с полем margin, не меньше minCm по ширине, подогнанная к пропорции aspect (ширина/высота).
+// Возвращает {lo, hi} в см по r и up — для renderView({rect}); нет объектов в кадре — null
+function focusRect(view, objs, aspect = 1.5, margin = .35, minCm = 22) {
+  if (!ok || !group) return null;
+  const {meshes} = shotParts(null, new Set(objs));
+  if (!meshes.length) return null;
+  const e = shotExtent(VIEWS[view], meshes);
+  const cx = (e.lo[0] + e.hi[0]) / 2, cy = (e.lo[1] + e.hi[1]) / 2;
+  let w = Math.max((e.hi[0] - e.lo[0]) * (1 + 2 * margin), minCm), h = Math.max((e.hi[1] - e.lo[1]) * (1 + 2 * margin), minCm / aspect);
+  if (w / h < aspect) w = h * aspect; else h = w / aspect;
+  return {lo: [cx - w / 2, cy - h / 2], hi: [cx + w / 2, cy + h / 2]};
+}
+
 // Рендер для снимков — один на страницу, создаётся при первом снимке
 let shotR = null;
 function shotRenderer() {
@@ -79,7 +95,10 @@ function shotMats() {
     const white = new THREE.MeshLambertMaterial({color: 0xffffff, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1});
     const accent = white.clone();
     accent.color.set(SHOT_HL);
-    shotM = {white, accent, edgeMat: new THREE.LineBasicMaterial({color: SHOT_EDGE})};
+    // «призрак» (#118): всё изделие, кроме подсвеченной детали, — полупрозрачное с бледным контуром
+    const ghost = new THREE.MeshLambertMaterial({color: 0xa9b8d0, side: THREE.DoubleSide, transparent: true, opacity: .22, depthWrite: false});
+    shotM = {white, accent, ghost, edgeMat: new THREE.LineBasicMaterial({color: SHOT_EDGE}),
+      ghostEdge: new THREE.LineBasicMaterial({color: SHOT_GHOST_EDGE, transparent: true, opacity: .45, depthWrite: false})};
   }
   return shotM;
 }
@@ -87,8 +106,10 @@ function shotMats() {
 // Вид в масштабе 1:scale картинкой PNG. highlight — id деталей, залитых акцентом; hide — id, которых нет на снимке;
 // only — верхние объекты group, которые только и снимаются; hlObj — верхние объекты, залитые акцентом;
 // edges — Map геометрия → рёбра на серию снимков одной модели (рёбра не считаются заново; освобождает тот, кто дал Map).
+// ghost — всё, кроме залитого акцентом, полупрозрачное с бледным контуром (#118, «где стоит»); залитое — непрозрачное, видно и то, что внутри.
+// Без ghost — белое непрозрачное, как на листах и картах. rect — {lo, hi} кадра (см, focusRect) вместо рамки всей модели: деталь крупно.
 // toPaper([x, y, z]) — точка модели (см) в мм бумаги от левого верхнего угла картинки. Без 3D — null
-function renderView(view, scale, {pxPerMm = 8, highlight = null, hide = null, only = null, hlObj = null, edges = null} = {}) {
+function renderView(view, scale, {pxPerMm = 8, highlight = null, hide = null, only = null, hlObj = null, edges = null, ghost = false, rect = null} = {}) {
   if (!ok || !group) return null;
   const R = shotRenderer();
   if (!R) return null;
@@ -96,7 +117,7 @@ function renderView(view, scale, {pxPerMm = 8, highlight = null, hide = null, on
   if (!meshes.length) return null;
   const k = 10 / scale, pad = 1 / k;   // мм бумаги на см модели; поле 1 мм — рёбра у края не обрезаются
   const e = shotExtent(v, meshes);
-  const lo = [e.lo[0] - pad, e.lo[1] - pad], hi = [e.hi[0] + pad, e.hi[1] + pad];
+  const lo = rect ? rect.lo : [e.lo[0] - pad, e.lo[1] - pad], hi = rect ? rect.hi : [e.hi[0] + pad, e.hi[1] + pad];
   const wMm = (hi[0] - lo[0]) * k, hMm = (hi[1] - lo[1]) * k;
   const px = Math.min(pxPerMm, SHOT_MAX / Math.max(wMm, hMm));
   R.setSize(Math.max(1, Math.round(wMm * px)), Math.max(1, Math.round(hMm * px)), false);
@@ -116,7 +137,7 @@ function renderView(view, scale, {pxPerMm = 8, highlight = null, hide = null, on
   const amb = new THREE.AmbientLight(0xffffff, .5), sun = new THREE.DirectionalLight(0xffffff, .6);
   sun.position.copy(c).add(d.clone().addScaledVector(up, .5).addScaledVector(r, -.3).multiplyScalar(100));   // свету важно только направление
   sun.target.position.copy(c);
-  const {white, accent, edgeMat} = shotMats();
+  const {white, accent, ghost: ghostMat, edgeMat, ghostEdge} = shotMats();
 
   // что вернуть после снимка
   const vis = [...scene.children, ...group.children].map(o => [o, o.visible]);
@@ -132,11 +153,13 @@ function renderView(view, scale, {pxPerMm = 8, highlight = null, hide = null, on
       let part = null, o = m;
       for (let p = m; p && p !== group && !part; p = p.parent) part = p.userData.part;
       while (o.parent && o.parent !== group) o = o.parent;   // верхний объект group
-      m.material = (highlight && highlight.has(part)) || (hlObj && hlObj.has(o)) ? accent : white;
+      const hl = (highlight && highlight.has(part)) || (hlObj && hlObj.has(o));
+      m.material = hl ? accent : ghost ? ghostMat : white;
       m.userData.shot = 1;
+      if (ghost && hl && m.geometry.type === 'CylinderGeometry') return;   // у тонкого цилиндра рёбра по длине сливаются в чёрное: арматура была бы чёрной, а не оранжевой
       let eg = edges && edges.get(m.geometry);
       if (!eg) { eg = new THREE.EdgesGeometry(m.geometry, 25); if (edges) edges.set(m.geometry, eg); }
-      const ed = new THREE.LineSegments(eg, edgeMat);
+      const ed = new THREE.LineSegments(eg, ghost && !hl ? ghostEdge : edgeMat);
       ed.userData.shotEdge = 1;
       m.add(ed);
       lines.push([m, ed]);

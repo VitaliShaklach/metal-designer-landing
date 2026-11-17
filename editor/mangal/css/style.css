@@ -310,6 +310,22 @@ table.ptbl td.pk{width:1%;vertical-align:middle}
 table.ptbl td:nth-child(4){white-space:normal;min-width:120px}   /* размер переносится: иначе длинный («55 × 55 × 3 + пруток …») не даёт поставить «Эскиз» в вертикаль */
 table.ptbl td:nth-child(5){min-width:160px}
 svg.pic{display:block;width:110px;height:70px;max-width:none}
+/* «Где стоит» (#118): миниатюра изделия справа от названия детали («Подготовить отдельно», «Не рубится»); клик — окно с крупной картинкой.
+   Белая подложка: картинка полупрозрачная, на тёмной теме без неё контуры пропадают */
+.wn{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.wn>div{min-width:110px}
+button.wh{flex:none;width:120px;height:80px;padding:0;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:zoom-in;overflow:hidden}
+button.wh:hover{border-color:var(--accent)}
+button.wh img{display:block;width:100%;height:100%;object-fit:contain}
+dialog.wdlg{padding:0;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);width:min(960px,96vw);max-width:96vw;max-height:92vh}
+dialog.wdlg::backdrop{background:rgba(0,0,0,.5)}
+.wbox{display:flex;flex-direction:column;gap:8px;padding:12px}
+.whead{display:flex;gap:12px;align-items:center;justify-content:space-between;font:600 15px var(--f-mono)}
+.wx{flex:none;width:36px;height:36px;font-size:22px;line-height:1;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:inherit;cursor:pointer}
+.wimg{background:#fff;border-radius:6px;min-height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.wimg img{display:block;max-width:100%;max-height:72vh;width:auto;height:auto;object-fit:contain}
+.wimg p{margin:0;color:#666;font:14px var(--f-mono)}
+@media(max-width:600px){dialog.wdlg{width:100vw;max-width:100vw;margin:auto 0;border-radius:0}}
 td small.piccap{font-family:var(--f-mono);font-size:11px;line-height:1.3;max-width:110px;margin-top:2px}
 table.otbl td:nth-child(n+4):not(:nth-child(5)){width:1%;white-space:nowrap}
 /* схема гильотины: серый — готовая деталь, светло-оранжевый — заготовка, дальше на лазер */

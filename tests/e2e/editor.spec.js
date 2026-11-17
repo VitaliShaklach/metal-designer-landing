@@ -525,7 +525,7 @@ test('mangal: колосника мангала нет на листе и в DXF
   const row = page.locator('#nestBox .prep tbody tr', {hasText: 'Колосник 1 и Колосник 2'});
   await expect(row).toHaveCount(1);
   await expect(row).toContainText('перфолист 5–10 мм, с металлобазы, подрезать в размер');
-  await expect(row.locator('button, [data-act]')).toHaveCount(0);
+  await expect(row.locator('button:not(.wh), [data-act]')).toHaveCount(0);
   await expect(page.locator('#nestBox [data-act=part]')).not.toHaveCount(0);
   const files = await page.locator('#nestBox .ntbl small.fn').allTextContents();
   expect(files.filter(f => /grill_grate_[12]_/.test(f))).toEqual([]);
@@ -1389,7 +1389,7 @@ test('mangal: Подготовить отдельно — блок под таб
   await expect(b).toContainText('Уголки, трубы, арматура, профлист: на схеме их нет, режутся и готовятся отдельно');
   await expect(b).toContainText('Покупное (колёса, крепёж) — во вкладке «Что купить»');
   await expect(b.locator('thead th')).toHaveText(['Деталь', 'Эскиз', 'Кол-во', 'Размер, мм', 'Как делать']);   // #117
-  await expect(b.locator('button, [data-act]')).toHaveCount(0);
+  await expect(b.locator('button:not(.wh), [data-act]')).toHaveCount(0);   // кнопки DXF нет; миниатюры «где стоит» (#118) — .wh
   // блок ниже последней таблицы листа
   const [pt, tbot] = await page.evaluate(() => [document.querySelector('#nestBox .prep').getBoundingClientRect().top,
     [...document.querySelectorAll('#nestBox .ntbl:not(.ptbl)')].pop().getBoundingClientRect().bottom]);
@@ -1407,7 +1407,7 @@ test('mangal: Подготовить отдельно — блок под таб
   await gilCut(page);
   await expect(prepBlock(page, 'gilBox')).toHaveCount(1);
   expect(await prepNames(page, 'gilBox')).toEqual(names);
-  await expect(prepBlock(page, 'gilBox').locator('button, [data-act]')).toHaveCount(0);
+  await expect(prepBlock(page, 'gilBox').locator('button:not(.wh), [data-act]')).toHaveCount(0);
   // печь: профтруба, заслонка, шибер; жаровни нет
   await press(page, '#modeSeg [data-v=stove]');
   await gilCut(page);
@@ -1487,6 +1487,72 @@ test('mangal: Подготовить отдельно — «Эскиз» в од
     expect(Math.abs(await dx('gilBox')), mode + ' Гильотина').toBeLessThanOrEqual(2);
   }
   expect(r.errors).toEqual([]);
+});
+
+// ---------- #118: «Где стоит» — миниатюра изделия с деталью оранжевым в «Подготовить отдельно» и «Не рубится» ----------
+
+// все миниатюры блока нарисованы (картинка по одной за шаг, после «Рассчитать»)
+const whereDone = (page, sel) => page.waitForFunction(s => { const b = [...document.querySelectorAll(s + ' button.wh')]; return b.length > 0 && b.every(x => x.querySelector('img[src]')); }, sel, {timeout: 60000});
+
+test('mangal: Где стоит — до «Рассчитать» миниатюр нет; после — у каждой строки обоих блоков; клик открывает окно, Esc закрывает', async ({page}) => {
+  test.setTimeout(240000);   // три режима, в каждом два расчёта и картинки на SwiftShader
+  const r = await openEditor(page, '/editor/mangal/#cut');
+  await expect(page.locator('button.wh')).toHaveCount(0);
+  for (const mode of ['grill', 'stove', 'both']) {
+    await press(page, `#modeSeg [data-v=${mode}]`);
+    await settle(page);
+    await openSub(page, 'list');
+    await mangalCut(page);
+    const n = await page.locator('#nestBox .prep tbody tr').count();
+    await expect(page.locator('#nestBox .prep tbody tr button.wh'), mode).toHaveCount(n);
+    await whereDone(page, '#nestBox .prep');
+    await openSub(page, 'gil');
+    await gilCut(page);
+    await expect(page.locator('#gilBox .prep tbody tr button.wh'), mode).toHaveCount(await page.locator('#gilBox .prep tbody tr').count());
+    const off = await page.locator('#gilBox .otbl tbody tr').count();
+    if (off) await expect(page.locator('#gilBox .otbl tbody tr button.wh'), mode).toHaveCount(off);
+    await whereDone(page, '#gilBox');
+  }
+  // окно: большая картинка и название детали; крестик, Esc и клик мимо закрывают; в «С листа» таблицу листа миниатюры не трогают
+  await openSub(page, 'list');
+  const first = page.locator('#nestBox .prep tbody tr').first();
+  const name = (await first.locator('td:first-child > div > :first-child, td:first-child').first().innerText()).trim();
+  const dlg = page.locator('dialog.wdlg');
+  await first.locator('button.wh').click();
+  await expect(dlg).toBeVisible();
+  await expect(dlg.locator('.wimg img')).toBeVisible();
+  await expect(dlg.locator('.whead b')).toContainText(name.slice(0, 12));
+  await page.keyboard.press('Escape');
+  await expect(dlg).toBeHidden();
+  await first.locator('button.wh').click();
+  await dlg.locator('.wx').click();
+  await expect(dlg).toBeHidden();
+  await first.locator('button.wh').click();
+  await expect(dlg.locator('.wimg img')).toBeVisible();
+  await page.mouse.click(5, 5);   // мимо окна — по затемнению
+  await expect(dlg).toBeHidden();
+  await expect(page.locator('#nestBox .ntbl:not(.ptbl):not(.otbl) button.wh')).toHaveCount(0);   // таблицу листа не трогаем
+  expect(r.errors).toEqual([]);
+});
+
+test('mangal: Где стоит — на 390 страница не едет вбок, окно во всю ширину; на десктопе «Эскиз» остаётся в одной вертикали с таблицей листа (±2 px)', async ({page}, info) => {
+  test.slow();
+  await openEditor(page, '/editor/mangal/#cut');
+  await mangalCut(page);
+  await whereDone(page, '#nestBox .prep');
+  const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  expect(sw).toBeLessThanOrEqual(iw);
+  if (info.project.name === 'desktop') {
+    const dx = await page.evaluate(() => {
+      const T = [...document.querySelectorAll('#nestBox table.ntbl:not(.ptbl):not(.otbl)')].pop();
+      return document.querySelector('#nestBox .ptbl thead th:nth-child(2)').getBoundingClientRect().left - T.querySelector('thead th:nth-child(3)').getBoundingClientRect().left;
+    });
+    expect(Math.abs(dx)).toBeLessThanOrEqual(2);
+  } else {
+    await page.locator('#nestBox .prep button.wh').first().click();
+    const bw = await page.locator('dialog.wdlg').evaluate(e => [e.getBoundingClientRect().width, window.innerWidth]);
+    expect(bw[0]).toBeGreaterThanOrEqual(bw[1] - 1);
+  }
 });
 
 test('mangal: «Решётка в жаровне», «2 решётки сверху», «Уголки в жаровне» — подписи показа, состав не меняют; решёток нет ни в блоке, ни в «Что купить»', async ({page}) => {

@@ -262,15 +262,17 @@ function offNote(rows){const n=rows.reduce((a,o)=>a+o.ty.q,0);return rows.length
 // блок «Не рубится» под таблицей гильотины: эскиз, название, кол-во, причина, DXF детали (data-t — индекс в G.types)
 function offHtml(N,G,gi){const rows=offRows(N,G);if(!rows.length)return '';
   const t='<thead><tr><th class="r">№</th><th>Деталь</th><th>Эскиз</th><th class="r">Кол-во</th><th>Причина</th><th class="r dl">Скачать</th></tr></thead><tbody>'+
-    rows.map(o=>{const ty=o.ty,p=ty.p;return `<tr${nestSelOn(ty)?' class="on"':''}><td class="n r">${ty.no}</td><td>${p.name}${p.note?`<small>${p.note}</small>`:''}<small class="fn">${dxfName(p)}</small></td><td>${dxfSketch(ty.m,ty.kind,ty.b)}</td><td class="n r">${ty.q}</td><td>${o.why}</td>`+
+    rows.map(o=>{const ty=o.ty,p=ty.p;return `<tr${nestSelOn(ty)?' class="on"':''}><td class="n r">${ty.no}</td><td>${whCell(`${p.name}${p.note?`<small>${p.note}</small>`:''}<small class="fn">${dxfName(p)}</small>`,()=>whereKeyOff(ty),p.name)}</td><td>${dxfSketch(ty.m,ty.kind,ty.b)}</td><td class="n r">${ty.q}</td><td>${o.why}</td>`+
       `<td class="r dl"><button class="dxfbtn dl" data-act="part" data-g="${gi}" data-t="${o.ti}" title="Скачать DXF детали" aria-label="Скачать DXF детали">⬇︎ DXF</button></td></tr>`;}).join('')+'</tbody>';
   return `<section class="noff"><h4>Не рубится</h4><div class="tbl"><table class="ntbl otbl">${t}</table></div></section>`;}
 // «Подготовить отдельно» (#107): металл без DXF — под таблицами «С листа» и «Гильотина» (лазерщик видит всё, что готовится не на лазере). Без кнопок DXF
+// ячейка «Деталь» блоков «Подготовить отдельно» и «Не рубится» (#118): название слева, справа миниатюра «где стоит» (where.js; без 3D — только название)
+const whCell=(inner,key,title)=>{const c=typeof whereCell==='function'?whereCell(key(),title||inner):'';return c?`<div class="wn"><div>${inner}</div>${c}</div>`:inner;};
 const prepKey=()=>JSON.stringify(prepRows().map(r=>[r.n,r.q,r.s]));
 // Колонки (#117): Деталь | Эскиз | Кол-во | Размер, мм | Как делать; «Эскиз» — объёмная картинка детали (prepPic, pics.js), номера и DXF нет
 function prepHtml(){const rows=prepRows();if(!rows.length)return '';
   const t='<thead><tr><th>Деталь</th><th>Эскиз</th><th class="r">Кол-во</th><th>Размер, мм</th><th>Как делать</th></tr></thead><tbody>'+
-    rows.map(r=>`<tr><td>${r.n}</td><td class="pk">${prepPic(r)}</td><td class="n r">${r.q}</td><td class="n">${r.s}</td><td>${r.note||'—'}</td></tr>`).join('')+'</tbody>';
+    rows.map(r=>`<tr><td>${whCell(r.n,()=>whereKeyRow(r))}</td><td class="pk">${prepPic(r)}</td><td class="n r">${r.q}</td><td class="n">${r.s}</td><td>${r.note||'—'}</td></tr>`).join('')+'</tbody>';
   return `<section class="prep"><h4>Подготовить отдельно</h4><p class="pnote">Уголки, трубы, арматура, профлист: на схеме их нет, режутся и готовятся отдельно</p>`+
     `<div class="tbl"><table class="ntbl ptbl">${t}</table></div><p class="pnote">Покупное (колёса, крепёж) — во вкладке «Что купить»</p></section>`;}
 // «Эскиз» блока — в одну вертикаль с «Эскизом» последней таблицы деталей листа над ним (#117). Колонки двух таблиц тянутся по содержимому,
@@ -386,11 +388,12 @@ const quickCalc=f=>(live,accept,fail)=>setTimeout(()=>{if(!live())return;let N,r
 /* вариант «Лазер · DXF» — одна схема на три (#60): своя кнопка «Рассчитать» и свой ключ задания (key), расчёт (calc), отрисовка (html),
    последний результат (res) и что нарисовано (cur), кнопки DXF внутри результата (one: data-атрибуты кнопки → [имя, текст] или null);
    архивов нет, «Скачано» пишется сразу после нажатой кнопки (saveDxf). Результат устарел — не качаем */
+const whFill=(box,alive)=>{if(typeof whereFill==='function')whereFill(box,alive);};
 function nestVariant(v,{ids,key,calc,html,one}){const $=id=>document.getElementById(id),V={v,key,res:null,cur:null};let btn=null;
   // кнопка «Рассчитать» (makeCalc) — при первом обращении: nest.js грузится и без страницы (тесты раскладки в smoke.js)
   V.calc=()=>btn||(btn=makeCalc({btn:$(ids.run),box:$(ids.box),wait:$(ids.wait),key:()=>key(nestJob()),
-    run:(done,live)=>calc(live,(N,res)=>{if(done(html(N,res))){V.res=res;V.cur={N,res};prepAlign($(ids.box));}},()=>btn.stale())}));   // результат принят — его и качаем
-  V.draw=(N,res)=>{const b=$(ids.box);if(!b)return;V.cur={N,res};b.innerHTML=html(N,res);prepAlign(b);};
+    run:(done,live)=>calc(live,(N,res)=>{if(done(html(N,res))){V.res=res;V.cur={N,res};prepAlign($(ids.box));whFill($(ids.box),()=>btn.ready());}},()=>btn.stale())}));   // результат принят — его и качаем
+  V.draw=(N,res)=>{const b=$(ids.box);if(!b)return;V.cur={N,res};b.innerHTML=html(N,res);prepAlign(b);whFill(b,()=>V.calc().ready());};
   // перед скачиванием ключ сверяется сразу: правка могла быть меньше 0,3 с назад, а старый результат качать нельзя
   V.fresh=()=>{const c=V.calc();c.check();return c.ready()&&!!V.cur;};
   V.click=e=>{const b=e.target.closest&&e.target.closest('button[data-act]');if(!b||!V.cur||!V.fresh())return;const f=one(V.cur.N,V.cur.res,b.dataset);if(f)saveDxf(f[0],f[1],b);};
@@ -410,6 +413,7 @@ function nestInit(){if(NST.init)return;NST.init=true;const gi=document.getElemen
   gi.addEventListener('input',ch);gi.addEventListener('change',()=>{gi.value=nestOpts().gap;ch();});si.addEventListener('change',ch);if(ni)ni.addEventListener('change',ch);if(di)di.addEventListener('change',ch);
   if(ei){ei.addEventListener('input',ch);ei.addEventListener('change',()=>{ei.value=nestOpts().edge;ch();});}
   VARS.forEach(V=>V.init());
+  ['nestBox','gilBox'].forEach(id=>{const b=document.getElementById(id);if(b&&b.addEventListener&&typeof whereClick==='function')b.addEventListener('click',whereClick);});   // миниатюра «где стоит» → окно (#118)
   // «Эскиз» блока «Подготовить отдельно» — заново по ширине вкладки: окно поменяли или вкладку («С листа» / «Гильотина») показали
   if(typeof ResizeObserver==='function'){const ro=new ResizeObserver(es=>es.forEach(e=>prepAlign(e.target)));
     ['nestBox','gilBox'].forEach(id=>{const b=document.getElementById(id);if(b&&b.nodeType===1)ro.observe(b);});}}

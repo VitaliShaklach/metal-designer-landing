@@ -105,10 +105,11 @@ function airBends() {
 /* ---------- 3D-модель для карт ---------- */
 // Те же buildParts, что на экране, в своей группе: без размеров, человека и выбора детали, с решётками (CARD_FLAGS).
 // Верхние объекты — с меткой детали, как в build3D()
-function cardModel() {
+// extra — добавка к галочкам модели (#118: «где стоит» строит её с крышей)
+function cardModel(extra = {}) {
   const sv = group, g = new THREE.Group(), mk = [];
   group = g;
-  try { withFlags({...CARD_FLAGS, dims: new Set(), man: false}, () => buildParts(id => mk.push([g.children.length, id]))); } finally { group = sv; }
+  try { withFlags({...CARD_FLAGS, ...extra, dims: new Set(), man: false}, () => buildParts(id => mk.push([g.children.length, id]))); } finally { group = sv; }
   let mi = 0, part = null;
   g.children.forEach((o, i) => {
     while (mi < mk.length && mk[mi][0] <= i) part = mk[mi++][1];
@@ -123,8 +124,8 @@ function cardModel() {
 // openCardModel() — модель на серию шагов: run(fn) подключает её к сцене только на время fn, между шагами
 // на экране своя модель; close() — освободить (повторный вызов ничего не делает)
 let cardEdges = null;
-function openCardModel() {
-  const g = cardModel(), edges = new Map(), onScene = typeof scene !== 'undefined' && scene;
+function openCardModel(extra) {
+  const g = cardModel(extra), edges = new Map(), onScene = typeof scene !== 'undefined' && scene;
   let open = true;
   const run = fn => {
     const sv = group, se = cardEdges;

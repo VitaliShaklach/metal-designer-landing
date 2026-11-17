@@ -32,7 +32,7 @@ for(const f of MODES){
 
 test('мангал: уголки, трубы, ручка и ножки в блоке; печи и решёток в нём нет',()=>{
   const n=names(loadMangal({mode:'grill',grillGrate:true,grates2:true})).join('\n');
-  for(const re of [/^Уголок 30×30×3 в жаровне/m,/^Ручка — труба/m,/^Ножка жаровни/m])assert.match(n,re);
+  for(const re of [/^Уголок 30×30×3 в жаровне/m,/^Ручка — труба/m,/^Ножка мангала/m])assert.match(n,re);
   assert.doesNotMatch(n,/профтруба|Шибер|Заслонка|Направляющая/);
   assert.doesNotMatch(n,/Решётка/,'решётки — только показ на 3D, их не делаем и не покупаем (#117)');
 });
