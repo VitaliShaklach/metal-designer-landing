@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Каркасы из профтрубы — 3D-эскиз и раскрой</title>
+<meta name="description" content="Каркас из профтрубы: 3D-эскиз с размерами, стыки под 45° и встык, длины реза, спецификация, раскрой хлыстов.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Каркасы из профтрубы — Metal Designer">
+<meta property="og:image" content="https://vitalishaklach.github.io/metal-designer/karkas/og.png">
+<meta property="og:description" content="Нарисуйте каркас — получите длины реза, углы, спецификацию и раскрой.">
+<link rel="icon" href="../mangal/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<link rel="stylesheet" href="css/style.css?v=0.3.1">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow"><a href="../index.html">Metal Designer</a> · каркасы из профтрубы · размеры в мм</div>
+      <h1 id="ttl">Каркас</h1>
+      <p class="lede">Нарисуйте каркас по осям или откройте готовую модель — длины реза со скосами и подрезкой, спецификация и раскрой хлыстов считаются сами.</p>
+    </div>
+    <div class="hside">
+      <div class="seg unitseg" id="unitSeg" role="group" aria-label="Единицы размеров"><button data-v="mm" aria-pressed="true">мм</button><button data-v="cm" aria-pressed="false">см</button></div>
+      <div class="stats" id="stats"></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="pick">
+      <label><span class="t">Название</span><input id="mName" class="inp" value=""></label>
+      <label><span class="t">Пример</span><select id="exSel"><option value="">— открыть пример —</option><optgroup label="МК-16 (по PDF)"><option value="mk16">МК-16 целиком — кухня с навесом</option><option value="mk16-1">1СБ Тумба</option><option value="mk16-2">2СБ Тумба 1475</option><option value="mk16-3">3СБ Дровница</option><option value="mk16-4-1">4.1СБ Ферма 1</option><option value="mk16-4-2">4.2СБ Ферма 2</option><option value="mk16-4-3">4.3СБ Ферма 3</option><option value="mk16-4-4">4.4СБ Рама задней стены</option><option value="mk16-4-5">4.5СБ Рама боковой стены</option><option value="mk16-4-6">4.6СБ Крыша</option><option value="mk16-5">5СБ Барная стойка</option></optgroup><option value="naves-3x2">Навес 3×2 м</option></select></label>
+      <div class="btns"><button id="bNew" type="button">Новый</button><button id="bOpen" type="button">Открыть файл</button><button id="bSave" type="button">Сохранить</button><button id="bShare" type="button">Поделиться</button><input type="file" id="fOpen" accept=".json,application/json" hidden></div>
+      <span class="pickhint" id="msg"></span>
+    </div>
+    <div class="studio">
+      <div id="stage">
+        <div class="loading" id="loading"><i></i>Загружаю 3D…</div>
+        <div class="vbar"><button data-v="iso" type="button">3D</button><button data-v="front" type="button">Спереди</button><button data-v="side" type="button">Сбоку</button><button data-v="top" type="button">Сверху</button><button id="bFit" type="button" title="Камера на всю модель (F)">Всё</button></div>
+        <div class="hovtag" id="hovTag" hidden></div>
+        <div class="hint">Клик по трубе у конца — выбрать · оранжевая стрелка — длиннее · зелёный «+» — новая труба · «?» — инструкции</div>
+      </div>
+      <button class="drawerbtn" id="drawerBtn" type="button" aria-expanded="false">Панель</button>
+      <div class="controls" id="controls">
+        <div class="drawerhead"><b>Панель</b><button type="button" id="drawerClose" aria-label="Закрыть">✕</button></div>
+
+        <div class="grp" data-g="sel"><button type="button" class="gt">Выбрано</button>
+          <div id="selBox"><p class="note">Ничего не выбрано</p></div>
+        </div>
+
+        <div class="grp" data-g="draw"><button type="button" class="gt">Добавить трубу</button>
+          <p class="note" id="drawFrom">Выберите узел на модели — от него пойдёт труба. Или задайте первый узел:</p>
+          <div class="xyz"><label>X<input class="inp" id="nx" type="number" value="0"></label><label>Y<input class="inp" id="ny" type="number" value="0"></label><label>Z<input class="inp" id="nz" type="number" value="0"></label><button id="bNode" type="button" title="Создать новый узел в этих координатах">Новый узел</button></div>
+          <button id="bNodeMv" type="button" class="wide" hidden>Перенести активный конец в эти координаты</button>
+          <div class="row2"><label>Профиль<select id="dProf"></select></label><label>Длина новой трубы<input class="inp" id="dLen" type="number" value="1000" min="1"></label></div>
+          <p class="note">Новая труба от активного конца — в какую сторону:</p>
+          <div class="axes" id="axes"><button data-a="+x">+ труба → X</button><button data-a="-x">+ труба ← X</button><button data-a="+y">+ труба ↑ Y</button><button data-a="-y">+ труба ↓ Y</button><button data-a="+z">+ труба ↙ Z</button><button data-a="-z">+ труба ↗ Z</button></div>
+          <button id="bJoin" type="button" class="wide">Труба между двумя выбранными узлами</button>
+        </div>
+
+        <div class="grp" data-g="copy"><button type="button" class="gt">Копировать и зеркалить</button>
+          <p class="note">Для выбранных труб</p>
+          <div class="xyz"><label>dX<input class="inp" id="cx" type="number" value="0"></label><label>dY<input class="inp" id="cy" type="number" value="0"></label><label>dZ<input class="inp" id="cz" type="number" value="1000"></label><label>×<input class="inp" id="cn" type="number" value="1" min="1"></label></div>
+          <button id="bCopy" type="button" class="wide">Копия со сдвигом</button>
+          <div class="row2"><label>Зеркало по<select id="mAx"><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></label><label>плоскость, мм<input class="inp" id="mC" type="number" value="0"></label></div>
+          <button id="bMirror" type="button" class="wide">Зеркальная копия</button>
+        </div>
+
+        <div class="grp" data-g="grp"><button type="button" class="gt">Сборки (группы)</button>
+          <div id="grpBox"></div>
+          <div class="row2"><input class="inp" id="gName" placeholder="Название, напр. Ферма 1СБ"><button id="bGrp" type="button">Создать из выбранного</button></div>
+        </div>
+
+        <div class="grp" data-g="view"><button type="button" class="gt">Вид</button>
+          <label class="chk"><input type="checkbox" id="cWeld" checked><span>Места приварки (труба лежит на трубе) — оранжевые кольца; пересечения — красные</span></label>
+          <div class="btns"><button id="bUndo" type="button" title="Ctrl+Z">↶ Отменить</button><button id="bRedo" type="button" title="Ctrl+Y">↷ Вернуть</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tabs">
+    <div class="tabbar" role="tablist">
+      <button role="tab" data-tab="dims" aria-selected="true">Размеры</button>
+      <button role="tab" data-tab="cut" aria-selected="false">Раскрой</button>
+      <button role="tab" data-tab="spec" aria-selected="false">Спецификация</button>
+      <button role="tab" data-tab="metal" aria-selected="false">Металл</button>
+      <button role="tab" data-tab="sheets" aria-selected="false">Чертежи</button>
+      <button role="tab" data-tab="json" aria-selected="false">Модель (JSON)</button>
+    </div>
+    <div class="tabpane" id="tab-dims" role="tabpanel">
+      <p class="tabnote">Отметьте нужные размеры — они появятся на 3D-модели</p>
+      <div class="dimbar"><button id="dAll" type="button">Показать все</button><button id="dNone" type="button">Скрыть все</button></div>
+      <div class="dimgrid" id="dimList"></div>
+    </div>
+    <div class="tabpane" id="tab-cut" role="tabpanel" hidden>
+      <p class="tabnote">Длина реза — по длинной грани, целые мм. Угол — угол реза к оси трубы (90° — прямой рез)</p>
+      <div class="warnbox" id="warn" hidden></div>
+      <div class="tbl"><table id="cut"></table></div>
+    </div>
+    <div class="tabpane" id="tab-spec" role="tabpanel" hidden>
+      <p class="tabnote">По сборкам: количество на одну сборку и всего</p>
+      <div class="tbl"><table id="spec"></table></div>
+    </div>
+    <div class="tabpane" id="tab-metal" role="tabpanel" hidden>
+      <p class="tabnote">Хлысты по 6 м, рез 2 мм. Берите с запасом</p>
+      <div class="tbl"><table id="metal"></table></div>
+    </div>
+    <div class="tabpane" id="tab-sheets" role="tabpanel" hidden>
+      <p class="tabnote">Листы А3 для производства: общий вид, сборки со спецификацией, детали с длиной реза и углами. Размеры в мм</p>
+      <div class="dimbar"><button id="shPdf" type="button">Скачать PDF</button><select id="shGo" aria-label="Перейти к листу"></select><span class="dxfmsg" id="shMsg">PDF: в окне печати выберите «Сохранить как PDF», формат A3, альбомная</span></div>
+      <div class="sheets" id="sheets"></div>
+    </div>
+    <div class="tabpane" id="tab-json" role="tabpanel" hidden>
+      <p class="tabnote">Модель целиком: узлы, трубы, стыки, сборки. Можно вставить модель, собранную по описанию, и нажать «Применить»</p>
+      <textarea id="jsonTxt" class="json" spellcheck="false"></textarea>
+      <div class="dimbar"><button id="jApply" type="button">Применить</button><button id="jCopy" type="button">Скопировать</button><span class="dxfmsg" id="jMsg"></span></div>
+    </div>
+  </section>
+
+  <footer>
+    <span class="ver">v0.3.1</span>
+    <span>email: <a href="mailto:vashaklach@gmail.com">vashaklach@gmail.com</a></span>
+  </footer>
+</div>
+
+<script src="../vendor/three/three.min.js"></script>
+<script src="../vendor/three/OrbitControls.js"></script>
+<script src="../vendor/three/CSS2DRenderer.js"></script>
+<script src="js/profiles.js?v=0.3.1"></script>
+<script src="js/model.js?v=0.3.1"></script>
+<script src="js/dims.js?v=0.3.1"></script>
+<script src="js/view3d.js?v=0.3.1"></script>
+<script src="js/edit.js?v=0.3.1"></script>
+<script src="js/examples.js?v=0.3.1"></script>
+<script src="js/ui.js?v=0.3.1"></script>
+<script src="js/sheets.js?v=0.3.1"></script>
+<script src="js/help.js?v=0.3.1"></script>
+<div id="printBox"></div>
+</body>
+</html>
