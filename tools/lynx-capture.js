@@ -1,5 +1,5 @@
 // Сборщик рыси для лендинга (только для разработки): node tools/lynx-capture.js <версия>
-// Забирает из C:\dev\metal-designer модель, цифры и картинки рыси и кладёт в lynx/. C:\dev только читается
+// Забирает из from-dev/ (локальная копия бывшего хобби-сайта, в git не идёт) модель, цифры и картинки рыси и кладёт в lynx/. from-dev/ только читается
 const vm = require('node:vm');
 
 // Текст plates-lynxN.js → {version, name, H, V, P}. V и P — как есть: V — мм×10, P — углы граней, -1 — конец грани
@@ -36,7 +36,7 @@ function statsTiles(rows, {H, t, mat}) {
 
 module.exports = {polyToModel, statsTiles};
 
-const DEV = 'C:/dev/metal-designer';
+const DEV = require('node:path').join(__dirname, '..', 'from-dev');
 const PHOTOS = ['2_Poing_07_anfas.jpg', '3_Hellabrunn_profil.jpg', '3_Hellabrunn_szadi.jpg'];
 const JPEG = {type: 'jpeg', quality: 80};
 // Поверх 3D — кнопки видов, подсказки, подписи: на снимке их нет
@@ -141,7 +141,7 @@ async function capture(version, rework) {
     const page = await browser.newPage({viewport: {width: 1400, height: 900}});
     page.on('pageerror', e => console.error('Ошибка на странице:', e.message));
     for (const [i, f] of PHOTOS.entries())
-      out[`photo-${i + 1}.jpg`] = await shotPhoto(page, path.join(DEV, '..', 'lynx_meshy', f));
+      out[`photo-${i + 1}.jpg`] = await shotPhoto(page, path.join(DEV, 'lynx_meshy', f));
 
     console.log('Раскрой (до 10 минут)…');
     await page.goto(`${url}#f=${id}`);

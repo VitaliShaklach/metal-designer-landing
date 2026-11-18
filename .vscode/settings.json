@@ -1,0 +1,8 @@
+{
+  "search.exclude": {
+    "from-dev/**": true
+  },
+  "files.watcherExclude": {
+    "**/from-dev/**": true
+  }
+}
