@@ -1103,10 +1103,11 @@ test('home: две карточки ведут на мангал и рысь', a
   await expect(page).toHaveURL(/\/editor\/lynx\/$/);
 });
 
-test('home: призыв писать Виталию', async ({page}) => {
+test('home: блока «Пришлите фото» нет, кнопка Telegram в шапке', async ({page}) => {
   await openEditor(page, '/editor/');
-  await expect(page.getByText('Пришлите фото и пожелания — спроектирую ваше изделие бесплатно')).toBeVisible();
-  const tg = page.locator('a[href="https://t.me/SHVA_1984"]').first();
+  await expect(page.getByText('Пришлите фото и пожелания')).toHaveCount(0);
+  await expect(page.locator('.cta')).toHaveCount(0);
+  const tg = page.locator('a.top-tg[href="https://t.me/SHVA_1984"]');
   await expect(tg).toBeVisible();
   await expect(tg).toHaveAttribute('target', '_blank');
 });
