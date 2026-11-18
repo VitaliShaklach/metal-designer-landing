@@ -3,21 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Искусство — фигуры из листового металла</title>
-<meta name="description" content="Полигональные фигуры из листа: голова собаки. Растягивайте фигуру — детали, масса, длина реза и швов пересчитываются.">
-<meta property="og:type" content="website">
-<meta property="og:title" content="Искусство — фигуры из листа · Metal Designer">
-<meta property="og:image" content="https://vitalishaklach.github.io/metal-designer/art/og.png">
-<meta property="og:description" content="Фигура из плоских деталей листа: растяжение, детали, масса, рез и швы.">
-<link rel="icon" href="../mangal/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../fonts/fonts.css">
-<link rel="stylesheet" href="css/style.css?v=0.27.1">
+<title>Доберман 11 — фигура из листа · Редактор</title>
+<meta name="description" content="Доберман из листа металла. Растягивайте фигуру — детали, масса, длина реза и швов пересчитываются.">
+<link rel="icon" href="../editor/mangal/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../fonts/fonts.css?v=2026-11-19a">
+<link rel="stylesheet" href="../editor/editor.css?v=2026-11-19a">
+<link rel="stylesheet" href="css/style.css?v=2026-11-19a">
 </head>
 <body>
+<div class="edbar">
+  <a class="edbar-back" href="../editor/">← Все изделия</a>
+  <a class="edbar-tg" href="https://t.me/SHVA_1984" target="_blank" rel="noopener">Прислать фото и пожелания в Telegram</a>
+</div>
 <div class="wrap">
   <header>
     <div>
-      <div class="eyebrow"><a href="../index.html">Metal Designer</a> · искусство · фигуры из листа · размеры в мм</div>
+      <div class="eyebrow">Metal Designer · фигуры из листа · размеры в мм</div>
       <h1 id="ttl">Фигура</h1>
       <p class="lede">Гранёная фигура из плоских деталей листа. Задайте высоту, ширину и глубину — детали, масса, длина реза и швов пересчитываются сами. Можно открыть свою модель OBJ, STL или GLB.</p>
     </div>
@@ -27,7 +28,7 @@
   <section>
     <div class="pick">
       <label><span class="t">Название</span><input id="mName" class="inp" value=""></label>
-      <label style="display:none"><span class="t">Фигура</span><select id="figSel"><option value="" hidden>— своя модель —</option><option value="doberman11">Доберман 11</option></select></label>
+      <label><span class="t">Фигура</span><select id="figSel"><option value="doberman11">Доберман 11</option></select></label>
       <div class="btns"><button id="bOpen" type="button">Открыть модель</button><button id="bSave" type="button">Сохранить</button></div>
       <input type="file" id="fileIn" accept=".obj,.stl,.glb,.json" hidden>
       <span class="pickhint" id="msg"></span>
@@ -103,11 +104,11 @@
 
   <section class="tabs">
     <div class="tabbar" role="tablist">
-      <button role="tab" data-tab="parts" aria-selected="true">Детали</button>
-      <button role="tab" data-tab="sum" aria-selected="false">Итого</button>
-      <button role="tab" data-tab="nest" aria-selected="false">Раскрой</button>
-      <button role="tab" data-tab="sheets" aria-selected="false">Чертежи</button>
-      <button role="tab" data-tab="cards" aria-selected="false">Карты деталей</button>
+      <button role="tab" data-tab="parts" aria-selected="true"><b>Детали</b><small>размеры, соседи, выбор на модели</small></button>
+      <button role="tab" data-tab="sum" aria-selected="false"><b>Итого</b><small>масса, рез, швы, листы</small></button>
+      <button role="tab" data-tab="nest" aria-selected="false"><b>Лазер · DXF</b><small>раскрой на лист и DXF</small></button>
+      <button role="tab" data-tab="sheets" aria-selected="false"><b>Чертежи</b><small>листы А3 и PDF для печати</small></button>
+      <button role="tab" data-tab="cards" aria-selected="false"><b>Карты деталей</b><small>А4 на каждую деталь: рез, швы, гибка</small></button>
     </div>
     <div class="tabpane" id="tab-parts" role="tabpanel">
       <p class="tabnote">Каждая деталь — плоский лист. Размер — по габариту развёртки, ширина — самая узкая. Соседи — с кем деталь сваривается. Клик по строке — модель повернётся этой деталью к вам; общий вид — кнопки над моделью</p>
@@ -117,21 +118,33 @@
     <div class="tabpane" id="tab-sum" role="tabpanel" hidden>
       <div class="warnbox" id="warn" hidden></div>
       <div class="tbl"><table id="sum"></table></div>
-      <p class="tabnote">Листов — по раскладке деталей (вкладка «Раскрой»). DXF и PDF — во вкладках «Раскрой» и «Чертежи»</p>
+      <p class="tabnote">Листов — по раскладке деталей (вкладка «Лазер · DXF»). DXF и PDF — во вкладках «Лазер · DXF» и «Чертежи»</p>
     </div>
     <div class="tabpane" id="tab-nest" role="tabpanel" hidden>
-      <p class="tabnote">Детали разложены на лист металла с зазором под рез (поле «Между деталями на листе» в разделе «Металл»: по умолчанию 5 мм: лазеру хватает 3–5, плазме нужно 6–8) и отступом 10 мм от края. Контуры — уже с учётом толщины и шва</p>
-      <div class="dimbar"><button id="bDxfNest" type="button">DXF раскрой</button><span class="dxfmsg" id="nestMsg"></span></div>
-      <div class="sheets" id="nestBox"></div>
+      <div class="subtabs" role="tablist" aria-label="Кому файлы">
+        <button role="tab" id="st-laser" data-sub="laser" aria-selected="true" aria-controls="sub-laser"><b>Лазер</b><small>лазерщику: раскрой на лист</small></button>
+        <button role="tab" id="st-gil" data-sub="gil" aria-selected="false" aria-controls="sub-gil" tabindex="-1"><b>Гильотина</b><small>не подходит: мелкие детали</small></button>
+      </div>
+      <div class="subpane" id="sub-laser" role="tabpanel" aria-labelledby="st-laser">
+        <p class="tabnote">Детали разложены на лист металла с зазором под рез (поле «Между деталями на листе» в разделе «Металл»: по умолчанию 5 мм: лазеру хватает 3–5, плазме нужно 6–8) и отступом 10 мм от края. Контуры — уже с учётом толщины и шва</p>
+        <div class="dimbar nestbar"><button id="nestRun" class="calcbtn" type="button">Рассчитать</button><button id="bDxfNest" type="button" disabled>DXF раскрой</button></div>
+        <div class="nestwait" id="nestWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Считаю раскрой, это может занять несколько минут</span><span class="nestCnt"></span></div>
+        <div class="sheets" id="nestBox"></div>
+      </div>
+      <div class="subpane" id="sub-gil" role="tabpanel" aria-labelledby="st-gil" hidden>
+        <p class="tabnote">Гильотина не подходит: мелкие детали</p>
+      </div>
     </div>
     <div class="tabpane" id="tab-sheets" role="tabpanel" hidden>
       <p class="tabnote">Листы А3 для производства: общий вид, порядок сборки, гибка, спецификация, уголки, раскрой. Каждый элемент и деталь отдельно — во вкладке «Карты деталей». Размеры в мм</p>
-      <div class="dimbar"><button id="shPdf" type="button">Скачать PDF (А3)</button><button id="bDxfParts" type="button">DXF детали</button><select id="shGo" aria-label="Перейти к листу"></select><span class="dxfmsg">PDF: в окне печати выберите «Сохранить как PDF»; формат А3 уже задан</span></div>
+      <div class="dimbar nestbar"><button id="shRun" class="calcbtn" type="button">Рассчитать</button><button id="shPdf" type="button" disabled>Скачать PDF (А3)</button><button id="bDxfParts" type="button">DXF детали</button><span class="dxfmsg">PDF: в окне печати выберите «Сохранить как PDF»; формат А3 уже задан</span></div>
+      <div class="nestwait" id="shWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Считаю раскрой, это может занять несколько минут</span><span class="nestCnt"></span></div>
       <div class="sheets" id="sheets"></div>
     </div>
     <div class="tabpane" id="tab-cards" role="tabpanel" hidden>
       <p class="tabnote">Лист А4 на каждый элемент и деталь (зеркальная пара — на одном): развёртка с размерами, где он на фигуре, готовый вид, гибка по порядку и швы — у каждого угла его чертёж и чем выставить. Клик по карте — крупно</p>
-      <div class="dimbar"><button id="shCards" type="button">Скачать PDF (А4)</button><select id="cdGo" aria-label="Перейти к карте"></select><span class="dxfmsg" id="cdMsg"></span></div>
+      <div class="dimbar nestbar"><button id="cdRun" class="calcbtn" type="button">Рассчитать</button><button id="shCards" type="button" disabled>Скачать PDF (А4)</button></div>
+      <div class="nestwait" id="cdWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Строю карты деталей, это может занять время</span><span id="cdCnt"></span></div>
       <div class="sheets cards" id="cards"></div>
     </div>
   </section>
@@ -143,21 +156,23 @@
 </div>
 
 <div class="zoom" id="zoom" hidden><div class="zoombar"><span id="zoomTtl"></span><button type="button" id="zoomOut" aria-label="Мельче">−</button><span id="zoomK">100%</span><button type="button" id="zoomIn" aria-label="Крупнее">+</button><button type="button" id="zoomFit">Весь лист</button><button type="button" id="zoomX" aria-label="Закрыть">✕</button></div><div class="zoombox" id="zoomBox"></div></div>
-<script src="../vendor/three/three.min.js"></script>
-<script src="../vendor/three/OrbitControls.js"></script>
-<script src="../vendor/three/CSS2DRenderer.js"></script>
-<script src="js/mesh.js?v=0.27.1"></script>
-<script src="js/models-poly.js?v=0.27.1"></script>
-<script src="js/figures.js?v=0.27.1"></script>
-<script src="js/edit.js?v=0.27.1"></script>
-<script src="js/trace.js?v=0.27.1"></script>
-<script src="js/view3d.js?v=0.27.1"></script>
-<script src="js/prod.js?v=0.27.1"></script>
-<script src="js/bend.js?v=0.27.1"></script>
-<script src="js/bend3d.js?v=0.27.1"></script>
-<script src="js/sheets.js?v=0.27.1"></script>
-<script src="js/ui.js?v=0.27.1"></script>
-<script src="js/tips.js?v=0.27.1"></script>
+<script src="../vendor/three/three.min.js?v=2026-11-19a"></script>
+<script src="../vendor/three/OrbitControls.js?v=2026-11-19a"></script>
+<script src="../vendor/three/CSS2DRenderer.js?v=2026-11-19a"></script>
+<script src="../editor/common/calc.js?v=2026-11-19a"></script>
+<script src="js/mesh.js?v=2026-11-19a"></script>
+<script src="js/models-poly.js?v=2026-11-19a"></script>
+<script src="js/figures.js?v=2026-11-19a"></script>
+<script src="js/plates-doberman11.js?v=2026-11-19a"></script>
+<script src="js/edit.js?v=2026-11-19a"></script>
+<script src="js/trace.js?v=2026-11-19a"></script>
+<script src="js/view3d.js?v=2026-11-19a"></script>
+<script src="js/prod.js?v=2026-11-19a"></script>
+<script src="js/bend.js?v=2026-11-19a"></script>
+<script src="js/bend3d.js?v=2026-11-19a"></script>
+<script src="js/sheets.js?v=2026-11-19a"></script>
+<script src="js/ui.js?v=2026-11-19a"></script>
+<script src="js/tips.js?v=2026-11-19a"></script>
 <div id="printBox"></div>
 </body>
 </html>

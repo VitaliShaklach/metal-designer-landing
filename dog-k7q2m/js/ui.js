@@ -7,8 +7,8 @@ const store=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localSto
 function msg(t){$('msg').textContent=t||'';}
 
 // состояние фигуры
-const ST={frame:null,edit:false,sym:true,sv:-1,sp:-1,sp2:-1,seam:null,trace:false,refId:'',name:'',fig:'dog',base:null,faces:260,diss:0,dims:{W:0,H:600,D:0},prop:true,t:2,mat:'steel',sheet:'1250x2500',sw:1250,sl:2500,cut:'laser',minW:15,weld:'tig',gap:0.5,useT:true,ngap:5,ngapOwn:false,engrave:true,tpl:false,bend:true,perf:true,perfL:2,perfStep:20,perfEdge:10,selB:-1,allParts:false,sel:-1,nums:false,small:true};
-let SIMP={key:'',m:null},CUR=null,SHEETS_OLD=true,SHEETS_T=0;   // CUR = {M3,R,T,small}
+const ST={frame:null,edit:false,sym:true,sv:-1,sp:-1,sp2:-1,seam:null,trace:false,refId:'',name:'',fig:'doberman11',base:null,faces:260,diss:0,dims:{W:0,H:600,D:0},prop:true,t:2,mat:'steel',sheet:'1250x2500',sw:1250,sl:2500,cut:'laser',minW:15,weld:'tig',gap:0.5,useT:true,ngap:5,ngapOwn:false,engrave:true,tpl:false,bend:true,perf:true,perfL:2,perfStep:20,perfEdge:10,selB:-1,allParts:false,sel:-1,nums:false,small:true};
+let SIMP={key:'',m:null},CUR=null,CALC_KEY='';   // CUR = {M3,R,T,small}
 const DENSE=2000;                    // больше стольких треугольников — модель гладкая, упрощаем
 const isDense=()=>!ST.base.P&&ST.base.F.length>DENSE;
 const isPoly=()=>!!ST.base.P;   // модель из граней-многоугольников (руками / в редакторе) — живёт в мм как есть
@@ -44,15 +44,21 @@ function prodCalc(){const R=CUR.R,[W,H]=sheetWL();CUR.C=R.parts.map(p=>cutContou
   // с гибкой — тоже внутренней стороной вверх: V и m на гравировке — «на себя» и «от себя»
   NEST.args=[W,H,ST.ngap,10,2.5,2,ST.engrave||ST.bend];
   NEST.want=JSON.stringify([NEST.args,NEST.items.map(o=>[o.no,o.pts.map(q=>q.map(v=>Math.round(v*10)))])]);CUR.N=NEST.key===NEST.want?NEST.N:null;
-  CUR.cutLen=CUR.PC.reduce((a,o)=>a+perim(o.pts),0);CUR.degen=CUR.PC.filter(o=>o.bad).length;SHEETS_OLD=true;}
+  CUR.cutLen=CUR.PC.reduce((a,o)=>a+perim(o.pts),0);CUR.degen=CUR.PC.filter(o=>o.bad).length;CALC_KEY=calcKeyOf();}
+// ключ задания для «Рассчитать» (editor/common/calc.js): всё, от чего раскрой, чертежи и карты были бы другими — фигура и точки, толщина, шов, резка, лист, галочки. Выбор детали, вид 3D, вкладка в него не входят
+function calcKeyOf(){let h=0;CUR.M3.V.forEach(p=>{h=(Math.imul(h,31)+Math.round(p[0]*10)*7+Math.round(p[1]*10)*13+Math.round(p[2]*10)*17)|0;});
+  return JSON.stringify([NEST.want,h,CUR.M3.V.length,(CUR.M3.P||CUR.M3.F||[]).length,CUR.R.parts.length,ST.name,ST.t,ST.mat,ST.weld,ST.cut,ST.gap,ST.useT,ST.bend,ST.tpl,ST.engrave,ST.perf,ST.perfL,ST.perfStep,ST.perfEdge,ST.sheet,ST.sw,ST.sl,ST.ngap]);}
 function compute(){compute0();prodCalc();}
 const NEST={key:'',want:'',N:null,run:null,wait:[]};
 // раскладка по кусочкам, чтобы страница не замирала; cb — когда готово
+const nestCnt=t=>document.querySelectorAll('.nestCnt').forEach(e=>{e.textContent=t;});   // индикатор (кольцо и «Считаю…») показывает calc.js, счёт — здесь
 function ensureNest(cb){if(CUR&&CUR.N){cb&&cb();return;}if(cb)NEST.wait.push(cb);if(NEST.run&&NEST.run.key===NEST.want)return;
   const key=NEST.want,g=nestGen(NEST.items,...NEST.args),run={key};NEST.run=run;
-  const step=()=>{if(NEST.run!==run)return;const t0=performance.now();let v;do{v=g.next();}while(!v.done&&performance.now()-t0<60);
-    if(!v.done){const m=$('nestMsg');if(m)m.textContent=`Раскладываю детали по форме… ${v.value.done} из ${v.value.of}`;setTimeout(step,0);return;}
-    NEST.key=key;NEST.N=v.value;NEST.run=null;if(CUR&&NEST.want===key)CUR.N=v.value;const w=NEST.wait;NEST.wait=[];w.forEach(f=>f());if(!$('tab-sum').hidden)sumTable();};
+  const step=()=>{if(NEST.run!==run)return;const t0=performance.now();let v;
+    try{do{v=g.next();}while(!v.done&&performance.now()-t0<60);}
+    catch(e){NEST.run=null;NEST.wait=[];failAll();throw e;}   // упало посреди счёта — кнопки не висят на «Считаю…»
+    if(!v.done){nestCnt(`· ${v.value.done} из ${v.value.of}`);setTimeout(step,0);return;}
+    nestCnt('');NEST.key=key;NEST.N=v.value;NEST.run=null;if(CUR&&NEST.want===key)CUR.N=v.value;const w=NEST.wait;NEST.wait=[];w.forEach(f=>f());if(!$('tab-sum').hidden)sumTable();};
   setTimeout(step,0);}
 function compute0(){const b=ST.base;let S=b;
   if(isPoly()){const M3={V:b.V,F:b.F,T:b.T,S:b.S},R=buildParts(M3,1.5,1.5),wl=FIGURES[ST.fig]?.noBack?0:addBacking(R,M3,FIGURES[ST.fig]?.backIf),_p=pairNumbers(R,M3.V),T=totals(R,{t:ST.t,mat:ST.mat,sheet:sheetWL()});T.weld+=wl;T.open=Math.max(0,T.open-wl);
@@ -232,10 +238,10 @@ const perfFix=()=>{ST.perfL=Math.min(10,Math.max(1,ST.perfL||2));ST.perfStep=Mat
 // клик по модели: строку таблицы — в видимую часть её собственной прокрутки (если она есть); страницу не трогаем
 function revealRow(tr){for(let el=tr&&tr.parentElement;el&&el!==document.body;el=el.parentElement){const oy=getComputedStyle(el).overflowY;if((oy!=='auto'&&oy!=='scroll')||el.scrollHeight<=el.clientHeight)continue;
   const r=tr.getBoundingClientRect(),b=el.getBoundingClientRect();if(r.top<b.top)el.scrollTop+=r.top-b.top;else if(r.bottom>b.bottom)el.scrollTop+=r.bottom-b.bottom;return;}}
-// клик по строке таблицы: открыть «Вид» и плавно показать эскиз детали; на телефоне — в шторке
-function showSel(){const pn=$('controls'),sb=$('selBox'),bh=matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth';pn.querySelector('[data-g="view"]').classList.remove('shut');
+// клик по строке таблицы: открыть «Вид» и плавно показать эскиз детали; на телефоне шторку не открываем — ведём страницу к модели
+function showSel(){const sb=$('selBox'),bh=matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth';$('controls').querySelector('[data-g="view"]').classList.remove('shut');
   if(getComputedStyle($('drawerBtn')).display==='none'){sb.scrollIntoView({behavior:bh,block:'nearest'});return;}
-  drawer(true);pn.scrollTo({top:pn.scrollTop+sb.getBoundingClientRect().top-pn.getBoundingClientRect().top-(pn.querySelector('.drawerhead')?.offsetHeight||0)-8,behavior:bh});}
+  drawer(false);$('stage').scrollIntoView({behavior:bh,block:'start'});}
 $('parts').addEventListener('click',e=>{const tb=e.target.closest('tr[data-b]'),tr=e.target.closest('tr[data-p]');if(!tb&&!tr)return;
   // заготовка: подсветить целиком, камера — на неё (средняя точка и нормаль по площади)
   if(tb){const b=CUR.BL[+tb.dataset.b];ST.selB=+tb.dataset.b;ST.sel=-1;renderAll();const ps=b.parts.map(i=>CUR.R.parts[i]),A=ps.reduce((s,p)=>s+p.area,0);
@@ -247,21 +253,49 @@ document.querySelectorAll('.vbar [data-v]').forEach(b=>b.addEventListener('click
 $('bFit').addEventListener('click',()=>CUR&&fitBox(meshBox(CUR.M3.V)));
 // вкладки и группы панели
 const TABS=[...document.querySelectorAll('.tabbar button')];
-function showTab(k){TABS.forEach(b=>{const on=b.dataset.tab===k;b.setAttribute('aria-selected',String(on));$('tab-'+b.dataset.tab).hidden=!on;});store('art-tab',k);if(k==='sheets'||k==='nest'||k==='cards')sheetsUI(true);if(k==='sum'&&CUR)sumTable();}
-TABS.forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));showTab(['sum','nest','sheets','cards'].includes(store('art-tab'))?store('art-tab'):'parts');
+function showTab(k){TABS.forEach(b=>{const on=b.dataset.tab===k;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;$('tab-'+b.dataset.tab).hidden=!on;});store('art-tab',k);if(k==='sum'&&CUR)sumTable();}
+TABS.forEach((b,i)=>{b.addEventListener('click',()=>showTab(b.dataset.tab));
+  b.addEventListener('keydown',e=>{const d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(!d)return;const n=TABS[(i+d+TABS.length)%TABS.length];n.focus();showTab(n.dataset.tab);});});// страница всегда открывается на «Деталях»: запомненная вкладка (art-tab) старт не определяет, иначе тяжёлый расчёт «Чертежей»/«Раскроя» вешает загрузку
+showTab('parts');
+// внутренние вкладки «Лазер · DXF»: Лазер | Гильотина; каждая открывает свою панель #sub-<data-sub>, выбор не запоминается
+document.querySelectorAll('.subtabs').forEach(bar=>{const bs=[...bar.querySelectorAll(':scope>[role=tab]')];
+  const show=k=>bs.forEach(b=>{const on=b.dataset.sub===k;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;$('sub-'+b.dataset.sub).hidden=!on;});
+  bs.forEach((b,i)=>{b.addEventListener('click',()=>show(b.dataset.sub));
+    b.addEventListener('keydown',e=>{const d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(!d)return;const n=bs[(i+d+bs.length)%bs.length];n.focus();show(n.dataset.sub);});});});
 document.querySelectorAll('.controls .grp').forEach(g=>g.querySelector('.gt').addEventListener('click',()=>g.classList.toggle('shut')));
 function drawer(o){const bt=$('drawerBtn');$('controls').classList.toggle('open',o);bt.setAttribute('aria-expanded',String(o));bt.textContent=o?'Готово':'Панель';}
 $('drawerBtn').addEventListener('click',()=>drawer(!$('controls').classList.contains('open')));$('drawerClose').addEventListener('click',()=>drawer(false));
-/* ---------- раскрой, чертежи, карты: строим только открытую вкладку, через 0,5 с после правки; картам раскладка не нужна ---------- */
-function sheetsUI(now){clearTimeout(SHEETS_T);const vis=!$('tab-sheets').hidden||!$('tab-nest').hidden||!$('tab-cards').hidden;if(!vis||!CUR)return;
-  if(!now){SHEETS_T=setTimeout(()=>sheetsUI(true),500);return;}
-  if(!$('tab-cards').hidden){const cd=buildCards();$('cards').innerHTML=cd.map((s,i)=>`<figure class="sheet" id="card${i+1}"><figcaption>Лист ${i+1} из ${cd.length} · ${esc(s.title)}</figcaption>${s.svg}</figure>`).join('');
-    $('cdGo').innerHTML=cd.map((s,i)=>`<option value="card${i+1}">Карта ${i+1} · ${esc(s.title)}</option>`).join('');$('cdMsg').textContent=cd.length?`Карт: ${cd.length} · позиций на резку: ${CUR.PC.length}`:'';return;}
-  if(!CUR.N){ensureNest(()=>sheetsUI(true));return;}SHEETS_OLD=false;
-  if(!$('tab-nest').hidden){const L=sheetsNest(),d=new Date(),date=d.toLocaleDateString('ru-RU');$('nestBox').innerHTML=L.map((b,i)=>`<figure class="sheet"><figcaption>Раскрой ${i+1} из ${L.length}</figcaption>${wrapSheet(b,{n:i+1,N:L.length,date})}</figure>`).join('');
-    const s0=CUR.N.sheets[0];$('nestMsg').textContent=`Листов: ${CUR.N.sheets.length} · ${itemsTxt(CUR.N.sheets.flatMap(s=>s.items))} · зазор ${ST.ngap} мм${s0?` · плотность ${Math.round(s0.dense*100)}% в полосе с деталями ${sheetWL()[1]} × ${Math.round(s0.len)} мм, остальное свободно`:''} · ${cutTxt(cutStats(CUR.N.sheets.flatMap(s=>s.items)))}${CUR.degen?' · выродились: '+CUR.degen:''}`;}
-  if(!$('tab-sheets').hidden){const sh=buildSheets();$('sheets').innerHTML=sh.map((s,i)=>`<figure class="sheet" id="sheet${i+1}"><figcaption>Лист ${i+1} из ${sh.length} · ${esc(s.title)}</figcaption>${s.svg}</figure>`).join('');
-    $('shGo').innerHTML=sh.map((s,i)=>`<option value="sheet${i+1}">Лист ${i+1} · ${esc(s.title)}</option>`).join('');}}
+/* ---------- раскрой, чертежи, карты: только по кнопке «Рассчитать» (editor/common/calc.js), как в мангале ----------
+   Открытие вкладки ничего не считает. Результат держится, пока не поменялся ключ задания (calcKeyOf): правка фигуры, точек, толщины и т. п. его убирает,
+   смена вкладки и вида 3D — нет. «Чертежи» сами запускают раскрой, если его нет (раскрой листа входит в комплект всегда) */
+let SHEETS_LIST=[],CARDS_LIST=[];
+const figs=(L,id)=>L.map((s,i)=>`<figure class="sheet" id="${id}${i+1}"><figcaption>Лист ${i+1} из ${L.length} · ${esc(s.title)}</figcaption>${s.svg}</figure>`).join('');
+const goBar=(L,id,what,msg)=>`<div class="dimbar"><select id="${id}Go" aria-label="Перейти к ${what}">${L.map((s,i)=>`<option value="${id}${i+1}">${what==='листу'?'Лист':'Карта'} ${i+1} · ${esc(s.title)}</option>`).join('')}</select>${msg?`<span class="dxfmsg">${msg}</span>`:''}</div>`;
+function nestHtml(){const L=sheetsNest(),d=new Date(),date=d.toLocaleDateString('ru-RU'),s0=CUR.N.sheets[0];
+  return `<p class="dxfmsg">Листов: ${CUR.N.sheets.length} · ${itemsTxt(CUR.N.sheets.flatMap(s=>s.items))} · зазор ${ST.ngap} мм${s0?` · плотность ${Math.round(s0.dense*100)}% в полосе с деталями ${sheetWL()[1]} × ${Math.round(s0.len)} мм, остальное свободно`:''} · ${cutTxt(cutStats(CUR.N.sheets.flatMap(s=>s.items)))}${CUR.degen?' · выродились: '+CUR.degen:''}</p>`
+    +L.map((b,i)=>`<figure class="sheet"><figcaption>Раскрой ${i+1} из ${L.length}</figcaption>${wrapSheet(b,{n:i+1,N:L.length,date})}</figure>`).join('');}
+const CALCS=[];
+const calcFor=(ids,key,run)=>{const c=makeCalc({btn:$(ids.run),box:$(ids.box),save:$(ids.save),wait:$(ids.wait),key,run});CALCS.push(c);return c;};
+const failAll=()=>{nestCnt('');CALCS.forEach(c=>c.stale());};
+// «Лазер · DXF»: раскладка (ensureNest — кусками по ~60 мс), потом рисунки
+const NEST_CALC=calcFor({run:'nestRun',box:'nestBox',save:'bDxfNest',wait:'nestWait'},()=>CALC_KEY,(done,live)=>ensureNest(()=>setTimeout(()=>{if(!live())return;
+  try{done(nestHtml());}catch(e){failAll();throw e;}},0)));
+// «Чертежи»: раскрой — свой, если ещё не считали (ensureNest), потом комплект одним куском после отрисовки «Считаю…»
+const SHEETS_CALC=calcFor({run:'shRun',box:'sheets',save:'shPdf',wait:'shWait'},()=>CALC_KEY,(done,live)=>ensureNest(()=>setTimeout(()=>{if(!live())return;
+  try{const sh=buildSheets();if(done(goBar(sh,'sh','листу')+figs(sh,'sheet')))SHEETS_LIST=sh;}catch(e){failAll();throw e;}},0)));
+// «Карты»: раскладка не нужна, считаются по одной
+const CARDS_CALC=calcFor({run:'cdRun',box:'cards',save:'shCards',wait:'cdWait'},()=>CALC_KEY,(done,live)=>{const g=buildCardsGen();$('cdCnt').textContent='';
+  const step=()=>{if(!live())return;const t0=performance.now();let v;
+    try{do{v=g.next();}while(!v.done&&performance.now()-t0<60);
+      if(!v.done){$('cdCnt').textContent=`· ${v.value.what} ${v.value.done} из ${v.value.of}`;setTimeout(step,0);return;}
+      const cd=v.value;$('cdCnt').textContent='';if(done(goBar(cd,'cd','карте',cd.length?`Карт: ${cd.length} · позиций на резку: ${CUR.PC.length}`:'')+figs(cd,'card')))CARDS_LIST=cd;}
+    catch(e){$('cdCnt').textContent='';failAll();throw e;}};
+  setTimeout(step,50);});
+// правка: через 0,5 с (ползунки не дёргаем) ключ каждого расчёта сверяется с ключом его результата; другой — результат убран, «Рассчитать» активна
+let CALC_T=0;
+function sheetsUI(){clearTimeout(CALC_T);if(!CUR)return;CALC_T=setTimeout(()=>CALCS.forEach(c=>c.check()),500);}
+// «Перейти к листу / карте» — внутри результата
+['sheets','cards'].forEach(id=>$(id).addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('select'))return;const el=$(t.value);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});}));
 /* ---------- лист крупно: клик по листу раскроя или чертежа — на весь экран; колесо или + − — масштаб, тянуть — двигать, Esc — закрыть ---------- */
 const ZM={k:1};
 function zoomSet(k,cx,cy){const box=$('zoomBox'),s=box.querySelector('svg');if(!s)return;const r=box.getBoundingClientRect(),px=cx??r.width/2,py=cy??r.height/2,fx=(box.scrollLeft+px)/s.clientWidth,fy=(box.scrollTop+py)/s.clientHeight;
@@ -281,15 +315,15 @@ $('zoomBox').addEventListener('wheel',e=>{e.preventDefault();const r=$('zoomBox'
 // на листе крупно — тоже: тап по снимку сгиба без сдвига (лист тянут — не открываем); цель — по точке: при захвате указателя click приходит в само окно
 (()=>{const box=$('zoomBox');let p0=null;box.addEventListener('pointerdown',e=>{p0=[e.clientX,e.clientY];});
   box.addEventListener('click',e=>{if(!p0||Math.hypot(e.clientX-p0[0],e.clientY-p0[1])>6)return;const el=document.elementFromPoint(e.clientX,e.clientY),im=el&&el.closest&&el.closest('image.bsh[data-b]');if(im)bwOpen(+im.getAttribute('data-b'),+im.getAttribute('data-k'));});})();
-['shGo','cdGo'].forEach(id=>$(id).addEventListener('change',e=>{const el=$(e.target.value);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});}));
 // печать листов: А3 альбомная или А4 книжная — размер страницы задаём на время печати (один PDF с А3 и А4 вперемешку браузеры печатают ненадёжно)
 function printSvgs(L,what,a4){const pb=$('printBox'),pg=document.createElement('style');pb.innerHTML=L.join('');pb.classList.toggle('a4',!!a4);pg.textContent=`@media print{@page{size:${a4?'A4 portrait':'A3 landscape'};margin:0}}`;document.head.appendChild(pg);
   const t=document.title;document.title=(ST.name||'Фигура')+' — '+what;const done=()=>{document.title=t;pb.innerHTML='';pg.remove();removeEventListener('afterprint',done);};addEventListener('afterprint',done);window.print();}
-$('shPdf').addEventListener('click',()=>{if(!CUR||!CUR.N){msg('Подождите — раскладываю детали');ensureNest();return;}const sh=buildSheets();if(sh.length)printSvgs(sh.map(s=>s.svg),'чертежи');});
-$('shCards').addEventListener('click',()=>{const cd=CUR?buildCards():[];if(cd.length)printSvgs(cd.map(s=>s.svg),'карты деталей',true);});
+// PDF — только готовые листы, и только свежие: правка могла быть меньше 0,5 с назад
+$('shPdf').addEventListener('click',()=>{SHEETS_CALC.check();if(SHEETS_CALC.ready()&&SHEETS_LIST.length)printSvgs(SHEETS_LIST.map(s=>s.svg),'чертежи');});
+$('shCards').addEventListener('click',()=>{CARDS_CALC.check();if(CARDS_CALC.ready()&&CARDS_LIST.length)printSvgs(CARDS_LIST.map(s=>s.svg),'карты деталей',true);});
 function dl(name,text){saveBlob(name,new Blob([text],{type:'application/dxf'}));}
 const fname=()=>(ST.name||'figura').replace(/[\/:*?"<>|]+/g,'').trim()+`_${MATN[ST.mat]||ST.mat}_${ST.t}mm`;   // «Доберман 9_сталь_2mm_raskroy.dxf» — цех сразу видит материал и толщину
-$('bDxfNest').addEventListener('click',()=>CUR&&ensureNest(()=>dl(fname()+(weldOf()==='tig'?'_N2':'')+'_raskroy.dxf',dxfNest())));
+$('bDxfNest').addEventListener('click',()=>{NEST_CALC.check();if(CUR&&CUR.N&&NEST_CALC.ready())dl(fname()+(weldOf()==='tig'?'_N2':'')+'_raskroy.dxf',dxfNest());});
 $('bDxfParts').addEventListener('click',()=>CUR&&dl(fname()+(weldOf()==='tig'?'_N2':'')+'_detali.dxf',dxfParts()));
 $('sGap').addEventListener('change',e=>{ST.gap=Math.max(0,+e.target.value||0);recalc();});
 $('cUseT').addEventListener('change',e=>{ST.useT=e.target.checked;recalc();});
@@ -384,4 +418,4 @@ $('cTrace').addEventListener('change',e=>{ST.trace=e.target.checked;if(ST.trace&
 if(/og/.test(location.hash)){document.body.classList.add('og');ST.nums=false;ST.small=false;$('cNums').checked=false;}
 metalUI();
 if(typeof THREE==='undefined'){loading(true,'Не загрузилась 3D-библиотека — проверьте интернет');}
-else{const hf=/f=([a-z0-9]+)/.exec(location.hash),f=hf&&FIGURES[hf[1]]?hf[1]:FIGURES[store('art-fig')]?store('art-fig'):FIGURES.doberman11?'doberman11':Object.keys(FIGURES)[0];$('figSel').value=f;loadFigure(f);}
+else{const hf=/f=([a-z0-9]+)/.exec(location.hash),f=hf&&FIGURES[hf[1]]?hf[1]:FIGURES[store('art-fig')]?store('art-fig'):'doberman11';$('figSel').value=f;loadFigure(f);}

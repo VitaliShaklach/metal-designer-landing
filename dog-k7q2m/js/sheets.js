@@ -365,8 +365,11 @@ function cardBends(c){const {x,y,B,shots}=c.bends,tq=shots.some(o=>o.how==='tpl'
     const ls=B.lines.slice(p0,p0+8);out.push({head:'Гибка '+x.name+(y?` и ${y.name}`:''),title:'Гибка — проверка '+(tq?'уголком':'угла'),scale:'—',mass:c.mass,body:s,rows:0,
       alt:`гибка ${x.name}${y?` и ${y.name}`:''} — проверка ${tq?'уголком':'угла'}, снимки элемента: сгибы ${p0+1}–${p0+ls.length} из ${B.lines.length} — ${ls.map(l=>`${l.k}) ${l.kind}${l.ang} между № ${nm(l.p)} и ${nm(l.q)}`).join(', ')}`});}
   return out;}
-function buildCards(){if(!CUR||!CUR.PC||!CUR.R.parts.length)return [];const {L}=asmUnits(),C=L.filter((x,i)=>(x.tw<0||x.tw>i)&&CUR.PC.some(c=>c.id===(x.bi>=0?'b'+x.bi:x.ps[0].id)&&c.pts.length>2)).map(x=>cardPiece(x,x.tw>=0?L[x.tw]:null)).flatMap(c=>c.bends?[c,...cardBends(c)]:[c]),date=shDate();
-  return C.map((b,i)=>({title:b.head,rows:b.rows,svg:wrapA4(b,{n:i+1,N:C.length,date})}));}
+function* buildCardsGen(){if(!CUR||!CUR.PC||!CUR.R.parts.length)return [];const {L}=asmUnits(),U=L.filter((x,i)=>(x.tw<0||x.tw>i)&&CUR.PC.some(c=>c.id===(x.bi>=0?'b'+x.bi:x.ps[0].id)&&c.pts.length>2)),C=[],date=shDate();
+  for(let i=0;i<U.length;i++){const x=U[i],c=cardPiece(x,x.tw>=0?L[x.tw]:null);C.push(...(c.bends?[c,...cardBends(c)]:[c]));yield {what:'готовлю детали',done:i+1,of:U.length};}
+  const out=[];for(let i=0;i<C.length;i++){const b=C[i];out.push({title:b.head,rows:b.rows,svg:wrapA4(b,{n:i+1,N:C.length,date})});yield {what:'рисую карты',done:i+1,of:C.length};}
+  return out;}
+function buildCards(){const g=buildCardsGen();let v;do{v=g.next();}while(!v.done);return v.value;}
 
 /* ---------- DXF: раскрой (все листы) и детали (сеткой) ---------- */
 function segNbOf(p){return p.segs.map(g=>g.nb>=0?CUR.R.parts[g.nb].no:null);}
