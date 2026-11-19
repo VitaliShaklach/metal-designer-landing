@@ -32,7 +32,7 @@
 - `img/og.png` — карточка ссылки для мессенджеров, 1200 × 630.
 - `lynx/` — рысь для первого экрана, готовые файлы одной версии: `model.json` (точки и грани), `stats.json` (плитки цифр), `photo-1..3.jpg` (было), `rework.jpg` и `rework-2.jpg` (гранёная модель со швами и рысь 3), `poster.jpg` (3D картинкой), `nest.jpg` и `sheet.jpg` (первый лист раскроя и чертежей). Руками не правим — собирает `tools/lynx-capture.js`.
 - `tools/lynx-capture.js` — сборщик `lynx/` из `from-dev/art/private/lynx.html` (только для разработки, на сайт не влияет). `from-dev/` только читает: отдаёт её через `python -m http.server` на 127.0.0.1 и снимает страницу в Playwright. Исходные фото для `photo-1..3.jpg` берёт из `from-dev/lynx_meshy/`.
-- `from-dev/` — копия `C:\dev\metal-designer` (без `.git` и `node_modules`) на 19.11.2026 плюс `C:\dev\lynx_meshy` в `from-dev/lynx_meshy/`: исходники и кухня фигур (`art/private/`, `art/tools/`, модели Meshy). Только локально, в git не идёт (`.gitignore`), бэкап не нужен — решение Виталия. Около 360 МБ; в `.vscode/settings.json` исключена из поиска и слежения.
+- `from-dev/` — копия `C:\dev\metal-designer` (без `.git` и `node_modules`) на 19.11.2026 плюс `C:\dev\lynx_meshy` в `from-dev/lynx_meshy/`: исходники и кухня фигур (`art/private/`, `art/tools/`, модели Meshy). Только локально, в git не идёт (`.gitignore`), бэкап не нужен — решение Виталия. Около 335 МБ; в `.vscode/settings.json` исключена из поиска и слежения.
 - `editor/` — редактор: `index.html` (главная), `mangal/` и `lynx/` (у каждой свои `js/`, `css/`, `img/`, `tools/smoke.js`), `editor.css` (общий вид главной и полосы сверху), `img/` (картинки карточек), `common/` — общее для всех изделий: `calc.js` (кнопка «Рассчитать»: тяжёлый расчёт только по ней, результат держится, пока не поменялся ключ задания; тест `calc.test.js`).
 - `tests/` — автотесты: `unit/` (расчёты, ссылка, листы, карты в Node), `e2e/` (страница в браузере), `engine.js` и `golden.json` (стенд движка и собственный замороженный эталон цифр лендинга; с `C:\dev` не сверяется), `serve.py` (локальный сервер).
 - `package.json`, `playwright.config.js` — только для тестов; на сайт не влияют, `node_modules/` в git не попадает.
@@ -58,9 +58,9 @@ NODE_OPTIONS=--use-system-ca npx playwright test    # страница: desktop 
 
 | Область | Команда (с `NODE_OPTIONS=--use-system-ca`) |
 |---|---|
-| Мангал редактора | `npx playwright test tests/e2e/editor.spec.js -g mangal --project=desktop` |
-| Рысь редактора | `npx playwright test tests/e2e/editor.spec.js -g lynx --project=desktop` |
-| Главная редактора | `npx playwright test tests/e2e/editor.spec.js -g home --project=desktop` |
+| Мангал редактора | `npx playwright test tests/e2e/editor-mangal.spec.js --project=desktop` |
+| Рысь редактора | `npx playwright test tests/e2e/editor-lynx.spec.js --project=desktop` |
+| Главная редактора | `npx playwright test tests/e2e/editor-home.spec.js --project=desktop` |
 
 Тяжёлым тестам (раскрой, чертежи, карты по «Рассчитать») — `test.slow()` в самом тесте; общий таймаут в `playwright.config.js` не трогаем. После тестов — глазами на десктопе и на телефоне.
 
