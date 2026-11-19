@@ -6,9 +6,9 @@
 <title>Доберман 11 — фигура из листа · Редактор</title>
 <meta name="description" content="Доберман из листа металла. Растягивайте фигуру — детали, масса, длина реза и швов пересчитываются.">
 <link rel="icon" href="../editor/mangal/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../fonts/fonts.css?v=2026-11-19a">
-<link rel="stylesheet" href="../editor/editor.css?v=2026-11-19a">
-<link rel="stylesheet" href="css/style.css?v=2026-11-19a">
+<link rel="stylesheet" href="../fonts/fonts.css?v=2026-11-20a">
+<link rel="stylesheet" href="../editor/editor.css?v=2026-11-20a">
+<link rel="stylesheet" href="css/style.css?v=2026-11-20a">
 </head>
 <body>
 <div class="edbar">
@@ -36,7 +36,8 @@
     <div class="studio">
       <div id="stage">
         <div class="loading" id="loading"><i></i><span id="loadTxt">Строю фигуру…</span></div>
-        <div class="vbar"><button data-v="iso" type="button" title="Объёмный вид под углом">3D</button><button data-v="front" type="button" title="Вид спереди, на морду">Спереди</button><button data-v="side" type="button" title="Вид сбоку, в профиль">Сбоку</button><button data-v="top" type="button" title="Вид сверху">Сверху</button><button id="bFit" type="button" title="Показать фигуру целиком">Всё</button></div>
+        <div class="vbar"><button data-v="iso" type="button" title="Объёмный вид под углом">3D</button><button data-v="front" type="button" title="Вид спереди, на морду">Спереди</button><button data-v="side" type="button" title="Вид сбоку, в профиль">Сбоку</button><button data-v="top" type="button" title="Вид сверху">Сверху</button><button id="bFit" type="button" title="Показать фигуру целиком">Всё</button><button id="bAng" class="angbtn" type="button" aria-pressed="false" title="Углы между деталями: тапайте детали по очереди">∠ Углы</button></div>
+        <div class="angcard" id="angCard" hidden></div>
         <div class="hovtag" id="hovTag" hidden></div>
         <div class="hint" id="hint">Клик по грани — деталь · колесо — масштаб · правая кнопка — сдвиг</div>
       </div>
@@ -156,23 +157,24 @@
 </div>
 
 <div class="zoom" id="zoom" hidden><div class="zoombar"><span id="zoomTtl"></span><button type="button" id="zoomOut" aria-label="Мельче">−</button><span id="zoomK">100%</span><button type="button" id="zoomIn" aria-label="Крупнее">+</button><button type="button" id="zoomFit">Весь лист</button><button type="button" id="zoomX" aria-label="Закрыть">✕</button></div><div class="zoombox" id="zoomBox"></div></div>
-<script src="../vendor/three/three.min.js?v=2026-11-19a"></script>
-<script src="../vendor/three/OrbitControls.js?v=2026-11-19a"></script>
-<script src="../vendor/three/CSS2DRenderer.js?v=2026-11-19a"></script>
-<script src="../editor/common/calc.js?v=2026-11-19a"></script>
-<script src="js/mesh.js?v=2026-11-19a"></script>
-<script src="js/models-poly.js?v=2026-11-19a"></script>
-<script src="js/figures.js?v=2026-11-19a"></script>
-<script src="js/plates-doberman11.js?v=2026-11-19a"></script>
-<script src="js/edit.js?v=2026-11-19a"></script>
-<script src="js/trace.js?v=2026-11-19a"></script>
-<script src="js/view3d.js?v=2026-11-19a"></script>
-<script src="js/prod.js?v=2026-11-19a"></script>
-<script src="js/bend.js?v=2026-11-19a"></script>
-<script src="js/bend3d.js?v=2026-11-19a"></script>
-<script src="js/sheets.js?v=2026-11-19a"></script>
-<script src="js/ui.js?v=2026-11-19a"></script>
-<script src="js/tips.js?v=2026-11-19a"></script>
+<script src="../vendor/three/three.min.js?v=2026-11-20a"></script>
+<script src="../vendor/three/OrbitControls.js?v=2026-11-20a"></script>
+<script src="../vendor/three/CSS2DRenderer.js?v=2026-11-20a"></script>
+<script src="../editor/common/calc.js?v=2026-11-20a"></script>
+<script src="js/mesh.js?v=2026-11-20a"></script>
+<script src="js/models-poly.js?v=2026-11-20a"></script>
+<script src="js/figures.js?v=2026-11-20a"></script>
+<script src="js/plates-doberman11.js?v=2026-11-20a"></script>
+<script src="js/edit.js?v=2026-11-20a"></script>
+<script src="js/trace.js?v=2026-11-20a"></script>
+<script src="js/view3d.js?v=2026-11-20a"></script>
+<script src="js/prod.js?v=2026-11-20a"></script>
+<script src="js/bend.js?v=2026-11-20a"></script>
+<script src="js/bend3d.js?v=2026-11-20a"></script>
+<script src="js/sheets.js?v=2026-11-20a"></script>
+<script src="js/ui.js?v=2026-11-20a"></script>
+<script src="js/angles.js?v=2026-11-20a"></script>
+<script src="js/tips.js?v=2026-11-20a"></script>
 <div id="printBox"></div>
 </body>
 </html>

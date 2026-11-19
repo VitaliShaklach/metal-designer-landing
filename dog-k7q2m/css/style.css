@@ -493,3 +493,27 @@ svg.mini .engr{stroke-width:.6}
 .nestbar button:disabled,.nestbar button:disabled:hover{opacity:.45;cursor:default;filter:none;border-color:var(--line)}
 .nestbar .calcbtn:disabled,.nestbar .calcbtn:disabled:hover{border-color:var(--accent)}
 .sheets>.dimbar,.sheets>p.dxfmsg{margin:0}
+
+/* режим «Углы» (js/angles.js): кнопка на панели видов, подпись угла в 3D, карточка внизу модели */
+.vbar .angbtn[aria-pressed="true"]{background:#1f6fe0;border-color:#1f6fe0;color:#fff}
+.angl{font:700 15px/1 var(--f-mono);color:#fff;background:#1f6fe0;padding:4px 7px;border-radius:3px;white-space:nowrap;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.angcard{position:absolute;left:12px;bottom:34px;z-index:3;width:min(360px,calc(100% - 24px));max-height:48%;overflow:auto;background:var(--panel);color:var(--ink);border:1px solid #1f6fe0;box-shadow:0 2px 10px rgba(0,0,0,.18);font-size:13px}
+.angcard[hidden]{display:none}
+.angh{display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+.angh b{color:#1f6fe0}
+.angh span{flex:1;min-width:0;font:12px var(--f-mono);color:var(--muted);overflow-wrap:anywhere}
+.angcard button{font:inherit;font-size:12px;padding:5px 9px;min-height:32px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.angcard button:hover:not(:disabled){border-color:#1f6fe0;color:#1f6fe0}
+.angcard button:disabled{opacity:.45;cursor:default}
+.angnote{margin:0;padding:6px 8px;color:var(--muted);font-size:12px}
+.angrow{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center;padding:8px;border-top:1px solid var(--soft)}
+.angrow:first-child{border-top:0}
+.angrow p{margin:0 0 4px}
+.angt b{font-family:var(--f-mono);font-size:16px;color:#1f6fe0}
+.angpic{width:120px;height:auto;display:block}
+.angpic .sec{fill:#1f6fe0;opacity:.22}
+.angpic .arc{fill:none;stroke:#1f6fe0;stroke-width:2}
+.angpic .pl{stroke:var(--ink);stroke-width:5;stroke-linecap:round}
+.angpic .deg{font:700 13px var(--f-mono);fill:#1f6fe0;text-anchor:middle}
+.angpic .no{font:700 12px var(--f-mono);fill:var(--ink)}
+@media (max-width:900px){.angcard{bottom:30px;max-height:42%}}
