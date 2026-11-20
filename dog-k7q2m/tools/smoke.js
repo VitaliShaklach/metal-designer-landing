@@ -1,6 +1,6 @@
 // проверка ядра «Искусства» и Добермана 11: node dog-k7q2m/tools/smoke.js
 const fs=require('fs'),vm=require('vm'),P=__dirname+'/../js/';const c={console,TextDecoder,Math};vm.createContext(c);
-vm.runInContext(['mesh','edit','models-poly','figures','plates-doberman11','prod','sheets','bend','bend3d'].map(f=>fs.readFileSync(P+f+'.js','utf8')).join('\n;\n'),c);
+vm.runInContext(['mesh','edit','models-poly','figures','plates-doberman11','prod','sheets','bend','bend3d','angles-core'].map(f=>fs.readFileSync(P+f+'.js','utf8')).join('\n;\n'),c);
 const run=s=>vm.runInContext(s,c);let bad=0;// Известные расхождения на Добермане (движок не правился, это цифры и допуски, подогнанные под добермана): печатаются как ПРЕДУПР и не валят проверку
 const KNOWN=['зеркальные пары: Д9','карты деталей: Д9','гибка картинками: уголок в угле','гравировка заготовок: Д9','окно «крутить сгиб»: Д11','зеркальные пары в DXF','перфорация: перемычка','контур заготовки Д7–Д11','гравировка номера у всех деталей'];let warned=0;
 const ok=(b,t)=>{const known=!b&&KNOWN.some(k=>t.startsWith(k));console.log((b?'ok  ':known?'ПРЕДУПР':'FAIL')+' '+t);if(known)warned++;else if(!b)bad++;};
@@ -373,4 +373,33 @@ run(`EI={n:0,min:1e9,bad:[],miss:0};FIGS.forEach(id=>{const C=PG(id),inB=new Set
   C.R.parts.forEach((p,pi)=>{if(inB.has(pi))return;const c=cutContour(p,2,.5,true);if(!c.bad)chk(p.no,engraveSegs(p.no,c.pts),c.pts,NM(id)+' №'+p.no);});});`);
 console.log('     гравировка номеров Д7–Д11: номеров '+run('EI.n')+', ближе всего к кромке реза '+run('EI.min.toFixed(2)')+' мм; за кромкой или ближе 0,5 мм ['+run('EI.bad.slice(0,6)')+']');
 ok(run('EI.n')>500&&run('EI.bad.length')===0&&run('EI.miss')===0,'гравировка номера у всех деталей Д7–Д11 (в заготовках — у каждой, и отдельных) целиком внутри контура реза, не ближе 0,5 мм к кромке (было: Г5 у Д9–Д11 — за кромкой до 2,1 мм)');
+// #139 режим «Углы» (angles-core.js): число угломера как в таблице, угломер снаружи, тапы и цвета
+run(`AC=PG('doberman11');AR=AC.R;AM=AC.M3;AK=new Set();AP=[];AR.edges.forEach(e=>{if(e.p.length!==2)return;const k=bendKey(e.p[0],e.p[1]);if(AK.has(k))return;AK.add(k);AP.push([e.p[0],e.p[1]]);});
+  AX={n:AP.length,geo:0,err:0,worst:'',deg:[],twin:0,twinBad:[],multi:null,okind:[],flat:0,flatBad:[]};
+  AP.forEach(([a,b])=>{const G=angGeom(AR,AM,a,b),E=angEdges(AR,a,b),e=E.reduce((x,y)=>y.len>x.len?y:x),d0=Math.min(e.dih,360-e.dih);
+    if(G){AX.geo++;const er=Math.abs(G.th*180/Math.PI-d0);if(er>AX.err){AX.err=er;AX.worst=AR.parts[a].no+'–'+AR.parts[b].no;}}
+    const I=angInfo(AR,a,b,null,null),d=seamDih(AR,a,b);if(I.deg!==Math.round(d>180.5?360-d:d))AX.deg.push(AR.parts[a].no+'–'+AR.parts[b].no);
+    if(I.other!==180-I.deg||I.kind!==(d<=180.5?'выступ':'впадина'))AX.okind.push(AR.parts[a].no+'–'+AR.parts[b].no);
+    if(E.length>1&&!AX.multi)AX.multi={len:I.len,sum:E.reduce((s,x)=>s+x.len,0),n:E.length};
+    const a2=twinIx(AR,a),b2=twinIx(AR,b);if((a2!==a||b2!==b)&&angAdj(AR,a2,b2)){AX.twin++;if(angInfo(AR,a2,b2,null,null).deg!==I.deg)AX.twinBad.push(AR.parts[a].no+'–'+AR.parts[b].no);}
+    if(I.deg>=175){AX.flat++;if(!gaugePose(AR,AM,a,b,2))AX.flatBad.push(AR.parts[a].no+'–'+AR.parts[b].no);}});`);
+console.log('     углы Д11: пар деталей со швом '+run('AX.n')+', с геометрией '+run('AX.geo')+', наибольшее расхождение угломера с таблицей '+run('AX.err.toFixed(2)')+'° ('+run('AX.worst')+'); зеркальных пар '+run('AX.twin')+'; почти плоских (≥175°) '+run('AX.flat'));
+ok(run('AX.n')>100&&run('AX.geo')===run('AX.n')&&run('AX.err')<=1.5,'углы: на всех швах Д11 угол угломера = числу таблицы ±1,5°');
+ok(run('AX.deg.length')===0&&run('AX.twin')>0&&run('AX.twinBad.length')===0,'углы: число как в таблице, у зеркальной пары одно'+(run('AX.twinBad.length')?' — '+run('AX.twinBad.slice(0,5)'):''));
+ok(run('AX.multi')!==null&&run('AX.multi.n')>1&&Math.abs(run('AX.multi.len')-run('AX.multi.sum'))<1e-9,'углы: шов из нескольких рёбер — длина шва = сумма рёбер');
+ok(run('AX.okind.length')===0,'углы: по другой шкале = 180 − угол, «выступ» / «впадина» по углу шва');
+ok(run('AX.flat')>0&&run('AX.flatBad.length')===0,'углы: угломер у почти плоских швов (≥175°) рисуется, как у всех');
+run(`ACB=buildParts(cube);ACQ=[];ACB.edges.forEach(e=>{if(e.p.length===2&&!ACQ.some(([a,b])=>bendKey(a,b)===bendKey(e.p[0],e.p[1])))ACQ.push(e.p);});
+  ACC=ACQ.map(([a,b])=>{const P=gaugePose(ACB,cube,a,b,2),G=angGeom(ACB,cube,a,b),c=[50,50,50],q=V3.add(P.hinge,V3.mul(P.head,20));
+    return V3.dot(V3.sub(q,c),P.head)>0&&Math.abs(V3.dot(P.base,G.n1))<1e-6&&Math.abs(V3.dot(P.arm,G.n2))<1e-6&&Math.abs(V3.dot(V3.sub(P.hinge,G.M),G.n1)-2)<1e-6&&Math.abs(V3.dot(V3.sub(P.hinge,G.M),G.n2)-2)<1e-6&&V3.dot(P.head,P.arm)<0&&P.deg===90&&angInfo(ACB,a,b,null,null).kind==='выступ';});`);
+ok(run('ACC.length')===12&&run('ACC.every(Boolean)'),'углы: куб — угломер снаружи (головка наружу, край и линейка по граням, шарнир на толщину листа от обеих), 90°, «выступ»');
+run(`AVE=poke(blankBox(300,400,260),blankBox(300,400,260).P.findIndex(Q=>Q.every(i=>blankBox(300,400,260).V[i][0]===150)),-30,false);AVM=polyBase(AVE.V,AVE.P);AVR=buildParts(AVM,1.5,1.5);AVQ=[];
+  AVR.edges.forEach(e=>{if(e.p.length===2&&!AVQ.some(([a,b])=>bendKey(a,b)===bendKey(e.p[0],e.p[1])))AVQ.push(e.p);});
+  AVV=AVQ.filter(([a,b])=>seamDih(AVR,a,b)>180.5).map(([a,b])=>{const P=gaugePose(AVR,AVM,a,b,2),G=angGeom(AVR,AVM,a,b),c=[0,200,130];
+    return angInfo(AVR,a,b,null,null).kind==='впадина'&&V3.dot(V3.sub(V3.add(P.hinge,V3.mul(P.head,20)),G.M),G.n1)>0&&V3.dot(P.head,P.arm)>0&&V3.dot(V3.sub(V3.add(P.hinge,V3.mul(P.head,20)),c),[1,0,0])>0;});`);
+ok(run('AVV.length')>=4&&run('AVV.every(Boolean)'),'углы: вогнутый шов (вмятина на боку куба) — «впадина», головка снаружи в ямке, на стороне линейки');
+run(`AT=(()=>{const a=AP[0][0],b=AP[0][1],far=AR.parts.findIndex((p,i)=>i!==a&&i!==b&&!angAdj(AR,a,i)&&!angAdj(AR,b,i)),s1=angTap(AR,[a],b),s2=angTap(AR,s1.pick,b),s3=angTap(AR,s1.pick,far),s4=angTap(AR,[a],-1);
+    return s1.pick.join()===a+','+b&&!s1.note&&s2.pick.join()===String(a)&&s3.pick.length===1&&s3.pick[0]===far&&/не стыкуется/.test(s3.note)&&/начал заново/.test(s3.note)&&s4.pick.join()===String(a)&&angTap(AR,[],far).pick.join()===String(far)&&angPairs(AR,[a,b,far]).length===1;})();`);
+ok(run('AT'),'углы: тапы — сосед добавляется, повтор убирает, несоседняя — выбор заново с подсказкой, мимо модели — без изменений');
+ok(run('angColor(8)===angColor(0)&&new Set(ANG_COLORS).size===8&&ANG_COLORS.length===8&&!ANG_COLORS.includes("#1f6fe0")&&!ANG_COLORS.includes("#9fd49a")'),'углы: 8 разных цветов выбранных по кругу, без синего угломера и зелёных соседей');
 console.log(bad?'ОШИБОК: '+bad:'всё ок'+(warned?' (предупреждений: '+warned+')':''));process.exit(bad?1:0);

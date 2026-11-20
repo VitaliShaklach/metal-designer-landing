@@ -410,7 +410,7 @@ $('cTrace').addEventListener('change',e=>{ST.trace=e.target.checked;if(ST.trace&
         pushUndo();const r=addEdgePoint(E(),be.a,be.b,be.q,ST.sym);applyE(r.E,true);addCut(r.m);if(mg&&ST.seam&&ST.seam.length===1)msg('Точка — на шве эталона');return;}
       if(e.shiftKey&&ST.sp>=0&&fp>=0&&fp!==ST.sp){ST.sp2=fp;ST.sv=-1;renderAll();return;}
       ST.sv=-1;ST.sp=fp;ST.sp2=-1;ST.sel=pi;renderAll();return;}
-    if(typeof ANG!=='undefined'&&ANG.on){angTap(pi);return;}
+    if(typeof ANG!=='undefined'&&ANG.on){angTapUI(pi);return;}
     ST.sel=pi===ST.sel?-1:pi;ST.selB=-1;renderAll();
     if(pi>=0){$('controls').querySelector('[data-g="view"]').classList.remove('shut');revealRow($('parts').querySelector(`tr[data-p="${pi}"]`));}});
   cv.addEventListener('pointerleave',()=>tag.hidden=true);})();

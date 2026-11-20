@@ -516,4 +516,9 @@ svg.mini .engr{stroke-width:.6}
 .angpic .pl{stroke:var(--ink);stroke-width:5;stroke-linecap:round}
 .angpic .deg{font:700 13px var(--f-mono);fill:#1f6fe0;text-anchor:middle}
 .angpic .no{font:700 12px var(--f-mono);fill:var(--ink)}
+.angno{font-family:var(--f-mono)}
+.angt .angdeg{font-family:var(--f-mono);font-size:16px;color:#1f6fe0}
+.angcard .angfold{min-width:32px;padding:5px 0}
+.angcard.fold .angh{cursor:pointer;border-bottom:0}
+.angcard.fold .angh span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
 @media (max-width:900px){.angcard{bottom:30px;max-height:42%}}
