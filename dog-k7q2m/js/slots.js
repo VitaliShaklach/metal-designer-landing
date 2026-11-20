@@ -8,7 +8,8 @@ const SLOT_DEF={w:2,len:40,br:3,eb:3,el:5,notch:true,D:3};
 /* раскладка вдоль линии длиной L → [[t0,t1],…] в мм от начала линии (вместе с закруглениями) или null — прорезей нет.
    openA/openB — с этой стороны крайняя прорезь до края; o = {w, len, br, eb, el} */
 function slotPlan(L,openA,openB,o){const {w,len,br,eb,el}=o;let a=openA?el:0,b=openB?el:0;
-  if(openA&&openB&&L<2*el+eb)a=b=(L-eb)/2;else if(openA&&!openB&&L<el+eb)a=L-eb;else if(openB&&!openA&&L<el+eb)b=L-eb;
+  // короткая линия с обоими концами на кромке (#140): две крайние по min(el, (L − br)/2), между ними перемычка br по центру
+  if(openA&&openB&&L<2*el+br)a=b=(L-br)/2;else if(openA&&!openB&&L<el+eb)a=L-eb;else if(openB&&!openA&&L<el+eb)b=L-eb;
   if(openA&&a<w||openB&&b<w)return null;   // крайняя вышла уже ширины — линия слишком короткая
   const s=a?a+eb:eb,e=L-(b?b+eb:eb),M=e-s,out=[];if(a)out.push([0,a]);
   if(M>=w){let n=1;while((M-(n-1)*br)/n>len+1e-9)n++;const c=(M-(n-1)*br)/n;for(let i=0;i<n;i++)out.push([s+i*(c+br),s+i*(c+br)+c]);}

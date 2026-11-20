@@ -202,17 +202,23 @@ function slotOpt(){const d=SLOT_DEF,v=(k,x)=>ST[k]!=null&&ST[k]!==''?+ST[k]:x;re
 const perfKey=()=>{if(!perfOn())return '';const o=slotOpt();return [o.w,o.len,o.br,o.eb,o.el,o.notch,o.D].join('/');};
 /* прорези заготовки B в её координатах (B.pts, l.segs), кэш на B по perfKey: holes — средние прорези {pts,b} (слой PERF);
    outline — контур реза {pts,b} с вырезами на концах линий; extra — на сколько рез контура длиннее периметра заготовки;
-   ends — сколько концов с крайней прорезью (edge) и с разгрузочным отверстием (relief); miss — линии без прорезей («Г5 V144») */
+   ends — сколько концов с крайней прорезью (edge), с разгрузочным отверстием (relief) и закрытых перемычкой, потому что вырез не врезался (shut, #140); miss — линии без прорезей («Г5 V144») */
 function blankSlots(B){const o=slotOpt(),k=JSON.stringify(o);if(B._slots&&B._slots.k===k)return B._slots.r;const holes=[],miss=new Set(),dB=polyDist(B.pts),say=l=>miss.add('Г'+B.no+' '+bendTxt(l));
-  let outline=plainShape(B.pts),edge=0,relief=0;
-  // конец линии на кромке (до контура меньше 0,05 мм) — там крайняя прорезь до края, врезанная в контур; не врезалась (узкое место, сложный контур) — линия в miss
+  let outline=plainShape(B.pts),edge=0,relief=0,shut=0;
+  // конец линии на кромке (до контура меньше 0,05 мм) — там крайняя прорезь до края, врезанная в контур.
+  // Крайняя (или «замочная скважина») не врезалась (у вершины угла полоса задевает вторую сторону, узкое место) — #140: на этом конце
+  // ни прорези, ни отверстия, линия начинается с перемычки eb от кромки, средние раскладываются заново; это штатно, не miss.
+  // В miss — только линия без прорезей совсем и не врезавшийся круг без крайней прорези (крайние выкл.)
   B.lines.forEach(l=>l.segs.forEach(z=>{const L=Math.hypot(z[2]-z[0],z[3]-z[1]);if(L<1e-6)return;const a=[z[0],z[1]],e=[z[2],z[3]],u=[(z[2]-z[0])/L,(z[3]-z[1])/L],
-      lay=slotLayout(a,u,L,B.pts,o.notch&&dB(a)<.05,o.notch&&dB(e)<.05,o);if(!lay){say(l);return;}
-    lay.mids.forEach(([t0,t1])=>holes.push(slotShape(a,u,t0,t1,o.w)));
-    // во внутреннем угле контура (> 190°) — ещё разгрузочное отверстие Ø D с центром в конце линии: с крайней прорезью — «замочная скважина», без неё — круг
-    [[a,u,lay.ea],[e,[-u[0],-u[1]],lay.eb2]].forEach(([p,d,el])=>{const D=o.D>0&&dB(p)<.05&&innerCorner(B.pts,p,o.w)?o.D:0;if(!el&&!D)return;
-      const r=cutInto(outline,endShape(p,d,o.w,el,D),p);if(r){outline=r;if(el)edge++;if(D)relief++;}else say(l);});}));
-  const r={holes,outline,extra:shapeLen(outline)-perim(B.pts),ends:{edge,relief},miss:[...miss]};B._slots={k,r};return r;}
+      end=[{p:a,d:u,open:o.notch&&dB(a)<.05,shut:false},{p:e,d:[-u[0],-u[1]],open:o.notch&&dB(e)<.05,shut:false}];
+    for(;;){const lay=slotLayout(a,u,L,B.pts,end[0].open,end[1].open,o);if(!lay){say(l);return;}
+      // во внутреннем угле контура (> 190°) — ещё разгрузочное отверстие Ø D с центром в конце линии: с крайней прорезью — «замочная скважина», без неё — круг
+      let out=outline,ne=0,nr=0,redo=false;const bad=[];
+      end.forEach((E,k)=>{const el=k?lay.eb2:lay.ea,D=!E.shut&&o.D>0&&dB(E.p)<.05&&innerCorner(B.pts,E.p,o.w)?o.D:0;if(!el&&!D)return;
+        const r=cutInto(out,endShape(E.p,E.d,o.w,el,D),E.p);if(r){out=r;if(el)ne++;if(D)nr++;}else if(el){E.open=false;E.shut=true;redo=true;}else bad.push(1);});
+      if(redo)continue;   // конец закрыт — раскладка заново, врезки этой линии — с начала
+      outline=out;edge+=ne;relief+=nr;shut+=end.filter(E=>E.shut).length;if(bad.length)say(l);lay.mids.forEach(([t0,t1])=>holes.push(slotShape(a,u,t0,t1,o.w)));return;}}));
+  const r={holes,outline,extra:shapeLen(outline)-perim(B.pts),ends:{edge,relief,shut},miss:[...miss]};B._slots={k,r};return r;}
 // рез заготовки: периметр и вырезы на концах линий (крайние прорези, отверстия)
 const blankCut=b=>(b.cut??perim(b.pts))+(perfOn()?blankSlots(b).extra:0);
 // контур реза куска o в его координатах: у заготовки с прорезями — с вырезами на концах линий, у остальных — o.pts
