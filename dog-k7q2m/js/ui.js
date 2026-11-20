@@ -180,6 +180,8 @@ function sumTable(){const T=CUR.T,[sl,sw]=sheetWL(),warn=[];
   if(CUR.TPL&&CUR.TPL.length){const tp=CUR.TPL,ta=tp.reduce((a,o)=>a+Math.abs(area2(o.pts)),0),tl=tp.reduce((a,o)=>a+perim(o.pts),0);
     rows.push(['Уголки-шаблоны для сварки (оснастка, по одному на угол)',`${tp.length} шт · ${tp[0].a}°…${tp[tp.length-1].a}° · ≈ ${fmt(ta*1e-9*ST.t*(DENS[ST.mat]||7850),2)} кг · рез ${fmt(tl/1000,1)} м`]);}
   if(CUR.N){const cs=cutStats(CUR.N.sheets.flatMap(s=>s.items));const at=rows.findIndex(r=>r[0].startsWith('Длина реза'))+1;const pc=CUR.BL&&CUR.BL.length?'позицию':'деталь';rows.splice(at,0,[CUR.TPL&&CUR.TPL.length?`Врезок (по одной на ${pc} и уголок)`:`Врезок (по одной на ${pc})`,cs.pierce]);if(cs.perf)rows.splice(at+1,0,['Перфорация сгибов (слой PERF, отдельно от реза и врезок выше)',perfTxt(cs)]);if(ST.engrave)rows.splice(at+1,0,['Длина гравировки номеров',fmt(cs.eng/1000,1)+' м']);if(cs.bend)rows.splice(at+1,0,['Линии сгиба на заготовках — гравировка (слои BEND_V, BEND_M)',fmt(cs.bend/1000,1)+' м — короче, чем «Сгибов» выше, и это верно: линия кончается у кромки заготовки, а кромка у шва отступает от ребра на зазор и толщину']);}if(!CUR.N&&!$('tab-sum').hidden)ensureNest();
+  // сгиб теперь проваривают по прорезям — длина по рёбрам модели, как «Сгибов»
+  if(perfOn()&&CUR.BL&&CUR.BL.length){const at=rows.findIndex(r=>r[0]==='Длина швов')+1;rows.splice(at,0,['Проварка сгибов (по прорезям после гибки)',fmt(CUR.bendSt.len/1000,1)+' м']);}
   $('sum').innerHTML='<tbody>'+rows.map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td></tr>`).join('')+'</tbody>';}
 
 /* ---------- загрузка фигур и файлов ---------- */

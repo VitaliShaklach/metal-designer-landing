@@ -83,6 +83,8 @@ function cutInto(C,S,p){if(!S)return null;const nC=C.pts.length,nS=S.pts.length,
   else if(inPoly(mid(S,K0.s,K1.s),CF)){const f=shChain(S,K0.s,K1.s),ends=f.map(x=>x[0]).slice(1).concat([K1.q]);cut=f.map((x,i)=>[ends[i],-x[1]]).reverse();}
   else return null;
   const all=keep.concat(cut),pts=[],b=[];all.forEach(([q,bv],i)=>{const nx=all[(i+1)%all.length][0];if(Math.hypot(nx[0]-q[0],nx[1]-q[1])<1e-9)return;pts.push(q);b.push(bv);});
+  // точка пересечения у самой вершины (ближе 0,02 мм) — одна точка: в DXF координаты округляются до 0,01, отрезок стал бы нулевым (Г11 у Д11)
+  for(let k=0;k<pts.length&&pts.length>3;){const j=(k+1)%pts.length,q=pts[k],z=pts[j];if(Math.hypot(z[0]-q[0],z[1]-q[1])<.02){b[k]=b[j];pts.splice(j,1);b.splice(j,1);if(j<k)k--;}else k++;}
   return pts.length>=3?{pts,b}:null;}
 /* раскладка линии a→a+u·L в контуре C: открытые концы (openA/openB) — крайние прорези до края (длина из slotPlan), средние — между ними;
    у концов средние сдвигаются к середине, чтобы до кромки оставалось не меньше eb (острый угол линии с кромкой).
