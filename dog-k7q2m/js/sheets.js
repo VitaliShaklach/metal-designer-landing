@@ -177,7 +177,7 @@ function sheetsSpec(){const dens=DENS[ST.mat]||7850,R=CUR.R,cols=[{t:'№',w:15,
     o.parts.forEach(pi=>partNbs(R,pi).forEach(g=>{if(!in_.has(g.nb))nb.set(R.parts[g.nb].no+' '+angT(g.dih),1);}));
     // заготовка — одной строкой: габарит по развёртке, детали в ней
     const gab=o.B?`${Math.round(o.B.L)} × ${Math.round(o.B.W)}`:`${Math.round(Math.max(...xs)-Math.min(...xs))} × ${Math.round(Math.max(...ys)-Math.min(...ys))}`;
-    return [tw?`${o.no} / ${tw.no}`:o.no,gab,fmt(a/100,1),fmt(a*1e-9*ST.t*dens,3),Math.round(perim(o.pts)),tw?2:1,(tw?'зеркально; ':'')+(o.B?`дет. ${o.parts.map(pi=>R.parts[pi].no).join(', ')}; `:'')+[...nb.keys()].join(', ')];});
+    return [tw?`${o.no} / ${tw.no}`:o.no,gab,fmt(a/100,1),fmt(a*1e-9*ST.t*dens,3),Math.round(o.B?blankCut(o.B):perim(o.pts)),tw?2:1,(tw?'зеркально; ':'')+(o.B?`дет. ${o.parts.map(pi=>R.parts[pi].no).join(', ')}; `:'')+[...nb.keys()].join(', ')];});
   const per=38,out=[];for(let i=0;i<rows.length;i+=per*2){let s=svgTable(25,22,cols,rows.slice(i,i+per),6.2);if(rows.length>i+per)s+=svgTable(222,22,cols,rows.slice(i+per,i+per*2),6.2);
     if(CUR.BL&&CUR.BL.length)s+=`<text class="sm" x="25" y="272">Г — заготовка со сгибами: развёртка с размерами, гибка и швы — на её карте (PDF А4), порядок гибки — лист «Гибка — порядок».</text>`;out.push({title:'Спецификация деталей',scale:'—',body:s,alt:`чертёж «Спецификация деталей»: строки ${i+1}–${Math.min(i+per*2,rows.length)} из ${rows.length} (позиций на резку ${CUR.PC.length}), у каждой — габарит реза, площадь, масса, рез, количество и с чем сваривается`});}
   return out;}
@@ -203,10 +203,16 @@ const perfKey=()=>{if(!perfOn())return '';const o=slotOpt();return [o.w,o.len,o.
 /* прорези заготовки B в её координатах (B.pts, l.segs), кэш на B по perfKey: holes — средние прорези {pts,b} (слой PERF);
    outline — контур реза {pts,b} с вырезами на концах линий; extra — на сколько рез контура длиннее периметра заготовки;
    ends — сколько концов с крайней прорезью (edge) и с разгрузочным отверстием (relief); miss — линии без прорезей («Г5 V144») */
-function blankSlots(B){const k=perfKey();if(B._slots&&B._slots.k===k)return B._slots.r;const o=slotOpt(),holes=[],miss=new Set();
-  B.lines.forEach(l=>l.segs.forEach(z=>{const L=Math.hypot(z[2]-z[0],z[3]-z[1]);if(L<1e-6)return;const u=[(z[2]-z[0])/L,(z[3]-z[1])/L],tr=slotTrim([z[0],z[1]],u,L,B.pts,o),pl=tr&&slotPlan(L-tr[0]-tr[1],false,false,o);
-    if(!pl){miss.add('Г'+B.no+' '+bendTxt(l));return;}pl.forEach(([t0,t1])=>holes.push(slotShape([z[0],z[1]],u,t0+tr[0],t1+tr[0],o.w)));}));
-  const r={holes,outline:plainShape(B.pts),extra:0,ends:{edge:0,relief:0},miss:[...miss]};B._slots={k,r};return r;}
+function blankSlots(B){const k=perfKey();if(B._slots&&B._slots.k===k)return B._slots.r;const o=slotOpt(),holes=[],miss=new Set(),dB=polyDist(B.pts),say=l=>miss.add('Г'+B.no+' '+bendTxt(l));
+  let outline=plainShape(B.pts),edge=0,relief=0;
+  // конец линии на кромке (до контура меньше 0,05 мм) — там крайняя прорезь до края, врезанная в контур; не врезалась (узкое место, сложный контур) — линия в miss
+  B.lines.forEach(l=>l.segs.forEach(z=>{const L=Math.hypot(z[2]-z[0],z[3]-z[1]);if(L<1e-6)return;const a=[z[0],z[1]],e=[z[2],z[3]],u=[(z[2]-z[0])/L,(z[3]-z[1])/L],
+      lay=slotLayout(a,u,L,B.pts,o.notch&&dB(a)<.05,o.notch&&dB(e)<.05,o);if(!lay){say(l);return;}
+    lay.mids.forEach(([t0,t1])=>holes.push(slotShape(a,u,t0,t1,o.w)));
+    [[a,u,lay.ea],[e,[-u[0],-u[1]],lay.eb2]].forEach(([p,d,el])=>{if(!el)return;const r=cutInto(outline,endShape(p,d,o.w,el,0),p);if(r){outline=r;edge++;}else say(l);});}));
+  const r={holes,outline,extra:shapeLen(outline)-perim(B.pts),ends:{edge,relief},miss:[...miss]};B._slots={k,r};return r;}
+// рез заготовки: периметр и вырезы на концах линий (крайние прорези, отверстия)
+const blankCut=b=>(b.cut??perim(b.pts))+(perfOn()?blankSlots(b).extra:0);
 // контур реза куска o в его координатах: у заготовки с прорезями — с вырезами на концах линий, у остальных — o.pts
 function cutOutline(o){const B=isBlank(o)&&perfOn()&&CUR.BL?CUR.BL[+o.id.slice(1)]:null;return B?shapeTr(blankSlots(B).outline,q=>trPt(o.tr,q)):plainShape(o.pts);}
 // фигура (ломаная) → замкнутый путь SVG
@@ -241,7 +247,7 @@ function sheetsNest(){const N=CUR.N,n=N.sheets.length===1?pickScale([N.W,N.H],[3
       s+=`<text class="h2" x="25" y="${oy-7.5}">Лист металла ${i+j+1} из ${N.sheets.length} · ${sw} × ${sl} · ${ST.t} мм, ${MATN[ST.mat]} · ${itemsTxt(sh.items)} · плотность ${Math.round(sh.dense*100)}% в полосе с деталями ${sw} × ${Math.round(sh.len)} мм, остальное свободно</text><text class="h2" x="25" y="${oy-2.5}">Зазор между деталями ${N.gap} мм · на листе: ${cutTxt(cutStats(sh.items),true)}</text><rect class="l" x="${r2(ox)}" y="${oy}" width="${r2(N.W*k)}" height="${r2(N.H*k)}"/>`;
       const T=(x,y)=>[ox+(x)*k,oy+(N.H-y)*k];   // как в DXF: y вверх
       const small=[],path=(S,c)=>S.length?`<path class="${c}" d="${S.map(z=>{const a=T(z[0],z[1]),b=T(z[2],z[3]);return 'M'+r2(a[0])+','+r2(a[1])+'L'+r2(b[0])+','+r2(b[1]);}).join('')}"/>`:'';
-      sh.items.forEach(o=>{const Q=o.pts.map(q=>T(o.x+q[0],o.y+q[1])),m=itemMarks(o);small.push(...m.miss);
+      sh.items.forEach(o=>{const Q=shapeFlat(cutOutline(o)).map(q=>T(o.x+q[0],o.y+q[1])),m=itemMarks(o);small.push(...m.miss);
         s+=`<polygon class="${m.miss.length&&!isBlank(o)?'small':'t'}" points="${Q.map(q=>r2(q[0])+','+r2(q[1])).join(' ')}"/>`+path(m.V,'bnd bv')+path(m.M,'bnd bm')+(m.P.length?`<path class="prf" d="${m.P.map(h=>shpD(shapeFlat(h).map(q=>T(o.x+q[0],o.y+q[1])))).join('')}"/>`:'');
         if(m.eng.length)s+=path(m.eng,'eng');
         else if(!ST.engrave&&!isTpl(o)){const cx=Q.reduce((a,q)=>a+q[0],0)/Q.length,cy=Q.reduce((a,q)=>a+q[1],0)/Q.length;s+=`<text class="no" x="${r2(cx)}" y="${r2(cy+.9)}" text-anchor="middle">${o.no}</text>`;}});
@@ -285,11 +291,11 @@ function cardPiece(x,y){const R=CUR.R,V=CUR.M3.V,B=x.bi>=0?CUR.BL[x.bi]:null,o=C
   const wc=W.length>8||hb+(W.length+1)*3.8>124?2:1,ln=[];rows.forEach(r=>{const l=ln[ln.length-1];if(r.w&&l&&l[0].w&&l.length<wc)l.push(r);else ln.push([r]);});
   const maxT=Math.max(30,124-hb),rh=Math.max(3.8,Math.min(B?4.8:5.4,maxT/ln.length)),nl=Math.min(ln.length,Math.floor(maxT/rh)),ty0=274-hb-nl*rh,fy0=y?31:28,SH=typeof pieceShots==='function',mh=SH?[90,80,70,56].find(m=>pickScale([t.L,t.W],[160,ty0-fy0-m-22])<=pickScale([t.L,t.W],[160,ty0-fy0-78]))||56:pickScale([t.L,t.W],[160,ty0-fy0-78])>pickScale([t.L,t.W],[160,ty0-fy0-68])?56:66,my0=ty0-mh;
   // шапка: что внутри, металл, габарит, масса, рез, сколько штук
-  let s=`<text class="td" x="23" y="22.5">${shEsc([B?`детали № ${x.ps.map(p=>p.no).join(', ')}`:back?'подложка глаза':'',`${MATN[ST.mat]||ST.mat} ${ST.t} мм`,WELDS[weldOf()],`габарит реза ${Math.round(t.L)} × ${Math.round(t.W)} мм`,`масса ${fmt(mass,2)} кг/шт`,`рез ${Math.round(perim(o.pts))} мм`,`кол. ${y?2:1}`].filter(Boolean).join(' · '))}</text>`;
+  let s=`<text class="td" x="23" y="22.5">${shEsc([B?`детали № ${x.ps.map(p=>p.no).join(', ')}`:back?'подложка глаза':'',`${MATN[ST.mat]||ST.mat} ${ST.t} мм`,WELDS[weldOf()],`габарит реза ${Math.round(t.L)} × ${Math.round(t.W)} мм`,`масса ${fmt(mass,2)} кг/шт`,`рез ${Math.round(B?blankCut(B):perim(o.pts))} мм`,`кол. ${y?2:1}`].filter(Boolean).join(' · '))}</text>`;
   if(y)s+=`<text class="sm" x="23" y="26.5">${shEsc(`${y.name} — зеркальная копия: развёртка зеркально (в DXF и раскрое уже так), гнуть и варить так же — на другой стороне фигуры`)}</text>`;
   // 1. развёртка, как режут: контур, линии сгиба с подписью, номера деталей, гравировка, длины сторон и габарит
   const fh=my0-2-fy0,n=pickScale([t.L,t.W],[160,fh-20]),k=1/n,ox=20+(185-t.L*k)/2,oy=fy0+7+(fh-17-t.W*k)/2,T=q=>[ox+q[0]*k,oy+(t.W-q[1])*k],Q=P.map(T),box=[],hit=b=>box.some(c=>b[0]<c[2]&&b[2]>c[0]&&b[1]<c[3]&&b[3]>c[1]);   // box — занятые места
-  s+=`<text class="h2" x="23" y="${r2(fy0+3.5)}">Развёртка — как режут</text><text class="sm" x="202" y="${r2(fy0+3.5)}" text-anchor="end">вид со стороны гравировки (изнутри фигуры) · М ${scaleTxt(n)}</text><polygon class="l" points="${Q.map(q=>r2(q[0])+','+r2(q[1])).join(' ')}"/>`;
+  s+=`<text class="h2" x="23" y="${r2(fy0+3.5)}">Развёртка — как режут</text><text class="sm" x="202" y="${r2(fy0+3.5)}" text-anchor="end">вид со стороны гравировки (изнутри фигуры) · М ${scaleTxt(n)}</text><polygon class="l" points="${(B&&perfOn()?shapeFlat(cutOutline({id:o.id,pts:P,tr:t})).map(T):Q).map(q=>r2(q[0])+','+r2(q[1])).join(' ')}"/>`;
   const segP=(S,c)=>S.length?`<path class="${c}" d="${S.map(z=>{const A=T([z[0],z[1]]),C=T([z[2],z[3]]);return `M${r2(A[0])},${r2(A[1])}L${r2(C[0])},${r2(C[1])}`;}).join('')}"/>`:'';
   // гравировка — та же, что в DXF и раскрое (itemMarks): номера деталей — красным, подписи сгибов — бледно (читать их удобнее у кружков за контуром)
   const mk=itemMarks({id:o.id,no:o.no,pts:P,tr:t}),lb=[],eng=[],engB=B?mk.labs.flatMap(x=>x.g):[];

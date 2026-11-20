@@ -51,7 +51,9 @@ const TIPS={
   pW:'Ширина прорези. Меньше толщины листа можно, но лазер может не прорезать чисто — уточните у цеха. Концы прорези — полукруглые',
   pL:'Самая длинная средняя прорезь: на каждой линии средние одной длины, их столько, чтобы каждая была не длиннее этого',
   pBr:'Перемычка между средними прорезями — целый металл, на котором держится деталь до гибки',
-  pEb:'Перемычка у конца линии сгиба: от края детали до первой прорези'};
+  pEl:'Крайняя прорезь — открыта на край детали: от кромки до первой перемычки. Вырезается вместе с контуром, лазер проходит кромку один раз',
+  pEb:'Перемычка за крайней прорезью (без крайних — от края детали до первой прорези)',
+  cNotch:'Крайние прорези выходят на край детали — как у мастера: сгиб начинается без усилия от самой кромки. Снять — линия начинается с перемычки'};
 (()=>{let box=document.getElementById('tipBox');if(!box){box=document.createElement('div');box.id='tipBox';box.hidden=true;document.body.appendChild(box);}
   const mk=tx=>{const i=document.createElement('i');i.className='tip';i.textContent='?';
     const show=()=>{box.textContent=tx;box.hidden=false;const r=i.getBoundingClientRect(),w=box.offsetWidth;box.style.left=Math.max(8,Math.min(innerWidth-w-8,r.left-w/2))+'px';box.style.top=(r.bottom+6)+'px';};
