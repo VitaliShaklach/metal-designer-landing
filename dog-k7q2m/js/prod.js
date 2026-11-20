@@ -145,7 +145,8 @@ function dxfDoc(ents){const L=['0'];for(let i=0;i<ents.length;i+=2)if(ents[i]===
   return ['0','SECTION','2','HEADER','9','$ACADVER','1','AC1009','9','$INSUNITS','70',4,'0','ENDSEC',...tab,'0','SECTION','2','ENTITIES',...ents,'0','ENDSEC','0','EOF'].join('\r\n')+'\r\n';}
 const dn=v=>Math.round(v*100)/100;
 // контур — одна замкнутая полилиния (R12 POLYLINE, флаг 70 = 1): цеха просят контур целиком, а не россыпь отрезков
-function dxfPoly(e,P,lay,ox=0,oy=0){e.push('0','POLYLINE','8',lay,'66',1,'10',0,'20',0,'30',0,'70',1);P.forEach(a=>e.push('0','VERTEX','8',lay,'10',dn(a[0]+ox),'20',dn(a[1]+oy),'30',0));e.push('0','SEQEND','8',lay);}
+// b — дуги рёбер (bulge, код 42 у вершины: дуга от неё к следующей), как у фигур slots.js
+function dxfPoly(e,P,lay,ox=0,oy=0,b){e.push('0','POLYLINE','8',lay,...(DXF_COL[lay]?['62',DXF_COL[lay]]:[]),'66',1,'10',0,'20',0,'30',0,'70',1);P.forEach((a,i)=>{e.push('0','VERTEX','8',lay,'10',dn(a[0]+ox),'20',dn(a[1]+oy),'30',0);if(b&&b[i])e.push('42',+b[i].toFixed(6));});e.push('0','SEQEND','8',lay);}
 function dxfTxt(e,x,y,h,t,lay='MARK'){e.push('0','TEXT','8',lay,'10',dn(x),'20',dn(y),'30',0,'40',dn(h),'1',t,'72',1,'73',2,'11',dn(x),'21',dn(y),'31',0);}
 // номер в центре и номера соседей у сторон — для разметки
 function dxfMarks(e,o,pts,ox,oy,segNb){const cx=pts.reduce((s,p)=>s+p[0],0)/pts.length,cy=pts.reduce((s,p)=>s+p[1],0)/pts.length;

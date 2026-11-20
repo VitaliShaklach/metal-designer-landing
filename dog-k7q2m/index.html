@@ -6,9 +6,9 @@
 <title>Доберман 11 — фигура из листа · Редактор</title>
 <meta name="description" content="Доберман из листа металла. Растягивайте фигуру — детали, масса, длина реза и швов пересчитываются.">
 <link rel="icon" href="../editor/mangal/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../fonts/fonts.css?v=2026-11-21a">
-<link rel="stylesheet" href="../editor/editor.css?v=2026-11-21a">
-<link rel="stylesheet" href="css/style.css?v=2026-11-21a">
+<link rel="stylesheet" href="../fonts/fonts.css?v=2026-11-21b">
+<link rel="stylesheet" href="../editor/editor.css?v=2026-11-21b">
+<link rel="stylesheet" href="css/style.css?v=2026-11-21b">
 </head>
 <body>
 <div class="edbar">
@@ -91,7 +91,7 @@
 
         <div class="grp shut" data-g="perf"><button type="button" class="gt">Перфорация сгибов</button>
           <label class="chk"><input type="checkbox" id="cPerf"><span>Перфорация линий сгиба</span></label>
-          <div class="xyz3"><label>Прорезь, мм<input class="inp" id="pL" type="number" min="1" max="10" step=".5" value="2"></label><label>Шаг, мм<input class="inp" id="pStep" type="number" min="5" step="1" value="20"></label><label>От края, мм<input class="inp" id="pEdge" type="number" min="3" step="1" value="10"></label></div>
+          <div class="xyz3"><label>Ширина, мм<input class="inp" id="pW" type="number" min=".5" step=".5" value="2"></label><label>Прорезь, мм<input class="inp" id="pL" type="number" min="1" step="1" value="40"></label><label>Перемычка, мм<input class="inp" id="pBr" type="number" min=".5" step=".5" value="3"></label><label>Перемычка у кромки, мм<input class="inp" id="pEb" type="number" min=".5" step=".5" value="3"></label></div>
           <p class="note" id="perfNote"></p>
         </div>
 
@@ -157,25 +157,26 @@
 </div>
 
 <div class="zoom" id="zoom" hidden><div class="zoombar"><span id="zoomTtl"></span><button type="button" id="zoomOut" aria-label="Мельче">−</button><span id="zoomK">100%</span><button type="button" id="zoomIn" aria-label="Крупнее">+</button><button type="button" id="zoomFit">Весь лист</button><button type="button" id="zoomX" aria-label="Закрыть">✕</button></div><div class="zoombox" id="zoomBox"></div></div>
-<script src="../vendor/three/three.min.js?v=2026-11-21a"></script>
-<script src="../vendor/three/OrbitControls.js?v=2026-11-21a"></script>
-<script src="../vendor/three/CSS2DRenderer.js?v=2026-11-21a"></script>
-<script src="../editor/common/calc.js?v=2026-11-21a"></script>
-<script src="js/mesh.js?v=2026-11-21a"></script>
-<script src="js/models-poly.js?v=2026-11-21a"></script>
-<script src="js/figures.js?v=2026-11-21a"></script>
-<script src="js/plates-doberman11.js?v=2026-11-21a"></script>
-<script src="js/edit.js?v=2026-11-21a"></script>
-<script src="js/trace.js?v=2026-11-21a"></script>
-<script src="js/view3d.js?v=2026-11-21a"></script>
-<script src="js/prod.js?v=2026-11-21a"></script>
-<script src="js/bend.js?v=2026-11-21a"></script>
-<script src="js/bend3d.js?v=2026-11-21a"></script>
-<script src="js/sheets.js?v=2026-11-21a"></script>
-<script src="js/ui.js?v=2026-11-21a"></script>
-<script src="js/angles-core.js?v=2026-11-21a"></script>
-<script src="js/angles.js?v=2026-11-21a"></script>
-<script src="js/tips.js?v=2026-11-21a"></script>
+<script src="../vendor/three/three.min.js?v=2026-11-21b"></script>
+<script src="../vendor/three/OrbitControls.js?v=2026-11-21b"></script>
+<script src="../vendor/three/CSS2DRenderer.js?v=2026-11-21b"></script>
+<script src="../editor/common/calc.js?v=2026-11-21b"></script>
+<script src="js/mesh.js?v=2026-11-21b"></script>
+<script src="js/models-poly.js?v=2026-11-21b"></script>
+<script src="js/figures.js?v=2026-11-21b"></script>
+<script src="js/plates-doberman11.js?v=2026-11-21b"></script>
+<script src="js/edit.js?v=2026-11-21b"></script>
+<script src="js/trace.js?v=2026-11-21b"></script>
+<script src="js/view3d.js?v=2026-11-21b"></script>
+<script src="js/prod.js?v=2026-11-21b"></script>
+<script src="js/bend.js?v=2026-11-21b"></script>
+<script src="js/bend3d.js?v=2026-11-21b"></script>
+<script src="js/slots.js?v=2026-11-21b"></script>
+<script src="js/sheets.js?v=2026-11-21b"></script>
+<script src="js/ui.js?v=2026-11-21b"></script>
+<script src="js/angles-core.js?v=2026-11-21b"></script>
+<script src="js/angles.js?v=2026-11-21b"></script>
+<script src="js/tips.js?v=2026-11-21b"></script>
 <div id="printBox"></div>
 </body>
 </html>

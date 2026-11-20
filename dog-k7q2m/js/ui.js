@@ -7,7 +7,7 @@ const store=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localSto
 function msg(t){$('msg').textContent=t||'';}
 
 // состояние фигуры
-const ST={frame:null,edit:false,sym:true,sv:-1,sp:-1,sp2:-1,seam:null,trace:false,refId:'',name:'',fig:'doberman11',base:null,faces:260,diss:0,dims:{W:0,H:600,D:0},prop:true,t:2,mat:'steel',sheet:'1250x2500',sw:1250,sl:2500,cut:'laser',minW:15,weld:'tig',gap:0.5,useT:true,ngap:5,ngapOwn:false,engrave:true,tpl:false,bend:true,perf:true,perfL:2,perfStep:20,perfEdge:10,selB:-1,allParts:false,sel:-1,nums:false,small:true};
+const ST={frame:null,edit:false,sym:true,sv:-1,sp:-1,sp2:-1,seam:null,trace:false,refId:'',name:'',fig:'doberman11',base:null,faces:260,diss:0,dims:{W:0,H:600,D:0},prop:true,t:2,mat:'steel',sheet:'1250x2500',sw:1250,sl:2500,cut:'laser',minW:15,weld:'tig',gap:0.5,useT:true,ngap:5,ngapOwn:false,engrave:true,tpl:false,bend:true,perf:true,slotW:2,slotL:40,slotBr:3,slotEb:3,slotEl:5,selB:-1,allParts:false,sel:-1,nums:false,small:true};
 let SIMP={key:'',m:null},CUR=null,CALC_KEY='';   // CUR = {M3,R,T,small}
 const DENSE=2000;                    // больше стольких треугольников — модель гладкая, упрощаем
 const isDense=()=>!ST.base.P&&ST.base.F.length>DENSE;
@@ -47,7 +47,7 @@ function prodCalc(){const R=CUR.R,[W,H]=sheetWL();CUR.C=R.parts.map(p=>cutContou
   CUR.cutLen=CUR.PC.reduce((a,o)=>a+perim(o.pts),0);CUR.degen=CUR.PC.filter(o=>o.bad).length;CALC_KEY=calcKeyOf();}
 // ключ задания для «Рассчитать» (editor/common/calc.js): всё, от чего раскрой, чертежи и карты были бы другими — фигура и точки, толщина, шов, резка, лист, галочки. Выбор детали, вид 3D, вкладка в него не входят
 function calcKeyOf(){let h=0;CUR.M3.V.forEach(p=>{h=(Math.imul(h,31)+Math.round(p[0]*10)*7+Math.round(p[1]*10)*13+Math.round(p[2]*10)*17)|0;});
-  return JSON.stringify([NEST.want,h,CUR.M3.V.length,(CUR.M3.P||CUR.M3.F||[]).length,CUR.R.parts.length,ST.name,ST.t,ST.mat,ST.weld,ST.cut,ST.gap,ST.useT,ST.bend,ST.tpl,ST.engrave,ST.perf,ST.perfL,ST.perfStep,ST.perfEdge,ST.sheet,ST.sw,ST.sl,ST.ngap]);}
+  return JSON.stringify([NEST.want,h,CUR.M3.V.length,(CUR.M3.P||CUR.M3.F||[]).length,CUR.R.parts.length,ST.name,ST.t,ST.mat,ST.weld,ST.cut,ST.gap,ST.useT,ST.bend,ST.tpl,ST.engrave,ST.perf,ST.slotW,ST.slotL,ST.slotBr,ST.slotEb,ST.slotEl,ST.slotNotch,ST.slotD,ST.sheet,ST.sw,ST.sl,ST.ngap]);}
 function compute(){compute0();prodCalc();}
 const NEST={key:'',want:'',N:null,run:null,wait:[]};
 // раскладка по кусочкам, чтобы страница не замирала; cb — когда готово
@@ -117,6 +117,7 @@ const selBlank=()=>!CUR.BL||!CUR.BL.length?-1:ST.selB>=0&&CUR.BL[ST.selB]?ST.sel
 function blankSVG(b,big){const t=bendAlign(b.pts,true),T=q=>{const z=trPt(t,q);return [z[0],t.W-z[1]];},pad=big?Math.max(t.L,t.W)*.1+8:2,fs=Math.max(t.L,t.W)*.035+2.5,f=v=>v.toFixed(1);
   const nl=b.lines.length,[ra,tt]=svgAlt(`${big?'Развёртка':'Эскиз'} заготовки Г${b.no}: ${Math.round(b.L)} × ${Math.round(b.W)} мм, ${nl} ${plural(nl,'сгиб','сгиба','сгибов')} (V — красным, m — синим), вид изнутри`);
   let s=`<svg class="${big?'flat':'mini'}" viewBox="${-pad} ${-pad} ${t.L+2*pad} ${t.W+2*pad}" ${big?'':'width="64" height="40"'}${ra}>${tt}<polygon points="${b.pts.map(q=>T(q).map(f).join(',')).join(' ')}" class="pf" vector-effect="non-scaling-stroke"/>`;
+  if(perfOn())blankSlots(b).holes.forEach(h=>{s+=`<path class="bkp" d="${shpD(shapeFlat(h).map(T))}" vector-effect="non-scaling-stroke"/>`;});   // средние прорези — как режут
   b.lines.forEach(l=>l.segs.forEach(z=>{const a=T([z[0],z[1]]),c=T([z[2],z[3]]);s+=`<path class="bl ${l.kind==='V'?'bkv':'bkm'}" d="M${f(a[0])},${f(a[1])}L${f(c[0])},${f(c[1])}" vector-effect="non-scaling-stroke"/>`;}));
   if(!big)return s+'</svg>';
   // номера деталей, потом подписи сгибов — без наложений: подпись ищет место вдоль линии, по обе стороны, дальше от неё; внутри тесно — снаружи контура
@@ -191,11 +192,13 @@ function openFile(file){const ext=file.name.split('.').pop().toLowerCase(),name=
   file.arrayBuffer().then(buf=>later(()=>{let m,o={name};
     if(ext==='obj')m=parseOBJ(new TextDecoder().decode(buf));else if(ext==='stl')m=parseSTL(buf);else if(ext==='glb')m=parseGLB(buf);
     else if(ext==='json'){const j=JSON.parse(new TextDecoder().decode(buf));if(j.type!=='md-art')throw new Error('это не файл фигуры');ST.weld='mig';/* старые файлы без weld — полуавтомат, зазор из файла */m=j.P?polyBase(j.V,j.P,j.S):{V:j.V,F:j.F};o={name:j.name||name,dims:j.dims,faces:j.F.length,ref:j.ref,frame:j.frame};
-      ['t','mat','sheet','sw','sl','cut','minW','weld','gap','useT','ngap','engrave','tpl','bend','perf','perfL','perfStep','perfEdge','diss'].forEach(k=>{if(j[k]!==undefined)ST[k]=j[k];});ST.ngapOwn=ST.ngap!==nestGap(ST.cut);metalUI();}
+      ['t','mat','sheet','sw','sl','cut','minW','weld','gap','useT','ngap','engrave','tpl','bend','perf','diss'].forEach(k=>{if(j[k]!==undefined)ST[k]=j[k];});
+      // прорези: старый файл (perfL, perfStep, perfEdge) — размеры по умолчанию
+      Object.entries(SLOT_KEYS).forEach(([k,d])=>{if(k in ST)ST[k]=j[k]!==undefined?j[k]:SLOT_DEF[d];});ST.ngapOwn=ST.ngap!==nestGap(ST.cut);metalUI();}
     else throw new Error('нужен файл OBJ, STL, GLB или JSON');
     if(!m.F.length)throw new Error('в файле нет граней');ST.refId=o.ref&&typeof MODELS_POLY!=='undefined'&&MODELS_POLY[o.ref]?o.ref:'';ST.frame=o.frame?{min:o.frame[0],max:o.frame[1]}:null;ST.fig='';$('figSel').value='';setBase(m,o);compute();renderAll('instant');
     msg(`Открыто: ${m.F.length} ${plural(m.F.length,'треугольник','треугольника','треугольников')}${isDense()?' — упрощаю до '+ST.faces:''}`);},'Читаю модель…'));}
-function save(){const j={type:'md-art',v:1,name:ST.name,dims:ST.dims,t:ST.t,mat:ST.mat,sheet:ST.sheet,sw:ST.sw,sl:ST.sl,cut:ST.cut,minW:ST.minW,weld:ST.weld,gap:ST.gap,useT:ST.useT,ngap:ST.ngap,engrave:ST.engrave,tpl:ST.tpl,bend:ST.bend,perf:ST.perf,perfL:ST.perfL,perfStep:ST.perfStep,perfEdge:ST.perfEdge,diss:0,
+function save(){const j={type:'md-art',v:1,name:ST.name,dims:ST.dims,t:ST.t,mat:ST.mat,sheet:ST.sheet,sw:ST.sw,sl:ST.sl,cut:ST.cut,minW:ST.minW,weld:ST.weld,gap:ST.gap,useT:ST.useT,ngap:ST.ngap,engrave:ST.engrave,tpl:ST.tpl,bend:ST.bend,perf:ST.perf,...Object.fromEntries(Object.keys(SLOT_KEYS).filter(k=>k in ST).map(k=>[k,ST[k]])),diss:0,
     V:CUR.M3.V.map(p=>p.map(x=>Math.round(x*100)/100)),F:CUR.M3.F};if(isPoly()){j.P=ST.base.P;j.S=ST.base.S||[];}if(ST.refId){j.ref=ST.refId;const fb=traceFrame();j.frame=[fb.min,fb.max].map(p=>p.map(x=>Math.round(x*100)/100));}
   saveBlob((ST.name||'figura')+'.json',new Blob([JSON.stringify(j)],{type:'application/json'}));}
 // скачать файл. Ссылку-blob держим минуту: Safari на iPad начинает загрузку не сразу, и через 2 с файл иногда уже «не найден»
@@ -203,9 +206,11 @@ const BLOB_TTL=60000;
 function saveBlob(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.rel='noopener';a.style.display='none';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),BLOB_TTL);}
 function metalUI(){$('sNGap').value=ST.ngap;$('cEngrave').checked=ST.engrave;$('cTpl').checked=!!ST.tpl;$('cBend').checked=!!ST.bend;$('sWeld').value=weldOf();$('sGap').value=ST.gap;$('cUseT').checked=ST.useT;$('sT').value=ST.t;$('sMat').value=ST.mat;$('sSheet').value=ST.sheet;$('sCut').value=ST.cut;$('sW').value=ST.sw;$('sL').value=ST.sl;$('ownSheet').hidden=ST.sheet!=='own';perfUI();}
 // перфорация линий сгиба: только лазер и только с гибкой
-function perfUI(){$('cPerf').checked=!!ST.perf;$('pL').value=ST.perfL;$('pStep').value=ST.perfStep;$('pEdge').value=ST.perfEdge;const pl=ST.cut==='plasma',nb=!ST.bend;$('cPerf').disabled=pl||nb;
-  ['pL','pStep','pEdge'].forEach(k=>$(k).disabled=pl||nb||!ST.perf);
-  $('perfNote').innerHTML=pl?'Плазмой такие прорези не прорезать — только лазер':nb?'Прорези — на линиях сгиба: включите «Гнуть» в разделе «Металл»':'Сквозные прорези по линиям V и m — видны и снаружи. В DXF — слой PERF; в метраже — отдельной строкой';}
+// поля прорезей: id в панели → ключ ST → ключ SLOT_DEF (slots.js)
+const SLOT_F=[['pW','slotW'],['pL','slotL'],['pBr','slotBr'],['pEb','slotEb']],SLOT_KEYS={slotW:'w',slotL:'len',slotBr:'br',slotEb:'eb',slotEl:'el',slotNotch:'notch',slotD:'D'};
+function perfUI(){$('cPerf').checked=!!ST.perf;SLOT_F.forEach(([id,k])=>{$(id).value=ST[k];});const pl=ST.cut==='plasma',nb=!ST.bend;$('cPerf').disabled=pl||nb;
+  SLOT_F.forEach(([id])=>$(id).disabled=pl||nb||!ST.perf);
+  $('perfNote').innerHTML=pl?'Плазмой такие прорези не прорезать — только лазер':nb?'Прорези — на линиях сгиба: включите «Гнуть» в разделе «Металл»':ST.slotW<ST.t?'Ширина меньше толщины листа — лазер может не прорезать чисто, уточните у цеха':'Сквозные прорези по линиям V и m с короткими перемычками. В DXF: прорези — слой PERF; линии сгиба не гравируются; в метраже — отдельной строкой';}
 
 /* ---------- события ---------- */
 let RT=0;const recalc=(fit,heavy)=>{clearTimeout(RT);RT=setTimeout(()=>heavy?later(()=>{compute();renderAll(fit);}):(compute(),renderAll(fit)),heavy?150:60);};
@@ -225,7 +230,7 @@ $('cSmall').addEventListener('change',e=>{ST.small=e.target.checked;renderAll();
 $('cNums').addEventListener('change',e=>{ST.nums=e.target.checked;renderAll();});
 document.querySelectorAll('.rot [data-r]').forEach(b=>b.addEventListener('click',()=>{const ax=b.dataset.r,H=ST.dims.H;
   const RV=ST.base.V.map(([x,y,z])=>ax==='x'?[x,-z,y]:ax==='y'?[z,y,-x]:[-y,x,z]);if(isPoly()){pushUndo();ST.base=polyBase(RV,ST.base.P,ST.base.S);syncDims();setPolyDims();}else{ST.base={V:RV,F:ST.base.F};SIMP={key:'',m:null};dimsFromH(H);}later(()=>{compute();renderAll(true);});}));
-$('sT').addEventListener('change',e=>{const t=+e.target.value;ST.gap=gapAfterT(ST.gap,weldOf(),ST.t,t);ST.t=t;$('sGap').value=ST.gap;recalc();});
+$('sT').addEventListener('change',e=>{const t=+e.target.value;ST.gap=gapAfterT(ST.gap,weldOf(),ST.t,t);ST.t=t;$('sGap').value=ST.gap;perfUI();recalc();});
 $('sWeld').addEventListener('change',e=>{ST.weld=e.target.value;ST.gap=weldGap(ST.weld,ST.t);$('sGap').value=ST.gap;recalc();});
 $('sMat').addEventListener('change',e=>{ST.mat=e.target.value;recalc();});
 $('sSheet').addEventListener('change',e=>{ST.sheet=e.target.value;$('ownSheet').hidden=ST.sheet!=='own';recalc();});
@@ -233,8 +238,9 @@ $('sSheet').addEventListener('change',e=>{ST.sheet=e.target.value;$('ownSheet').
 $('sCut').addEventListener('change',e=>{ST.cut=e.target.value;ST.minW=ST.cut==='laser'?15:30;ST.ngap=ngapAfterCut(ST.ngap,ST.ngapOwn,ST.cut);$('sNGap').value=ST.ngap;perfUI();recalc();});
 $('cPerf').addEventListener('change',e=>{ST.perf=e.target.checked;perfUI();recalc();});
 // пределы: прорезь 1–10 мм, шаг не меньше прорези + 3, от края не меньше 3
-const perfFix=()=>{ST.perfL=Math.min(10,Math.max(1,ST.perfL||2));ST.perfStep=Math.max(ST.perfL+3,ST.perfStep||20);ST.perfEdge=Math.max(3,ST.perfEdge||10);perfUI();recalc();};
-[['pL','perfL'],['pStep','perfStep'],['pEdge','perfEdge']].forEach(([id,k])=>$(id).addEventListener('change',e=>{ST[k]=+e.target.value;perfFix();}));
+// ширина и перемычки — не меньше 0,5 мм, прорезь — не короче ширины; ширина меньше толщины можно (только подсказка)
+const perfFix=()=>{const n=(v,d)=>Number.isFinite(+v)&&+v>0?+v:d;ST.slotW=Math.max(.5,n(ST.slotW,2));ST.slotL=Math.max(ST.slotW,n(ST.slotL,40));ST.slotBr=Math.max(.5,n(ST.slotBr,3));ST.slotEb=Math.max(.5,n(ST.slotEb,3));perfUI();recalc();};
+SLOT_F.forEach(([id,k])=>$(id).addEventListener('change',e=>{ST[k]=+e.target.value;perfFix();}));
 // клик по модели: строку таблицы — в видимую часть её собственной прокрутки (если она есть); страницу не трогаем
 function revealRow(tr){for(let el=tr&&tr.parentElement;el&&el!==document.body;el=el.parentElement){const oy=getComputedStyle(el).overflowY;if((oy!=='auto'&&oy!=='scroll')||el.scrollHeight<=el.clientHeight)continue;
   const r=tr.getBoundingClientRect(),b=el.getBoundingClientRect();if(r.top<b.top)el.scrollTop+=r.top-b.top;else if(r.bottom>b.bottom)el.scrollTop+=r.bottom-b.bottom;return;}}

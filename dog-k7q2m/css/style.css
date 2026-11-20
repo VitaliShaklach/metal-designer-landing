@@ -377,6 +377,7 @@ body.noscroll{overflow:hidden}
 @media (max-width:600px){.bwbar{font-size:13px;padding:6px 8px}.bwbar button{height:40px}.bwhint{display:none}}
 svg .bl{fill:none;stroke-width:1.2;stroke-dasharray:5 3}svg.mini .bl{stroke-width:.8;stroke-dasharray:3 2}
 svg .bl.bkv{stroke:#c33}svg .bl.bkm{stroke:#36c}
+svg .bkp{fill:#fff;stroke:var(--ink);stroke-width:1}svg.mini .bkp{stroke-width:.6}
 svg.flat text.bkt{stroke:#fff;stroke-width:3px;stroke-linejoin:round;paint-order:stroke;font-weight:600}svg.flat text.bkv{fill:#c33}svg.flat text.bkm{fill:#36c}svg.flat text.bkno{fill:var(--ink)}
 #partsVw:empty{display:none}.lnk{border:0;background:none;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font:inherit}
 #parts tr.on td{background:color-mix(in srgb,var(--accent) 14%,transparent)}

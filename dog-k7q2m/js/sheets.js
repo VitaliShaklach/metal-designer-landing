@@ -75,12 +75,15 @@ function sheetGeneral(){const T=CUR.T,b=meshBox(CUR.M3.V),[W,H,D]=b.size,bf=proj
   s+=wrapTxt('Номера на гранях — номера деталей (вид спереди). Порядок сборки — следующие листы, каждый элемент и деталь — на своей карте (PDF А4).',Math.floor((411-TB.x)/(.43*2.3))).map((t,i,a)=>`<text class="sm" x="${r2(TB.x)}" y="${r2(269-(a.length-1-i)*2.9)}">${shEsc(t)}</text>`).join('');
   s+=TR.map((t,i)=>`<text class="${i?'trq':'trh'}" x="${r2(TB.x)}" y="${r2(ry+i*TR_P+(i?2:0))}">${shEsc(t.replace(/^ +/,m=>' '.repeat(m.length)))}</text>`).join('');
   return {title:'Общий вид',scale:scaleTxt(n),body:s,alt:`чертёж «Общий вид», масштаб ${scaleTxt(n)}: фигура ${Math.round(W)} × ${Math.round(H)} × ${Math.round(D)} мм (Ш × В × Г), деталей ${T.n}${BS?`, позиций на резку ${CUR.PC.length}`:''}, металл ${ST.t} мм, ${MATN[ST.mat]}, рез ${fmt(CUR.cutLen/1000,1)} м, листов ${CUR.N.sheets.length}; виды спереди, слева, сверху и в изометрии, таблица параметров, технические требования`};}
+// прорези словами для техтребований: размеры как в панели
+function slotReqTxt(){const o=slotOpt(),f=v=>fmt(v,v%1?1:0);return `сквозные прорези шириной ${f(o.w)} мм, до ${f(o.len)} мм через перемычки ${f(o.br)} мм${o.notch?`, крайние ${f(o.el)} мм до края детали, за ними перемычка ${f(o.eb)} мм`:`, от края ${f(o.eb)} мм`}${o.D>0?`, во внутренних углах — разгрузочное отверстие Ø${f(o.D)} мм`:''} — слой PERF${o.notch||o.D>0?', крайние и отверстия — в контуре CUT':''}; линии сгиба не гравируются.`;}
 // технические требования: гибка (если гнём), порядок на лазере, сварка — под её вид; крупно, переносы по ширине столбца (113 мм)
 const TR_FS=4,TR_P=5.4,trW=w=>Math.floor(w/(.43*TR_FS))-4,TR_W=trW(110);   // шрифт, шаг строк, знаков в строке по ширине w мм (с отступом продолжения)
 function techReq(bend,w=110){const Q=[],g=mmT(ST.gap);
   if(bend)Q.push('V — гнуть на себя, m — от себя, глядя на сторону с гравировкой (внутреннюю). Число у линии — угол между гранями после гибки, в скобках — порядок гибки.',
-    'Линии сгиба — в DXF гравировкой на слоях BEND_V и BEND_M'+(perfOn()?`, по ним сквозные прорези ${fmt(ST.perfL,1)} мм шагом до ${ST.perfStep} мм, до кромки не ближе ${fmt(perfBridge(),0)} мм — слой PERF.`:'.'),
-    'Порядок на лазере: ENGRAVE, BEND_V и BEND_M, PERF, последним — контур CUT (внутреннее раньше наружного, иначе вырезанная деталь упадёт). Мелкие детали — на микроперемычках.',
+    'Линии сгиба — '+(perfOn()?slotReqTxt():'в DXF гравировкой на слоях BEND_V и BEND_M.'),
+    perfOn()?'Порядок на лазере: ENGRAVE, PERF, последним — контур CUT (внутреннее раньше наружного, иначе вырезанная деталь упадёт). Мелкие детали — на микроперемычках.'
+      :'Порядок на лазере: ENGRAVE, BEND_V и BEND_M, последним — контур CUT (внутреннее раньше наружного, иначе вырезанная деталь упадёт). Мелкие детали — на микроперемычках.',
     'Толстый лист: пропил болгаркой — только по V и только изнутри.');
   else if(ST.engrave)Q.push('Порядок на лазере: гравировка ENGRAVE, последним — контур CUT.');
   Q.push(weldOf()==='tig'?`Сварка TIG (аргон): резать с азотом или зачистить кромки от окалины; встык с зазором ${g} мм, присадка по месту. Прихватки через 30–50 мм, швы короткие вразбивку — меньше поводка.`
@@ -193,31 +196,33 @@ function sheetsBend(){const BL=CUR.BL||[];if(!BL.length)return [];const R=CUR.R,
 const perim=P=>P.reduce((a,q,i)=>{const z=P[(i+1)%P.length];return a+Math.hypot(z[0]-q[0],z[1]-q[1]);},0);
 // кусок на листе (o.pts и o.tr — как положил раскрой): гравировка — номер; у заготовки — номера её деталей и подписи сгибов «V144 (2)»;
 // V, M — линии сгиба; miss — что не влезло гравировкой. Всё в координатах листа
-// перфорация линий сгиба (галочка, только лазер): сквозные прорези длиной d вдоль линии (рез без ширины — ширина = рез лазера), центр первой — в edge от конца отрезка линии,
-// дальше равномерно с шагом не больше step; отрезок короче 2·edge — одна посередине. → отрезки [x1, y1, x2, y2]
-const perfOn=()=>!!ST.perf&&ST.cut!=='plasma',perfKey=()=>perfOn()?[ST.perfL,ST.perfStep,ST.perfEdge].join('/'):'';
-// C — контур куска (те же координаты): перемычка от прорези до кромки не меньше perfBridge. Линия сгиба подходит к кромке под острым углом — крайняя прорезь
-// в 10 мм от конца линии оказывалась в 2 мм от края (Г2–Г4 у Д10) и при гибке рвалась; такую сдвигаем к середине линии шагами 0,5 мм (не дальше полшага), не вышло — без неё
-const perfBridge=()=>Math.max(3,2*(ST.t||0));   // не тоньше двух толщин (перемычку тянет при гибке), но и не меньше 3 мм — тоньше лазер пережигает
-const perfGap=(h,C)=>{const a=[h[0],h[1]],b=[h[2],h[3]];let m=Infinity;C.forEach((p,i)=>{const q=C[(i+1)%C.length];m=Math.min(m,ptSegD(a,p,q),ptSegD(b,p,q),ptSegD(p,a,b));});return m;};
-function perfHoles(S,C){const d=ST.perfL,st=ST.perfStep,ed=ST.perfEdge,mb=perfBridge(),out=[];S.forEach(z=>{const L=Math.hypot(z[2]-z[0],z[3]-z[1]);if(L<d+4)return;const P=t=>[z[0]+(z[2]-z[0])*t/L,z[1]+(z[3]-z[1])*t/L],hole=t=>[...P(t-d/2),...P(t+d/2)];
-    const T=L<=2*ed?[L/2]:(n=>Array.from({length:n},(_,i)=>ed+(L-2*ed)*i/(n-1)))(Math.ceil((L-2*ed)/st-1e-9)+1),put=[];
-    T.forEach((t0,i)=>{const dir=t0<L/2?1:-1;for(let s=0;s<=st/2+1e-9;s+=.5){const t=t0+dir*s;if(t<d/2||t>L-d/2)break;
-      if(s>0&&(put.length&&t-put[put.length-1]<d+mb-1e-9||T[i+1]!=null&&T[i+1]-t<d+mb-1e-9))break;   // сдвинутая — не ближе перемычки к соседним прорезям
-      if(!C||perfGap(hole(t),C)>=mb-1e-9){put.push(t);break;}}});
-    put.forEach(t=>out.push(hole(t)));});return out;}
+// прорези по линиям сгиба (галочка, только лазер) — геометрия в slots.js; размеры из ST (нет ключа — по умолчанию SLOT_DEF)
+const perfOn=()=>!!ST.perf&&ST.cut!=='plasma';
+function slotOpt(){const d=SLOT_DEF,v=(k,x)=>ST[k]!=null&&ST[k]!==''?+ST[k]:x;return {w:v('slotW',d.w),len:v('slotL',d.len),br:v('slotBr',d.br),eb:v('slotEb',d.eb),el:v('slotEl',d.el),notch:!!ST.slotNotch,D:v('slotD',0)};}
+const perfKey=()=>{if(!perfOn())return '';const o=slotOpt();return [o.w,o.len,o.br,o.eb,o.el,o.notch,o.D].join('/');};
+/* прорези заготовки B в её координатах (B.pts, l.segs), кэш на B по perfKey: holes — средние прорези {pts,b} (слой PERF);
+   outline — контур реза {pts,b} с вырезами на концах линий; extra — на сколько рез контура длиннее периметра заготовки;
+   ends — сколько концов с крайней прорезью (edge) и с разгрузочным отверстием (relief); miss — линии без прорезей («Г5 V144») */
+function blankSlots(B){const k=perfKey();if(B._slots&&B._slots.k===k)return B._slots.r;const o=slotOpt(),holes=[],miss=new Set();
+  B.lines.forEach(l=>l.segs.forEach(z=>{const L=Math.hypot(z[2]-z[0],z[3]-z[1]);if(L<1e-6)return;const u=[(z[2]-z[0])/L,(z[3]-z[1])/L],tr=slotTrim([z[0],z[1]],u,L,B.pts,o),pl=tr&&slotPlan(L-tr[0]-tr[1],false,false,o);
+    if(!pl){miss.add('Г'+B.no+' '+bendTxt(l));return;}pl.forEach(([t0,t1])=>holes.push(slotShape([z[0],z[1]],u,t0+tr[0],t1+tr[0],o.w)));}));
+  const r={holes,outline:plainShape(B.pts),extra:0,ends:{edge:0,relief:0},miss:[...miss]};B._slots={k,r};return r;}
+// контур реза куска o в его координатах: у заготовки с прорезями — с вырезами на концах линий, у остальных — o.pts
+function cutOutline(o){const B=isBlank(o)&&perfOn()&&CUR.BL?CUR.BL[+o.id.slice(1)]:null;return B?shapeTr(blankSlots(B).outline,q=>trPt(o.tr,q)):plainShape(o.pts);}
+// фигура (ломаная) → замкнутый путь SVG
+const shpD=Q=>'M'+Q.map(q=>r2(q[0])+','+r2(q[1])).join('L')+'Z';
 // номер детали P внутри заготовки C. Деталь — грань модели, а у шва контур реза заготовки срезан зазором под сварку: номер по грани
 // вылез за кромку или ближе 0,5 мм к ней (Г5 у Д9–Д11, до 2,1 мм) — ставим заново внутри обоих контуров (сдвиг, при нужде мельче)
 function blankNumSegs(no,P,C,maxH=20){const g=engraveSegs(no,P,{maxH});if(!g)return null;const d=polyDist(C);
   return g.every(s=>[[s[0],s[1]],[s[2],s[3]]].every(q=>inPoly(q,C)&&d(q)>=.5))?g:engraveSegs(no,P,{maxH,clip:C});}
 function itemMarks(o){const eng=ST.engrave||isTpl(o),pk=perfKey();if(o._mk&&o._mk.bl===CUR.BL&&o._mk.e===eng&&o._mk.pk===pk)return o._mk.r;let r;
   if(!isBlank(o)){const g=eng?engraveSegs(o.no,o.pts):null;r={eng:g||[],miss:eng&&!g?[itemName(o)]:[],V:[],M:[],P:[]};}
-  else{const B=CUR.BL[+o.id.slice(1)],T=q=>trPt(o.tr,q);r={eng:[],miss:[],V:[],M:[],P:[],num:[],labs:[]};
+  else{const B=CUR.BL[+o.id.slice(1)],T=q=>trPt(o.tr,q);r={eng:[],miss:[],V:[],M:[],P:[],num:[],labs:[]};if(pk)r.P=blankSlots(B).holes.map(h=>shapeTr(h,T));
     // сначала номера деталей (по ним собирают), потом подписи сгибов — не ближе 1 мм к номерам и друг к другу.
     // Подписи нет места — номера рядом с линией мельче, ступенями до 5 мм (номер остаётся в той же точке, только меньше)
     const N=B.regions.map(z=>({no:CUR.R.parts[z.pi].no,pts:z.pts.map(T),h:20})),put=n=>{n.g=blankNumSegs(n.no,n.pts,o.pts,n.h);n.box=n.g?segBox(n.g,.5):null;};
     if(eng)N.forEach(put);
-    B.lines.forEach(l=>{const S=l.segs.map(z=>{const a=T([z[0],z[1]]),b=T([z[2],z[3]]);return [a[0],a[1],b[0],b[1]];});(l.kind==='V'?r.V:r.M).push(...S);if(pk)r.P.push(...perfHoles(S,o.pts));if(!eng||!S.length)return;
+    B.lines.forEach(l=>{const S=l.segs.map(z=>{const a=T([z[0],z[1]]),b=T([z[2],z[3]]);return [a[0],a[1],b[0],b[1]];});(l.kind==='V'?r.V:r.M).push(...S);if(!eng||!S.length)return;
       const z=S.reduce((a,b)=>Math.hypot(b[2]-b[0],b[3]-b[1])>Math.hypot(a[2]-a[0],a[3]-a[1])?b:a),L=Math.hypot(z[2]-z[0],z[3]-z[1])||1,ux=(z[2]-z[0])/L,uy=(z[3]-z[1])/L,e=15,
         zone=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>[(a<0?z[0]-ux*e:z[2]+ux*e)-uy*e*b,(a<0?z[1]-uy*e:z[3]+uy*e)+ux*e*b]);   // где искать подпись: линия ± 15 мм
       let g=null;for(const h of [20,12,8,5]){N.forEach(n=>{if(n.h>h&&n.box&&quadHit(n.box,zone)){n.h=h;put(n);}});g=bendLabel(bendTxt(l),z,o.pts,4,N.filter(n=>n.box).map(n=>n.box).concat(r.labs.map(x=>x.g.box)));if(g)break;}
@@ -225,8 +230,8 @@ function itemMarks(o){const eng=ST.engrave||isTpl(o),pk=perfKey();if(o._mk&&o._m
     N.forEach(n=>{r.num.push({no:n.no,g:n.g});if(n.g)r.eng.push(...n.g);else if(eng)r.miss.push('№'+n.no);});r.labs.forEach(x=>r.eng.push(...x.g));}
   o._mk={bl:CUR.BL,e:eng,pk,r};return r;}
 const segLen=S=>S.reduce((a,z)=>a+Math.hypot(z[2]-z[0],z[3]-z[1]),0);
-// рез и врезки — только контуры; перфорация отдельно (у неё цена — в основном врезки: каждая прорезь — своя)
-function cutStats(items){let cut=0,eng=0,pierce=0,engN=0,bend=0,perf=0,perfLen=0;items.forEach(o=>{cut+=perim(o.pts);pierce++;const m=itemMarks(o);perf+=m.P.length;perfLen+=segLen(m.P);if(m.eng.length){engN++;eng+=segLen(m.eng);}bend+=segLen(m.V)+segLen(m.M);});return {cut,eng,pierce,engN,bend,perf,perfPierce:perf,perfLen};}
+// рез и врезки — только контуры (с вырезами на концах линий); средние прорези отдельно (у них цена — в основном врезки: каждая прорезь — своя)
+function cutStats(items){let cut=0,eng=0,pierce=0,engN=0,bend=0,perf=0,perfLen=0;items.forEach(o=>{cut+=shapeLen(cutOutline(o));pierce++;const m=itemMarks(o);perf+=m.P.length;perfLen+=m.P.reduce((a,h)=>a+shapeLen(h),0);if(m.eng.length){engN++;eng+=segLen(m.eng);}bend+=segLen(m.V)+segLen(m.M);});return {cut,eng,pierce,engN,bend,perf,perfPierce:perf,perfLen};}
 const plural=(n,a,b,c)=>{const m=n%100,k=n%10;return m>10&&m<20?c:k===1?a:k>1&&k<5?b:c;};
 const perfTxt=c=>`${c.perf} ${plural(c.perf,'прорезь','прорези','прорезей')} · ${c.perfPierce} ${plural(c.perfPierce,'врезка','врезки','врезок')} · ${fmt(c.perfLen/1000,2)} м реза`;
 const cutTxt=(c,short)=>`рез ${fmt(c.cut/1000,1)} м · врезок ${c.pierce}${ST.engrave?` · гравировка ${fmt(c.eng/1000,1)} м`:''}${c.bend&&!short?` · линии сгиба ${fmt(c.bend/1000,1)} м`:''}${c.perf?` · перфорация: ${perfTxt(c)}`:''}`;
@@ -237,7 +242,7 @@ function sheetsNest(){const N=CUR.N,n=N.sheets.length===1?pickScale([N.W,N.H],[3
       const T=(x,y)=>[ox+(x)*k,oy+(N.H-y)*k];   // как в DXF: y вверх
       const small=[],path=(S,c)=>S.length?`<path class="${c}" d="${S.map(z=>{const a=T(z[0],z[1]),b=T(z[2],z[3]);return 'M'+r2(a[0])+','+r2(a[1])+'L'+r2(b[0])+','+r2(b[1]);}).join('')}"/>`:'';
       sh.items.forEach(o=>{const Q=o.pts.map(q=>T(o.x+q[0],o.y+q[1])),m=itemMarks(o);small.push(...m.miss);
-        s+=`<polygon class="${m.miss.length&&!isBlank(o)?'small':'t'}" points="${Q.map(q=>r2(q[0])+','+r2(q[1])).join(' ')}"/>`+path(m.V,'bnd bv')+path(m.M,'bnd bm')+path(m.P,'prf');
+        s+=`<polygon class="${m.miss.length&&!isBlank(o)?'small':'t'}" points="${Q.map(q=>r2(q[0])+','+r2(q[1])).join(' ')}"/>`+path(m.V,'bnd bv')+path(m.M,'bnd bm')+(m.P.length?`<path class="prf" d="${m.P.map(h=>shpD(shapeFlat(h).map(q=>T(o.x+q[0],o.y+q[1])))).join('')}"/>`:'');
         if(m.eng.length)s+=path(m.eng,'eng');
         else if(!ST.engrave&&!isTpl(o)){const cx=Q.reduce((a,q)=>a+q[0],0)/Q.length,cy=Q.reduce((a,q)=>a+q[1],0)/Q.length;s+=`<text class="no" x="${r2(cx)}" y="${r2(cy+.9)}" text-anchor="middle">${o.no}</text>`;}});
       if(small.length)s+=`<text class="h2" x="25" y="${r2(oy+N.H*k+5.5)}" fill="#c33">Без гравировки — малы для цифр 3 мм (обведены красным): ${shEsc(small.join(', ').slice(0,300))}</text>`;});
@@ -290,7 +295,7 @@ function cardPiece(x,y){const R=CUR.R,V=CUR.M3.V,B=x.bi>=0?CUR.BL[x.bi]:null,o=C
   const mk=itemMarks({id:o.id,no:o.no,pts:P,tr:t}),lb=[],eng=[],engB=B?mk.labs.flatMap(x=>x.g):[];
   (B?B.regions.map(z=>({no:nm(z.pi),pts:z.pts.map(q=>trPt(t,q))})):[{no:o.no,pts:P}]).forEach(z=>{const g=B?(mk.num.find(x=>x.no===z.no)||{}).g:mk.eng.length?mk.eng:null;if(g){eng.push(...g);const Z=g.flatMap(q=>[T([q[0],q[1]]),T([q[2],q[3]])]);box.push([Math.min(...Z.map(q=>q[0]))-.3,Math.min(...Z.map(q=>q[1]))-.3,Math.max(...Z.map(q=>q[0]))+.3,Math.max(...Z.map(q=>q[1]))+.3]);}
     if(!g)lb.push({t:String(z.no),pts:z.pts.map(T),a:Math.abs(area2(z.pts))*k*k});});   // гравировки нет (выкл. или не влезла) — номер текстом
-  if(mk.P.length)s+=`<path class="prf" d="${mk.P.map(z=>{const A=T([z[0],z[1]]),C=T([z[2],z[3]]);return `M${r2(A[0])},${r2(A[1])}L${r2(C[0])},${r2(C[1])}`;}).join('')}"/>`;   // перфорация — прорези на линиях сгиба
+  if(mk.P.length)s+=`<path class="prf" d="${mk.P.map(h=>shpD(shapeFlat(h).map(T))).join('')}"/>`;   // средние прорези на линиях сгиба — замкнутыми фигурами, как режут
   if(B)B.lines.forEach(l=>l.segs.forEach((z,zi)=>{const A=T(trPt(t,[z[0],z[1]])),C=T(trPt(t,[z[2],z[3]]));s+=`<path class="bnd ${l.kind==='V'?'bv':'bm'}" d="M${r2(A[0])},${r2(A[1])}L${r2(C[0])},${r2(C[1])}"/>`;
     // подпись — за контуром, у конца линии: кружок с номером по порядку и «V141» (внутри узких полос налезала бы на гравировку номеров)
     if(zi)return;const col=l.kind==='V'?'#c33':'#33c',tx=l.kind+l.ang;let done=false;
@@ -374,17 +379,19 @@ function buildCards(){const g=buildCardsGen();let v;do{v=g.next();}while(!v.done
 /* ---------- DXF: раскрой (все листы) и детали (сеткой) ---------- */
 function segNbOf(p){return p.segs.map(g=>g.nb>=0?CUR.R.parts[g.nb].no:null);}
 function dxfNest(){const N=CUR.N,e=[];N.sheets.forEach((sh,i)=>{const oy=i*(N.H+200);dxfPoly(e,[[0,0],[N.W,0],[N.W,N.H],[0,N.H]],'SHEET',0,oy);dxfTxt(e,N.W/2,N.H+60+oy,40,`SHEET ${i+1}`,"SHEET");dxfGas(e,N.W/2,N.H+120+oy);
-  sh.items.forEach(o=>{dxfMarksOf(e,o,o.x,o.y+oy);dxfPoly(e,o.pts,"CUT",o.x,o.y+oy);});});return dxfDoc(e);}
-// гравировка — ENGRAVE, линии сгиба — BEND_V и BEND_M, прорези перфорации — PERF (сквозной рез отрезками); у каждой детали в файле — раньше её контура CUT
+  sh.items.forEach(o=>{dxfMarksOf(e,o,o.x,o.y+oy);dxfCut(e,o,o.x,o.y+oy);});});return dxfDoc(e);}
+// гравировка — ENGRAVE; линии сгиба — BEND_V и BEND_M, только без прорезей; средние прорези — замкнутые PERF с дугами (bulge);
+// крайние прорези и разгрузочные отверстия — в контуре CUT. У каждой детали в файле метки — раньше её контура CUT
 // газ резки в DXF не задаётся (только геометрия) — под TIG надпись на служебном слое SHEET (не CUT/ENGRAVE); латиницей: в DXF R12 кириллица ломается
 const DXF_N2='CUT WITH NITROGEN N2 - FOR TIG WELDING';
 function dxfGas(e,x,y){if(weldOf()==='tig')dxfTxt(e,x,y,30,DXF_N2,'SHEET');}
-function dxfMarksOf(e,o,ox,oy){const m=itemMarks(o);if(m.eng.length)dxfSegs(e,m.eng,'ENGRAVE',ox,oy);if(m.V.length)dxfSegs(e,m.V,'BEND_V',ox,oy);if(m.M.length)dxfSegs(e,m.M,'BEND_M',ox,oy);if(m.P.length)dxfSegs(e,m.P,'PERF',ox,oy);}
+function dxfMarksOf(e,o,ox,oy){const m=itemMarks(o),pf=perfOn();if(m.eng.length)dxfSegs(e,m.eng,'ENGRAVE',ox,oy);if(!pf&&m.V.length)dxfSegs(e,m.V,'BEND_V',ox,oy);if(!pf&&m.M.length)dxfSegs(e,m.M,'BEND_M',ox,oy);m.P.forEach(h=>dxfPoly(e,h.pts,'PERF',ox,oy,h.b));}
+function dxfCut(e,o,ox,oy){const c=cutOutline(o);dxfPoly(e,c.pts,'CUT',ox,oy,c.b);}
 function dxfParts(){const ps=CUR.PC.filter(o=>!o.bad),e=[];let x=0,y=0,rowH=0;
   // с гравировкой и с гибкой — зеркально, внутренней стороной вверх; заготовка — длинной стороной по X
   const it=ps.map(o=>{const f=ST.engrave||ST.bend,t=o.B?bendAlign(o.pts,f):{f,c:1,s:0,x:0,y:0},q={id:o.id,no:o.no,pts:o.pts.map(p=>trPt(t,p))};const xs=q.pts.map(p=>p[0]),ys=q.pts.map(p=>p[1]),x0=Math.min(...xs),y0=Math.min(...ys);
     q.pts=q.pts.map(p=>[p[0]-x0,p[1]-y0]);q.tr={...t,x:t.x-x0,y:t.y-y0};q.L=Math.max(...xs)-x0;q.W=Math.max(...ys)-y0;return q;}),rowW=Math.max(1500,Math.max(...it.map(o=>o.L))+50);
-  it.forEach(o=>{if(x+o.L>rowW){x=0;y+=rowH+30;rowH=0;}dxfMarksOf(e,o,x,y);dxfPoly(e,o.pts,'CUT',x,y);x+=o.L+30;rowH=Math.max(rowH,o.W);});
+  it.forEach(o=>{if(x+o.L>rowW){x=0;y+=rowH+30;rowH=0;}dxfMarksOf(e,o,x,y);dxfCut(e,o,x,y);x+=o.L+30;rowH=Math.max(rowH,o.W);});
   // уголки-шаблоны — рядом ниже деталей
   if(CUR.TPL&&CUR.TPL.length){x=0;y+=rowH+60;rowH=0;CUR.TPL.forEach(o=>{const xs=o.pts.map(q=>q[0]),ys=o.pts.map(q=>q[1]),x0=Math.min(...xs),y0=Math.min(...ys),P=o.pts.map(q=>[q[0]-x0,q[1]-y0]),w=Math.max(...xs)-x0;
     if(x+w>rowW){x=0;y+=rowH+30;rowH=0;}{const g=engraveSegs(tplNo(o.a),P);if(g)dxfSegs(e,g,'ENGRAVE',x,y);}dxfPoly(e,P,'CUT',x,y);x+=w+30;rowH=Math.max(rowH,Math.max(...ys)-y0);});}
