@@ -7,7 +7,7 @@ const store=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localSto
 function msg(t){$('msg').textContent=t||'';}
 
 // состояние фигуры
-const ST={frame:null,edit:false,sym:true,sv:-1,sp:-1,sp2:-1,seam:null,trace:false,refId:'',name:'',fig:'doberman11',base:null,faces:260,diss:0,dims:{W:0,H:600,D:0},prop:true,t:2,mat:'steel',sheet:'1250x2500',sw:1250,sl:2500,cut:'laser',minW:15,weld:'tig',gap:0.5,useT:true,ngap:5,ngapOwn:false,engrave:true,tpl:false,bend:true,perf:true,slotW:2,slotL:40,slotBr:3,slotEb:3,slotEl:5,slotNotch:true,slotD:3,selB:-1,allParts:false,sel:-1,nums:false,small:true};
+const ST={frame:null,edit:false,sym:true,sv:-1,sp:-1,sp2:-1,seam:null,trace:false,refId:'',name:'',fig:'horse150',base:null,faces:260,diss:0,dims:{W:0,H:600,D:0},prop:true,t:2,mat:'steel',sheet:'1250x2500',sw:1250,sl:2500,cut:'laser',minW:15,weld:'tig',gap:0.5,useT:true,ngap:5,ngapOwn:false,engrave:true,tpl:false,bend:true,perf:true,slotW:2,slotL:40,slotBr:3,slotEb:3,slotEl:5,slotNotch:true,slotD:3,selB:-1,allParts:false,sel:-1,nums:false,small:true};
 let SIMP={key:'',m:null},CUR=null,CALC_KEY='';   // CUR = {M3,R,T,small}
 const DENSE=2000;                    // больше стольких треугольников — модель гладкая, упрощаем
 const isDense=()=>!ST.base.P&&ST.base.F.length>DENSE;
@@ -190,7 +190,7 @@ function setBase(m,o={}){ST.base=m;SIMP={key:'',m:null};ST.sel=-1;ST.selB=-1;ST.
 // Доберманам 4–6 сначала нужен models.js (figureReady); выбрали другую фигуру, пока грузился, — его onload ничего не строит
 let FIG_WANT='';
 function loadFigure(id){FIG_WANT=id;if(!figureReady(id,()=>{if(FIG_WANT===id)loadFigure(id);},()=>{if(FIG_WANT===id){loading(false);$('figSel').value=ST.fig||'';msg('Фигура не загрузилась — проверьте интернет и выберите её ещё раз');}})){loading(true,'Загружаю фигуру…');return;}
-  later(()=>{const f=FIGURES[id];ST.fig=id;ST.refId=f.ref||'';ST.frame=f.frame?{min:f.frame[0],max:f.frame[1]}:null;setBase(figureMesh(id,12),{name:f.name,faces:f.faces,H:f.H});const hn=/faces=(\d+)/.exec(location.hash),hd=/diss=(\d+)/.exec(location.hash);if(hn)ST.faces=+hn[1];if(hd)ST.diss=+hd[1];if(/edit/.test(location.hash)){ST.edit=true;$('cEdit').checked=true;}if(/trace/.test(location.hash)&&ST.refId){ST.trace=true;traceLoadFor(ST.refId);}compute();renderAll('instant');store('art-fig',id);msg('');const hv=/v=([a-z]+)/.exec(location.hash);if(hv)viewDir(hv[1],meshBox(CUR.M3.V),/og/.test(location.hash));},'Строю фигуру…');}
+  later(()=>{const f=FIGURES[id];ST.fig=id;ST.refId=f.ref||'';ST.frame=f.frame?{min:f.frame[0],max:f.frame[1]}:null;setBase(figureMesh(id,12),{name:f.name,faces:f.faces,H:f.H});const hn=/faces=(\d+)/.exec(location.hash),hd=/diss=(\d+)/.exec(location.hash);if(hn)ST.faces=+hn[1];if(hd)ST.diss=+hd[1];if(/edit/.test(location.hash)){ST.edit=true;$('cEdit').checked=true;}if(/trace/.test(location.hash)&&ST.refId){ST.trace=true;traceLoadFor(ST.refId);}compute();renderAll('instant');store('horse-fig',id);msg('');const hv=/v=([a-z]+)/.exec(location.hash);if(hv)viewDir(hv[1],meshBox(CUR.M3.V),/og/.test(location.hash));},'Строю фигуру…');}
 function openFile(file){const ext=file.name.split('.').pop().toLowerCase(),name=file.name.replace(/\.[^.]+$/,'');
   file.arrayBuffer().then(buf=>later(()=>{let m,o={name};
     if(ext==='obj')m=parseOBJ(new TextDecoder().decode(buf));else if(ext==='stl')m=parseSTL(buf);else if(ext==='glb')m=parseGLB(buf);
@@ -425,8 +425,10 @@ $('cTrace').addEventListener('change',e=>{ST.trace=e.target.checked;if(ST.trace&
     if(pi>=0){$('controls').querySelector('[data-g="view"]').classList.remove('shut');revealRow($('parts').querySelector(`tr[data-p="${pi}"]`));}});
   cv.addEventListener('pointerleave',()=>tag.hidden=true);})();
 
+// стартовая фигура: #f=… из адреса, иначе запомненная в браузере (свой ключ horse-fig — ключ собаки с этим не путается), иначе Конь (150); неизвестный id — тоже Конь (150)
+function startFig(hash,saved){const hf=/f=([a-z0-9]+)/.exec(hash||'');return hf&&FIGURES[hf[1]]?hf[1]:saved&&FIGURES[saved]?saved:'horse150';}
 // старт
 if(/og/.test(location.hash)){document.body.classList.add('og');ST.nums=false;ST.small=false;$('cNums').checked=false;}
 metalUI();
 if(typeof THREE==='undefined'){loading(true,'Не загрузилась 3D-библиотека — проверьте интернет');}
-else{const hf=/f=([a-z0-9]+)/.exec(location.hash),f=hf&&FIGURES[hf[1]]?hf[1]:FIGURES[store('art-fig')]?store('art-fig'):'doberman11';$('figSel').value=f;loadFigure(f);}
+else{const f=startFig(location.hash,store('horse-fig'));$('figSel').value=f;loadFigure(f);}

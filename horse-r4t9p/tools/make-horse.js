@@ -100,13 +100,14 @@ FIGURES.horse${N}={name:'Конь (${N})',H:800,poly:true,build:()=>modelPoly('h
 `;}
 /* ---------- цифры, как на сайте: тот же расчёт, что compute0 + prodCalc в ui.js, настройки по умолчанию (2 мм, сталь, лазер, шов 0,5, «Гнуть», прорези) ---------- */
 const SITE=`(id,ex)=>{ST={t:2,mat:'steel',gap:0.5,useT:true,minW:15,bend:true,tpl:false,engrave:true,perf:true,cut:'laser',slotW:2,slotL:40,slotBr:3,slotEb:3,slotEl:5,slotNotch:true,slotD:3};
-  const b=figureMesh(id,12),M3={V:b.V,F:b.F,T:b.T,S:b.S},R=buildParts(M3,1.5,1.5),wl=addBacking(R,M3);pairNumbers(R,M3.V);const T=totals(R,{t:2,mat:'steel',sheet:[2500,1250]});T.weld+=wl;
+  // как страница: setBase → dimsFromH(800) (Ш и Г округлены до мм) → setPolyDims
+  const b0=figureMesh(id,12),z=meshBox(b0.V).size,b=polyBase(fitMesh({V:b0.V,F:[]},{H:800,W:Math.round(z[0]*800/z[1]),D:Math.round(z[2]*800/z[1])}).V,b0.P,b0.S),M3={V:b.V,F:b.F,T:b.T,S:b.S},R=buildParts(M3,1.5,1.5),wl=addBacking(R,M3);pairNumbers(R,M3.V);const T=totals(R,{t:2,mat:'steel',sheet:[2500,1250]});T.weld+=wl;
   let P,BL;const ban=new Set();for(let k=0;k<4;k++){P=bendPlan(R,M3.V,{sheet:[1250,2500],ban});const B=P.blanks.filter(b=>b.parts.length>1).map(b=>Object.assign(b,bendBlank(b,R,M3.V,P,{t:2,gap:0.5,useT:true})));BL=B.filter(b=>!b.bad);if(BL.length===B.length)break;B.filter(b=>b.bad).forEach(b=>b.bends.forEach(i=>ban.add(i)));}
   blankNumbers(BL,R);blankTwins(BL,R,P.J);const BJ=BL.flatMap(b=>b.bends.map(i=>P.J[i])),bendLen=BJ.reduce((a,j)=>a+j.len,0),inB=new Set(BL.flatMap(b=>b.parts)),bent=new Set(BJ.map(j=>[j.p,j.q].sort((x,y)=>x-y).join('_')));
   const extra=[],seen=new Set();R.edges.forEach(e=>{if(e.open||e.p.length!==2||Math.abs(180-e.dih)>=ex)return;const k=[...e.p].sort((x,y)=>x-y).join('_');if(seen.has(k))return;seen.add(k);
     extra.push({a:R.parts[e.p[0]].no,b:R.parts[e.p[1]].no,fold:Math.abs(180-e.dih),bent:bent.has(k)});});
   return {parts:R.parts.length,pieces:R.parts.filter(p=>!inB.has(p.id)).length+BL.length,blanks:BL.length,mass:T.mass,weld:T.weld-bendLen,bendLen,bends:BJ.length,minW:T.minW,
-    extra:extra.sort((x,y)=>x.fold-y.fold),V:b.V,F:b.F,part:[...R.partOf]};}`;
+    extra:extra.sort((x,y)=>x.fold-y.fold),miss:[...new Set(BL.flatMap(B=>blankSlots(B).miss.map(t=>{const l=B.lines.find(l=>'Г'+B.no+' '+bendTxt(l)===t),o=slotOpt();return t+(l&&l.segs.some(q=>Math.hypot(q[2]-q[0],q[3]-q[1])<o.br+2*o.w)?'':' (не обрывок — разобрать)');})))],V:b0.V,F:b0.F,part:[...R.partOf]};}`;
 /* ---------- отчёт ---------- */
 function report(rows){const f=(v,d=1)=>v.toFixed(d).replace('.',','),L=[],row=(t,fn)=>L.push('| '+t+' | '+rows.map(fn).join(' | ')+' |');
   L.push('# Кони 50 / 100 / 150 — отчёт сборки','','Собрано `node horse-r4t9p/tools/make-horse.js` (тикет #133) из `from-dev/art/tools/plates/src/horse/horse150.obj` (Meshy, 208 треугольников, замкнутая). Файл пересоздаётся при каждом запуске.','');
@@ -126,6 +127,7 @@ function report(rows){const f=(v,d=1)=>v.toFixed(d).replace('.',','),L=[],row=(t
   row('Неплоскость граней, макс.',r=>f(r.maxDev,3)+' мм');
   row('Нарушенные правила',r=>r.broken.length?r.broken.join(', '):'нет');
   row('Лишних швов (излом < 5°)',r=>String(r.site.extra.length));
+  row('Сгиб без прорезей (предупреждение в «Итого», расчёт скрипта; страница может назвать ещё линию — см. комментарий #134)',r=>r.site.miss.length?r.site.miss.join(', ')+' — у линии есть обрывок короче 7 мм (перемычка + две ширины прорези) там, где она проходит через вырез заготовки; так по правилу 2 тикета #140':'нет');
   L.push('','Проверка — по записанному `js/plates-horse*.js` (после округления до 0,01 мм). Правила и пороги — `tools/check.js`: плоскость ≤ 0,1 мм, рёбра ≥ 5 мм, ступеньки ≥ 8 мм, углы ≥ 5°, узкие ≥ 15 мм, самопересечений и протыканий 0, симметрия ≤ 0,1 мм, грани наружу, вырожденных 0, похожесть ≤ 2 мм от упрощённой модели до чистки, открытых рёбер 0.','');
   rows.forEach(r=>{L.push(`## Конь (${r.N})`,'');
     L.push(`- Морда: самая передняя точка (${r.front.map(Math.round).join(', ')}), на высоте ${Math.round(r.front[1])} из 800. Самая высокая точка (кончик уха или темя): (${r.top.map(Math.round).join(', ')}).`);
