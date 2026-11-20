@@ -203,13 +203,15 @@ const perfKey=()=>{if(!perfOn())return '';const o=slotOpt();return [o.w,o.len,o.
 /* прорези заготовки B в её координатах (B.pts, l.segs), кэш на B по perfKey: holes — средние прорези {pts,b} (слой PERF);
    outline — контур реза {pts,b} с вырезами на концах линий; extra — на сколько рез контура длиннее периметра заготовки;
    ends — сколько концов с крайней прорезью (edge) и с разгрузочным отверстием (relief); miss — линии без прорезей («Г5 V144») */
-function blankSlots(B){const k=perfKey();if(B._slots&&B._slots.k===k)return B._slots.r;const o=slotOpt(),holes=[],miss=new Set(),dB=polyDist(B.pts),say=l=>miss.add('Г'+B.no+' '+bendTxt(l));
+function blankSlots(B){const o=slotOpt(),k=JSON.stringify(o);if(B._slots&&B._slots.k===k)return B._slots.r;const holes=[],miss=new Set(),dB=polyDist(B.pts),say=l=>miss.add('Г'+B.no+' '+bendTxt(l));
   let outline=plainShape(B.pts),edge=0,relief=0;
   // конец линии на кромке (до контура меньше 0,05 мм) — там крайняя прорезь до края, врезанная в контур; не врезалась (узкое место, сложный контур) — линия в miss
   B.lines.forEach(l=>l.segs.forEach(z=>{const L=Math.hypot(z[2]-z[0],z[3]-z[1]);if(L<1e-6)return;const a=[z[0],z[1]],e=[z[2],z[3]],u=[(z[2]-z[0])/L,(z[3]-z[1])/L],
       lay=slotLayout(a,u,L,B.pts,o.notch&&dB(a)<.05,o.notch&&dB(e)<.05,o);if(!lay){say(l);return;}
     lay.mids.forEach(([t0,t1])=>holes.push(slotShape(a,u,t0,t1,o.w)));
-    [[a,u,lay.ea],[e,[-u[0],-u[1]],lay.eb2]].forEach(([p,d,el])=>{if(!el)return;const r=cutInto(outline,endShape(p,d,o.w,el,0),p);if(r){outline=r;edge++;}else say(l);});}));
+    // во внутреннем угле контура (> 190°) — ещё разгрузочное отверстие Ø D с центром в конце линии: с крайней прорезью — «замочная скважина», без неё — круг
+    [[a,u,lay.ea],[e,[-u[0],-u[1]],lay.eb2]].forEach(([p,d,el])=>{const D=o.D>0&&dB(p)<.05&&innerCorner(B.pts,p,o.w)?o.D:0;if(!el&&!D)return;
+      const r=cutInto(outline,endShape(p,d,o.w,el,D),p);if(r){outline=r;if(el)edge++;if(D)relief++;}else say(l);});}));
   const r={holes,outline,extra:shapeLen(outline)-perim(B.pts),ends:{edge,relief},miss:[...miss]};B._slots={k,r};return r;}
 // рез заготовки: периметр и вырезы на концах линий (крайние прорези, отверстия)
 const blankCut=b=>(b.cut??perim(b.pts))+(perfOn()?blankSlots(b).extra:0);

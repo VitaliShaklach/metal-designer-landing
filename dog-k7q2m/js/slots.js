@@ -92,3 +92,8 @@ function slotLayout(a,u,L,C,openA,openB,o){const pl=slotPlan(L,openA,openB,o);if
   let sA=0,sB=0;while(sA<=L&&!good(s+sA+r))sA+=.25;while(sB<=L&&!good(e-sB-r))sB+=.25;
   const M=e-s-sA-sB,mids=[];if(M>=o.w){let n=1;while((M-(n-1)*o.br)/n>o.len+1e-9)n++;const c=(M-(n-1)*o.br)/n;for(let i=0;i<n;i++){const t0=s+sA+i*(c+o.br);mids.push([t0,t0+c]);}}
   return ea||eb2||mids.length?{ea,eb2,mids}:null;}
+/* внутренний угол контура P в конце линии q: ближайшая вершина не дальше w от q, угол контура в ней (со стороны металла) больше 190° —
+   ступенька или дно выреза: там при гибе металл рвётся или выпирает, нужно разгрузочное отверстие */
+function innerCorner(P,q,w){let k=-1,best=Infinity;P.forEach((v,i)=>{const d=Math.hypot(v[0]-q[0],v[1]-q[1]);if(d<best){best=d;k=i;}});if(k<0||best>w)return false;
+  const n=P.length,v=P[k],a=P[(k+n-1)%n],c=P[(k+1)%n],x=[c[0]-v[0],c[1]-v[1]],y=[a[0]-v[0],a[1]-v[1]],T=2*Math.PI;
+  let ang=Math.atan2(x[0]*y[1]-x[1]*y[0],x[0]*y[0]+x[1]*y[1]);ang=((ang%T)+T)%T;if(area2(P)<0)ang=T-ang;return ang*180/Math.PI>190;}

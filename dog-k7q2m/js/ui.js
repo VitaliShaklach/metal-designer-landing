@@ -7,7 +7,7 @@ const store=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localSto
 function msg(t){$('msg').textContent=t||'';}
 
 // состояние фигуры
-const ST={frame:null,edit:false,sym:true,sv:-1,sp:-1,sp2:-1,seam:null,trace:false,refId:'',name:'',fig:'doberman11',base:null,faces:260,diss:0,dims:{W:0,H:600,D:0},prop:true,t:2,mat:'steel',sheet:'1250x2500',sw:1250,sl:2500,cut:'laser',minW:15,weld:'tig',gap:0.5,useT:true,ngap:5,ngapOwn:false,engrave:true,tpl:false,bend:true,perf:true,slotW:2,slotL:40,slotBr:3,slotEb:3,slotEl:5,slotNotch:true,selB:-1,allParts:false,sel:-1,nums:false,small:true};
+const ST={frame:null,edit:false,sym:true,sv:-1,sp:-1,sp2:-1,seam:null,trace:false,refId:'',name:'',fig:'doberman11',base:null,faces:260,diss:0,dims:{W:0,H:600,D:0},prop:true,t:2,mat:'steel',sheet:'1250x2500',sw:1250,sl:2500,cut:'laser',minW:15,weld:'tig',gap:0.5,useT:true,ngap:5,ngapOwn:false,engrave:true,tpl:false,bend:true,perf:true,slotW:2,slotL:40,slotBr:3,slotEb:3,slotEl:5,slotNotch:true,slotD:3,selB:-1,allParts:false,sel:-1,nums:false,small:true};
 let SIMP={key:'',m:null},CUR=null,CALC_KEY='';   // CUR = {M3,R,T,small}
 const DENSE=2000;                    // больше стольких треугольников — модель гладкая, упрощаем
 const isDense=()=>!ST.base.P&&ST.base.F.length>DENSE;
@@ -208,10 +208,10 @@ function saveBlob(name,blob){const a=document.createElement('a');a.href=URL.crea
 function metalUI(){$('sNGap').value=ST.ngap;$('cEngrave').checked=ST.engrave;$('cTpl').checked=!!ST.tpl;$('cBend').checked=!!ST.bend;$('sWeld').value=weldOf();$('sGap').value=ST.gap;$('cUseT').checked=ST.useT;$('sT').value=ST.t;$('sMat').value=ST.mat;$('sSheet').value=ST.sheet;$('sCut').value=ST.cut;$('sW').value=ST.sw;$('sL').value=ST.sl;$('ownSheet').hidden=ST.sheet!=='own';perfUI();}
 // перфорация линий сгиба: только лазер и только с гибкой
 // поля прорезей: id в панели → ключ ST → ключ SLOT_DEF (slots.js)
-const SLOT_F=[['pW','slotW'],['pL','slotL'],['pBr','slotBr'],['pEl','slotEl'],['pEb','slotEb']],SLOT_KEYS={slotW:'w',slotL:'len',slotBr:'br',slotEb:'eb',slotEl:'el',slotNotch:'notch',slotD:'D'};
+const SLOT_F=[['pW','slotW'],['pL','slotL'],['pBr','slotBr'],['pEl','slotEl'],['pEb','slotEb'],['pD','slotD']],SLOT_KEYS={slotW:'w',slotL:'len',slotBr:'br',slotEb:'eb',slotEl:'el',slotNotch:'notch',slotD:'D'};
 function perfUI(){$('cPerf').checked=!!ST.perf;$('cNotch').checked=!!ST.slotNotch;SLOT_F.forEach(([id,k])=>{$(id).value=ST[k];});const pl=ST.cut==='plasma',nb=!ST.bend;$('cPerf').disabled=pl||nb;
   SLOT_F.forEach(([id])=>$(id).disabled=pl||nb||!ST.perf||id==='pEl'&&!ST.slotNotch);$('cNotch').disabled=pl||nb||!ST.perf;
-  $('perfNote').innerHTML=pl?'Плазмой такие прорези не прорезать — только лазер':nb?'Прорези — на линиях сгиба: включите «Гнуть» в разделе «Металл»':ST.slotW<ST.t?'Ширина меньше толщины листа — лазер может не прорезать чисто, уточните у цеха':'Сквозные прорези по линиям V и m с короткими перемычками'+(ST.slotNotch?', крайние — до края детали':'')+'. В DXF: прорези — слой PERF'+(ST.slotNotch?', крайние — в контуре CUT':'')+'; линии сгиба не гравируются; в метраже — отдельной строкой';}
+  $('perfNote').innerHTML=pl?'Плазмой такие прорези не прорезать — только лазер':nb?'Прорези — на линиях сгиба: включите «Гнуть» в разделе «Металл»':ST.slotW<ST.t?'Ширина меньше толщины листа — лазер может не прорезать чисто, уточните у цеха':'Сквозные прорези по линиям V и m с короткими перемычками'+(ST.slotNotch?', крайние — до края детали':'')+(ST.slotD>0?', во внутренних углах — разгрузочное отверстие':'')+'. В DXF: прорези — слой PERF'+(ST.slotNotch||ST.slotD>0?', крайние и отверстия — в контуре CUT':'')+'; линии сгиба не гравируются; в метраже — отдельной строкой';}
 
 /* ---------- события ---------- */
 let RT=0;const recalc=(fit,heavy)=>{clearTimeout(RT);RT=setTimeout(()=>heavy?later(()=>{compute();renderAll(fit);}):(compute(),renderAll(fit)),heavy?150:60);};
@@ -240,7 +240,7 @@ $('sCut').addEventListener('change',e=>{ST.cut=e.target.value;ST.minW=ST.cut==='
 $('cPerf').addEventListener('change',e=>{ST.perf=e.target.checked;perfUI();recalc();});
 // пределы: прорезь 1–10 мм, шаг не меньше прорези + 3, от края не меньше 3
 // ширина и перемычки — не меньше 0,5 мм, прорезь — не короче ширины; ширина меньше толщины можно (только подсказка)
-const perfFix=()=>{const n=(v,d)=>Number.isFinite(+v)&&+v>0?+v:d;ST.slotW=Math.max(.5,n(ST.slotW,2));ST.slotL=Math.max(ST.slotW,n(ST.slotL,40));ST.slotBr=Math.max(.5,n(ST.slotBr,3));ST.slotEl=Math.max(ST.slotW,n(ST.slotEl,5));ST.slotEb=Math.max(.5,n(ST.slotEb,3));perfUI();recalc();};
+const perfFix=()=>{const n=(v,d)=>Number.isFinite(+v)&&+v>0?+v:d;ST.slotW=Math.max(.5,n(ST.slotW,2));ST.slotL=Math.max(ST.slotW,n(ST.slotL,40));ST.slotBr=Math.max(.5,n(ST.slotBr,3));ST.slotEl=Math.max(ST.slotW,n(ST.slotEl,5));ST.slotD=Math.max(0,Number.isFinite(+ST.slotD)?+ST.slotD:3);ST.slotEb=Math.max(.5,n(ST.slotEb,3));perfUI();recalc();};
 SLOT_F.forEach(([id,k])=>$(id).addEventListener('change',e=>{ST[k]=+e.target.value;perfFix();}));
 $('cNotch').addEventListener('change',e=>{ST.slotNotch=e.target.checked;perfUI();recalc();});
 // клик по модели: строку таблицы — в видимую часть её собственной прокрутки (если она есть); страницу не трогаем
