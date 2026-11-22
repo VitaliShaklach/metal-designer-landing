@@ -397,6 +397,11 @@ body.og #stage{position:fixed!important;inset:0;width:100vw!important;height:100
 .edbtns button:hover:not(:disabled):not(.off){border-color:var(--accent)}
 .edbtns button:disabled,.controls button.off{opacity:.45;cursor:default}
 .edbtns button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--bg))}
+.laynote{margin:6px 0 2px}
+#edMore{margin:4px 0 8px;border:1px solid var(--line)}
+#edMore summary{font-size:13px;padding:7px 8px;cursor:pointer;user-select:none}
+#edMore[open] summary{border-bottom:1px solid var(--line)}
+#edMore>:not(summary){margin:8px}
 .edsel{font-size:13px}
 .edsel .xyz3{margin-top:6px}
 #edPlan.warn{color:#b0700a}

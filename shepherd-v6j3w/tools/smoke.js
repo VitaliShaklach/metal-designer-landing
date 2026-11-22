@@ -508,4 +508,14 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
   if(fs.existsSync(TF)){const tc={console,Math,Buffer};tc.window=tc;vm.createContext(tc);vm.runInContext(['mesh','edit','models-poly','figures','trace','plates-'+id].map(f=>fs.readFileSync(P+f+'.js','utf8')).join('\n;\n')+'\n;\n'+fs.readFileSync(TF,'utf8'),tc);
     const T=vm.runInContext(`(()=>{const t=traceLoad(TRACE.shepherd5p),b=modelPoly('${id}'),bx=meshBox(b.V),mp=traceMap(bx,bx);return {n:t.n,seams:t.seams,all:traceAtlas(b.V,b.P,b.F,b.T,mp,t).cover};})()`,tc);
     ok(T.seams>1000&&T.all>=.95,`Овчарка 5, калька с картинок: точек ${T.n}, швов ${T.seams}; атлас находит облако на ${(T.all*100).toFixed(1)} % граней`);}}
+// #145 слои мастерской: четыре галочки, «Другие операции» закрыты, слои по умолчанию как в спеке, ui.js передаёт точки и сверку только при включённом слое
+{const HT=fs.readFileSync(__dirname+'/../index.html','utf8'),UI=fs.readFileSync(P+'ui.js','utf8'),V3=fs.readFileSync(P+'view3d.js','utf8'),LY=fs.readFileSync(P+'layers.js','utf8'),lc={console};vm.createContext(lc);vm.runInContext(LY,lc);
+  const more=/<details id="edMore"([^>]*)>\s*<summary>Другие операции<\/summary>([\s\S]*?)<\/details>/.exec(HT);
+  ok(['cLEdges','cLVerts','cTrace','cDiff'].every(id=>HT.includes('id="'+id+'"'))&&HT.includes('Линии граней')&&HT.includes('Точки углов')&&HT.includes('Подсказки сверки'),'слои: в index.html четыре галочки — линии граней, точки углов, калька, подсказки сверки');
+  ok(!!more&&!/\bopen\b/.test(more[1])&&['extrude','inset','bump','pit','split','del','merge','cut'].every(op=>more[2].includes('data-op="'+op+'"')),'слои: блок «Другие операции» закрыт, в нём все восемь старых кнопок');
+  ok(!/<details id="edMore"[\s\S]*?<\/details>/.exec(HT)[0].match(/bUndo|bRedo/)&&HT.includes('id="bUndo"'),'слои: «Отменить/Вернуть» остались снаружи блока');
+  ok(JSON.stringify(vm.runInContext('LAYER_DEF',lc))==='{"edges":true,"verts":false,"trace":false,"diff":false}','слои: по умолчанию линии вкл., точки, калька и сверка выкл.');
+  ok(UI.includes('verts:ed&&vertsShown()')&&UI.includes('diff:ed&&traceOn()&&ST.layers.diff?TRC.diff:null')&&UI.includes('edges:!ed||ST.layers.edges')&&UI.includes("store('shepherd-layers',layersSave(ST.layers))")&&V3.includes('o.edges===false'),'слои: ui.js передаёт точки и сверку только при включённом слое, швы — по галочке, выбор — в браузер');
+  ok(UI.includes('vertsShown()?pickVert(e,ST.base.V):-1')&&UI.includes('vertsShown=()=>ST.layers.verts||!!ST.seam'),'слои: пока точки скрыты, клик попадает в грань; «Провести шов» показывает точки сам');
+  ok(HT.indexOf('js/layers.js')>0&&HT.indexOf('js/layers.js')<HT.indexOf('js/ui.js'),'слои: layers.js подключён раньше ui.js');}
 console.log(bad?'ОШИБОК: '+bad:'всё ок'+(warned?' (предупреждений: '+warned+')':''));process.exit(bad?1:0);

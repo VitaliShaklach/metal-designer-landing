@@ -34,7 +34,7 @@ function build3D(M3,R,o){if(!ok)return;req3D();while(root.children.length){const
   // швы между деталями — тёмные линии; открытый край — светлее
   // с калькой (o.diff): лишние швы — красные, недостающие швы эталона — жёлтые точки
   // с гибкой: гнутые стыки — тонким пунктиром
-  const L=[],Lo=[],Lr=[],Lb=[],RS=new Set(o.diff?o.diff.red:[]);R.edges.forEach((e,i)=>(e.open?Lo:RS.has(i)?Lr:o.bent&&o.bent(e)?Lb:L).push(...V[e.a],...V[e.b]));
+  const L=[],Lo=[],Lr=[],Lb=[],RS=new Set(o.diff?o.diff.red:[]);R.edges.forEach((e,i)=>{if(RS.has(i)&&!e.open){Lr.push(...V[e.a],...V[e.b]);return;}if(o.edges===false)return;(e.open?Lo:o.bent&&o.bent(e)?Lb:L).push(...V[e.a],...V[e.b]);});
   const seg=(arr,c,op)=>{if(!arr.length)return;const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));root.add(new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:c,transparent:true,opacity:op})));};
   seg(L,0x15191b,.8);seg(Lo,0xd0561f,.9);seg(Lr,0xe01818,1);
   if(Lb.length){const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.Float32BufferAttribute(Lb,3));const ln=new THREE.LineSegments(bg,new THREE.LineDashedMaterial({color:0x2a6fd0,dashSize:4,gapSize:3,transparent:true,opacity:.9}));ln.computeLineDistances();root.add(ln);}
