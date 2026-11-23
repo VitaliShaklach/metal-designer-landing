@@ -5,8 +5,8 @@ const mkKey=fig=>'shepherd-mk-'+fig;
 // → [] при пустом/битом; лишнее отбрасывается: штрих — известный вид и ≥ 1 точки из трёх конечных чисел
 function mkLoad(raw){let a;try{a=JSON.parse(raw);}catch(e){return [];}if(!Array.isArray(a))return [];
   return a.filter(s=>s&&MK_KINDS.includes(s.k)&&Array.isArray(s.pts)&&s.pts.length&&s.pts.every(p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite)))
-    .map(s=>{const o={k:s.k,pts:s.pts.map(p=>p.slice())};if(s.closed===true)o.closed=true;return o;});}
-function mkSave(mk){return JSON.stringify(mk.map(s=>{const o={k:s.k,pts:s.pts.map(p=>p.map(x=>Math.round(x*100)/100))};if(s.closed)o.closed=true;return o;}));}
+    .map(s=>{const o={k:s.k,pts:s.pts.map(p=>p.slice())};if(s.closed===true)o.closed=true;if(typeof s.why==='string')o.why=s.why;return o;});}   // why — причина отказа «Нарезать» (#152)
+function mkSave(mk){return JSON.stringify(mk.map(s=>{const o={k:s.k,pts:s.pts.map(p=>p.map(x=>Math.round(x*100)/100))};if(s.closed)o.closed=true;if(typeof s.why==='string')o.why=s.why;return o;}));}
 // зеркальная копия (x → −x); штрих на оси симметрии — null (не двоится)
 function mkMirror(s){if(s.pts.every(p=>Math.abs(p[0])<=MK_AXIS))return null;const o={k:s.k,pts:s.pts.map(p=>[-p[0],p[1],p[2]])};if(s.closed)o.closed=true;return o;}
 // замкнут ли (концы ближе 6 мм, и сам штрих заметно длиннее этого)

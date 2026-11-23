@@ -410,6 +410,7 @@ body.origview .controls .grp:not(#origBox),body.origview section.tabs,body.origv
 #stage.editing canvas{cursor:crosshair}
 #stage.drawing canvas{cursor:copy}
 #mkBox{margin:4px 0 8px}
+.mkwhy{font:500 12px var(--f-body);padding:2px 6px;background:#d01f1f;color:#fff;white-space:nowrap;transform:translate(8px,-50%)}
 .controls button:disabled{opacity:.45;cursor:default}
 /* чертежи и раскрой */
 .sheets{display:flex;flex-direction:column;gap:18px;margin-top:10px}

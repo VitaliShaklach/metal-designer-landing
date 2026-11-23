@@ -381,11 +381,13 @@ $('cBend').addEventListener('change',e=>{ST.bend=e.target.checked;ST.allParts=fa
 
 /* ---------- редактор ---------- */
 const UNDO=[],REDO=[];
-function snapE(){return JSON.stringify({V:ST.base.V,P:ST.base.P,S:ST.base.S||[]});}
+// снимок для «Отменить»; mk — разметка (только у «Нарезать», #152: отмена возвращает и фигуру, и применённые штрихи)
+function snapE(mk){return JSON.stringify(mk?{V:ST.base.V,P:ST.base.P,S:ST.base.S||[],mk:JSON.parse(mkSave(ST.mk))}:{V:ST.base.V,P:ST.base.P,S:ST.base.S||[]});}
+function mkSet(mk){ST.mk=mkLoad(JSON.stringify(mk));ST.mkCur=null;mkStore();}
 function pushUndo(){if(!isPoly())return;UNDO.push(snapE());if(UNDO.length>60)UNDO.shift();REDO.length=0;}
 function applyE(e,keepSel){ST.base=polyBase(e.V,e.P,e.S);syncDims();if(!keepSel){ST.sp=-1;ST.sp2=-1;ST.sv=-1;ST.sel=-1;ST.seam=null;}compute();renderAll();}
-function undo(){if(!UNDO.length)return;REDO.push(snapE());applyE(JSON.parse(UNDO.pop()));}
-function redo(){if(!REDO.length)return;UNDO.push(snapE());applyE(JSON.parse(REDO.pop()));}
+function undo(){if(!UNDO.length)return;const s=JSON.parse(UNDO.pop());REDO.push(snapE(!!s.mk));if(s.mk)mkSet(s.mk);applyE(s);}
+function redo(){if(!REDO.length)return;const s=JSON.parse(REDO.pop());UNDO.push(snapE(!!s.mk));if(s.mk)mkSet(s.mk);applyE(s);}
 // перейти в редактор: любая модель становится набором граней-деталей в мм
 function toPoly(){if(isPoly())return;const R=CUR.R,V=CUR.M3.V.map(p=>p.slice());ST.base=polyBase(V,R.parts.map(p=>p.full.slice()));ST.fig='';$('figSel').value='';syncDims();
   msg('Модель переведена в грани — теперь правится вручную');}
@@ -449,7 +451,7 @@ function traceUI(){$('traceRow').hidden=!ST.refId;$('cTrace').checked=trOn();$('
 const traceHas=rid=>!!(window.TRACE&&TRACE[rid]||window.TRACE_L&&TRACE_L[rid]);
 function traceLoadFor(rid){if(TRC.id===rid&&(TRC.t||TRC.L)||TRC.loading)return;const done=()=>{TRC.loading=false;if(!traceHas(rid)){msg('Калька не загрузилась');return;}
     TRC.t=window.TRACE&&TRACE[rid]?traceLoad(TRACE[rid]):null;TRC.L=window.TRACE_L&&TRACE_L[rid]?tlinesLoad(TRACE_L[rid]):null;TRC.seg=null;TRC.id=rid;TRC.b0=meshBox(modelPoly(ST.refId).V);TRC.key='';msg('');renderAll();};
-  if(traceHas(rid)){done();return;}TRC.loading=true;const s=document.createElement('script');s.src='js/trace-'+rid+'.js?v=2026-11-23g';s.onload=done;s.onerror=()=>{TRC.loading=false;msg('Калька не загрузилась');};document.head.appendChild(s);msg('Загружаю кальку…');}
+  if(traceHas(rid)){done();return;}TRC.loading=true;const s=document.createElement('script');s.src='js/trace-'+rid+'.js?v=2026-11-23h';s.onload=done;s.onerror=()=>{TRC.loading=false;msg('Калька не загрузилась');};document.head.appendChild(s);msg('Загружаю кальку…');}
 const layerSet=(k,v)=>{ST.layers[k]=v;store('shepherd-layers',layersSave(ST.layers));};   // нет доступа к памяти браузера — слои живут до перезагрузки
 $('cLEdges').addEventListener('change',e=>{layerSet('edges',e.target.checked);renderAll();});
 $('cLVerts').addEventListener('change',e=>{layerSet('verts',e.target.checked);if(!e.target.checked)ST.sv=-1;renderAll();});
@@ -458,7 +460,7 @@ $('cDiff').addEventListener('change',e=>{layerSet('diff',e.target.checked);rende
 /* ---------- разметка (#150): «Линия», «Зачеркнуть» — штрихи поверх граней, фигура не меняется; магнит к линиям кальки; зеркальная — бледная; хранится в браузере по фигуре ----------
    инструмент включён — левая кнопка ставит точки, крутить — правой (OrbitControls); выключен — как было. На телефоне (нет точного указателя) инструментов нет */
 ST.tool='';ST.mk=[];ST.mkCur=null;ST.magnet=true;
-const MK={key:null,ver:0,draw:null,dkey:'',mb0:null,fine:typeof matchMedia==='function'&&matchMedia('(pointer:fine)').matches};
+const MK={key:null,ver:0,why:false,draw:null,dkey:'',mb0:null,fine:typeof matchMedia==='function'&&matchMedia('(pointer:fine)').matches};
 const mkFig=()=>ST.ver?ST.verBase+'.'+ST.ver:(ST.fig||'file');
 function mkSync(){const k=mkKey(mkFig());if(MK.key!==k){MK.key=k;ST.mk=mkLoad(store(k));ST.mkCur=null;MK.ver++;}}
 function mkStore(){if(MK.key)store(MK.key,mkSave(ST.mk));MK.ver++;}   // нет памяти браузера — разметка живёт до перезагрузки
@@ -467,9 +469,9 @@ function mkFinish(){const c=ST.mkCur;ST.mkCur=null;if(c&&c.pts.length>=2){ST.mk.
 function mkCtl(){if(!ok)return;if(!MK.mb0)MK.mb0={...controls.mouseButtons};if(!ST.tool&&ST.mkCur)mkFinish();
   controls.mouseButtons=ST.tool?{LEFT:-1,MIDDLE:MK.mb0.MIDDLE,RIGHT:THREE.MOUSE.ROTATE}:{...MK.mb0};stage.classList.toggle('drawing',!!ST.tool);}
 // отрезки штрихов на фигуре (пересчёт — когда меняется разметка, форма или симметрия)
-function mkDraw(){mkSync();const k=MK.ver+'|'+ST.sym+'|'+ST.base.V.length+'|'+ST.base.P.length+'|'+(ST.base.V[0]||[]).join();if(MK.dkey===k&&MK.draw&&MK.draw.base===ST.base)return MK.draw;
-  const own=[...ST.mk],cur=ST.mkCur?[ST.mkCur]:[],mir=ST.sym?[...own,...cur].map(mkMirror).filter(Boolean):[];
-  MK.draw={base:ST.base,own:mkDrape([...own,...cur],ST.base.V,ST.base.P,ST.base),mirror:mkDrape(mir,ST.base.V,ST.base.P,ST.base),pts:new Float32Array(cur.flatMap(s=>s.pts.flat()))};MK.dkey=k;return MK.draw;}
+function mkDraw(){mkSync();const bad=ST.mk.filter(s=>s.why);const k=MK.ver+'|'+ST.sym+'|'+ST.base.V.length+'|'+ST.base.P.length+'|'+(ST.base.V[0]||[]).join();if(MK.dkey===k&&MK.draw&&MK.draw.base===ST.base)return MK.draw;
+  const own=ST.mk.filter(s=>!s.why),cur=ST.mkCur?[ST.mkCur]:[],mir=ST.sym?[...own,...cur].map(mkMirror).filter(Boolean):[];
+  MK.draw={base:ST.base,own:mkDrape([...own,...cur],ST.base.V,ST.base.P,ST.base),mirror:mkDrape(mir,ST.base.V,ST.base.P,ST.base),bad:mkDrape(bad,ST.base.V,ST.base.P,ST.base),why:(()=>{const at=bad.length?apIndex(ST.base):null;return bad.map(s=>{const p=s.pts[Math.floor(s.pts.length/2)],f=at(p);return {p,t:s.why,n:f>=0?polyNorm(ST.base.V,ST.base.P[f]):null};});})(),pts:new Float32Array(cur.flatMap(s=>s.pts.flat()))};MK.dkey=k;return MK.draw;}
 function mkUI(){const on=ST.edit&&isPoly()&&!ST.orig;if(!on&&ST.tool){ST.tool='';mkCtl();}$('mkBox').hidden=!(on&&MK.fine);if(!on)return;mkSync();
   $('mkTools').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.tool===ST.tool));$('cMagnet').checked=ST.magnet;
   const nl=ST.mk.filter(s=>s.k!=='cross').length,nc=ST.mk.length-nl,nz=ST.mk.filter(s=>s.closed).length;$('bMkClear').classList.toggle('off',!ST.mk.length&&!ST.mkCur);
@@ -482,6 +484,12 @@ function mkClick(e){const h=pickHit(e);if(!h)return;const p=mkSnap(h,traceOn()?T
   if(!c)ST.mkCur={k:ST.tool,pts:[p]};else c.pts.push(p);MK.ver++;if(ST.tool==='cross'&&ST.mkCur.pts.length===2)mkFinish();renderAll();}
 $('mkTools').addEventListener('click',e=>{const b=e.target.closest('button[data-tool]');if(!b)return;const t=b.dataset.tool;b.blur();mkFinish();ST.seam=null;ST.tool=ST.tool===t?'':t;mkCtl();renderAll();});
 $('cMagnet').addEventListener('change',e=>{ST.magnet=e.target.checked;});
+// «Нарезать» (#152): вся разметка разом; одно «Отменить» возвращает всё нажатие; удачные штрихи уходят из разметки, отказы остаются красными с причиной
+$('bMkApply').addEventListener('click',()=>{mkFinish();mkSync();if(!ST.mk.length){msg('Нечего нарезать');renderAll();return;}
+  const r=applyMarkup(E(),ST.mk,{sym:ST.sym}),fail=new Map(r.fail.map(f=>[f.i,f.why]));
+  if(r.done.length){UNDO.push(snapE(true));if(UNDO.length>60)UNDO.shift();REDO.length=0;}
+  ST.mk.forEach((s,i)=>{if(fail.has(i))s.why=fail.get(i);else delete s.why;});ST.mk=ST.mk.filter((s,i)=>!r.done.includes(i));mkStore();if(r.done.length)applyE(r.E);
+  msg(`Нарезано ${r.done.length}, не вышло ${r.fail.length}`+(r.fail.length?' — причины у красных линий':''));renderAll();});
 $('bMkClear').addEventListener('click',()=>{if(!ST.mk.length&&!ST.mkCur)return;ST.mk=[];ST.mkCur=null;mkStore();renderAll();msg('Разметка очищена');});
 const typing=()=>{const el=document.activeElement;return !!el&&(/SELECT|TEXTAREA/.test(el.tagName)||el.tagName==='INPUT'&&!/checkbox|radio|button|range/.test(el.type));};   // галочка в фокусе — не ввод текста
 addEventListener('keydown',e=>{if(!ST.tool||typing())return;
