@@ -518,4 +518,11 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
   ok(UI.includes('verts:ed&&vertsShown()')&&UI.includes('diff:ed&&traceOn()&&ST.layers.diff?TRC.diff:null')&&UI.includes('edges:!ed||ST.layers.edges')&&UI.includes("store('shepherd-layers',layersSave(ST.layers))")&&V3.includes('o.edges===false'),'слои: ui.js передаёт точки и сверку только при включённом слое, швы — по галочке, выбор — в браузер');
   ok(UI.includes('vertsShown()?pickVert(e,ST.base.V):-1')&&UI.includes('vertsShown=()=>ST.layers.verts||!!ST.seam'),'слои: пока точки скрыты, клик попадает в грань; «Провести шов» показывает точки сам');
   ok(HT.indexOf('js/layers.js')>0&&HT.indexOf('js/layers.js')<HT.indexOf('js/ui.js'),'слои: layers.js подключён раньше ui.js');}
+// #148 версии фигуры в браузере: versions.js подключён, «Сохранить» кладёт версию и скачивает файл, при ошибке памяти — сообщение, версии в выпадашке и в подсказке
+{const HT=fs.readFileSync(__dirname+'/../index.html','utf8'),UI=fs.readFileSync(P+'ui.js','utf8'),TP=fs.readFileSync(P+'tips.js','utf8');
+  ok(HT.indexOf('js/versions.js')>0&&HT.indexOf('js/versions.js')<HT.indexOf('js/ui.js'),'версии: versions.js подключён раньше ui.js');
+  ok(UI.includes('verPut(VSTO,b,j)')&&UI.includes("'Версию в браузере сохранить не удалось — сохранён только файл'")&&/saveBlob\(file,new Blob/.test(UI),'версии: «Сохранить» зовёт verPut и скачивает .json в любом случае; при ошибке памяти — сообщение');
+  ok(UI.includes("v.startsWith('ver:')")&&UI.includes('verOptions()')&&UI.includes('verGet(VSTO,verKey(base,+n))')&&UI.includes('figureReady(rid,'),'версии: выпадашка строится из памяти, выбор версии грузит её (сначала файл фигуры-эталона)');
+  ok(/живут только в этом браузере/.test(TP),'версии: в подсказке «?» — версии только в этом браузере');
+  ok(['shepherd','shepherd2_1000','shepherd3','shepherd5'].every(id=>HT.includes('value="'+id+'"')),'версии: у каждой фигуры списка есть option, под него встают её версии');}
 console.log(bad?'ОШИБОК: '+bad:'всё ок'+(warned?' (предупреждений: '+warned+')':''));process.exit(bad?1:0);

@@ -7,7 +7,7 @@ const store=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localSto
 function msg(t){$('msg').textContent=t||'';}
 
 // состояние фигуры
-const ST={frame:null,edit:false,sym:true,sv:-1,sp:-1,sp2:-1,seam:null,traceUrl:false,refId:'',tref:'',name:'',fig:'shepherd',base:null,faces:260,diss:0,dims:{W:0,H:600,D:0},prop:true,t:2,mat:'steel',sheet:'1250x2500',sw:1250,sl:2500,cut:'laser',minW:15,weld:'tig',gap:0.5,useT:true,ngap:5,ngapOwn:false,engrave:true,tpl:false,bend:true,perf:true,slotW:2,slotL:40,slotBr:3,slotEb:3,slotEl:5,slotNotch:true,slotD:3,selB:-1,allParts:false,sel:-1,nums:false,small:true};
+const ST={frame:null,edit:false,sym:true,sv:-1,sp:-1,sp2:-1,seam:null,traceUrl:false,verBase:'',ver:0,refId:'',tref:'',name:'',fig:'shepherd',base:null,faces:260,diss:0,dims:{W:0,H:600,D:0},prop:true,t:2,mat:'steel',sheet:'1250x2500',sw:1250,sl:2500,cut:'laser',minW:15,weld:'tig',gap:0.5,useT:true,ngap:5,ngapOwn:false,engrave:true,tpl:false,bend:true,perf:true,slotW:2,slotL:40,slotBr:3,slotEb:3,slotEl:5,slotNotch:true,slotD:3,selB:-1,allParts:false,sel:-1,nums:false,small:true};
 ST.layers=layersLoad(store('shepherd-layers'));   // слои мастерской (#145), хранятся в браузере
 let SIMP={key:'',m:null},CUR=null,CALC_KEY='';   // CUR = {M3,R,T,small}
 const DENSE=2000;                    // больше стольких треугольников — модель гладкая, упрощаем
@@ -191,20 +191,41 @@ function setBase(m,o={}){ST.base=m;SIMP={key:'',m:null};ST.sel=-1;ST.selB=-1;ST.
 // Доберманам 4–6 сначала нужен models.js (figureReady); выбрали другую фигуру, пока грузился, — его onload ничего не строит
 let FIG_WANT='';
 function loadFigure(id){FIG_WANT=id;if(!figureReady(id,()=>{if(FIG_WANT===id)loadFigure(id);},()=>{if(FIG_WANT===id){loading(false);$('figSel').value=ST.fig||'';msg('Фигура не загрузилась — проверьте интернет и выберите её ещё раз');}})){loading(true,'Загружаю фигуру…');return;}
-  later(()=>{const f=FIGURES[id];ST.fig=id;ST.refId=f.ref||'';const htr=/trace=([a-z0-9_]+)/.exec(location.hash);ST.tref=htr?htr[1]:'';ST.frame=f.frame?{min:f.frame[0],max:f.frame[1]}:null;setBase(figureMesh(id,12),{name:f.name,faces:f.faces,H:f.H});const hn=/faces=(\d+)/.exec(location.hash),hd=/diss=(\d+)/.exec(location.hash);if(hn)ST.faces=+hn[1];if(hd)ST.diss=+hd[1];if(/edit/.test(location.hash)){ST.edit=true;$('cEdit').checked=true;}if(/trace/.test(location.hash)&&ST.refId)ST.traceUrl=true;if(ST.refId&&trOn())traceLoadFor(traceId());compute();renderAll('instant');store('shepherd-fig',id);msg('');const hv=/v=([a-z]+)/.exec(location.hash);if(hv)viewDir(hv[1],meshBox(CUR.M3.V),/og/.test(location.hash));},'Строю фигуру…');}
+  later(()=>{const f=FIGURES[id];ST.fig=id;ST.verBase=id;ST.ver=0;ST.refId=f.ref||'';const htr=/trace=([a-z0-9_]+)/.exec(location.hash);ST.tref=htr?htr[1]:'';ST.frame=f.frame?{min:f.frame[0],max:f.frame[1]}:null;setBase(figureMesh(id,12),{name:f.name,faces:f.faces,H:f.H});const hn=/faces=(\d+)/.exec(location.hash),hd=/diss=(\d+)/.exec(location.hash);if(hn)ST.faces=+hn[1];if(hd)ST.diss=+hd[1];if(/edit/.test(location.hash)){ST.edit=true;$('cEdit').checked=true;}if(/trace/.test(location.hash)&&ST.refId)ST.traceUrl=true;if(ST.refId&&trOn())traceLoadFor(traceId());compute();renderAll('instant');store('shepherd-fig',id);msg('');const hv=/v=([a-z]+)/.exec(location.hash);if(hv)viewDir(hv[1],meshBox(CUR.M3.V),/og/.test(location.hash));},'Строю фигуру…');}
+// файл фигуры .json (и версия из браузера — тот же JSON) → сетка и настройки
+function figFromJSON(j,name){if(j.type!=='md-art')throw new Error('это не файл фигуры');ST.weld='mig';/* старые файлы без weld — полуавтомат, зазор из файла */const m=j.P?polyBase(j.V,j.P,j.S):{V:j.V,F:j.F},o={name:j.name||name,dims:j.dims,faces:j.F.length,ref:j.ref,frame:j.frame};
+  ['t','mat','sheet','sw','sl','cut','minW','weld','gap','useT','ngap','engrave','tpl','bend','perf','diss'].forEach(k=>{if(j[k]!==undefined)ST[k]=j[k];});
+  // прорези: старый файл (perfL, perfStep, perfEdge) — размеры по умолчанию
+  Object.entries(SLOT_KEYS).forEach(([k,d])=>{if(k in ST)ST[k]=j[k]!==undefined?j[k]:SLOT_DEF[d];});ST.ngapOwn=ST.ngap!==nestGap(ST.cut);metalUI();return {m,o};}
+// показать открытое: калька берётся, только если файл фигуры-эталона уже загружен; ver — версия из браузера {base,n}, edit — вернуть режим правки
+function finishOpen(m,o,ver,edit){if(!m.F.length)throw new Error('в файле нет граней');ST.tref='';ST.refId=o.ref&&typeof MODELS_POLY!=='undefined'&&MODELS_POLY[o.ref]?o.ref:'';ST.frame=o.frame?{min:o.frame[0],max:o.frame[1]}:null;ST.fig='';ST.verBase=ver?ver.base:'';ST.ver=ver?ver.n:0;
+  $('figSel').value=ver?'ver:'+ver.base+':'+ver.n:'';setBase(m,o);if(edit){ST.edit=true;$('cEdit').checked=true;if(ST.refId&&trOn())traceLoadFor(traceId());}compute();renderAll('instant');}
 function openFile(file){const ext=file.name.split('.').pop().toLowerCase(),name=file.name.replace(/\.[^.]+$/,'');
   file.arrayBuffer().then(buf=>later(()=>{let m,o={name};
     if(ext==='obj')m=parseOBJ(new TextDecoder().decode(buf));else if(ext==='stl')m=parseSTL(buf);else if(ext==='glb')m=parseGLB(buf);
-    else if(ext==='json'){const j=JSON.parse(new TextDecoder().decode(buf));if(j.type!=='md-art')throw new Error('это не файл фигуры');ST.weld='mig';/* старые файлы без weld — полуавтомат, зазор из файла */m=j.P?polyBase(j.V,j.P,j.S):{V:j.V,F:j.F};o={name:j.name||name,dims:j.dims,faces:j.F.length,ref:j.ref,frame:j.frame};
-      ['t','mat','sheet','sw','sl','cut','minW','weld','gap','useT','ngap','engrave','tpl','bend','perf','diss'].forEach(k=>{if(j[k]!==undefined)ST[k]=j[k];});
-      // прорези: старый файл (perfL, perfStep, perfEdge) — размеры по умолчанию
-      Object.entries(SLOT_KEYS).forEach(([k,d])=>{if(k in ST)ST[k]=j[k]!==undefined?j[k]:SLOT_DEF[d];});ST.ngapOwn=ST.ngap!==nestGap(ST.cut);metalUI();}
+    else if(ext==='json'){({m,o}=figFromJSON(JSON.parse(new TextDecoder().decode(buf)),name));}
     else throw new Error('нужен файл OBJ, STL, GLB или JSON');
-    if(!m.F.length)throw new Error('в файле нет граней');ST.tref='';ST.refId=o.ref&&typeof MODELS_POLY!=='undefined'&&MODELS_POLY[o.ref]?o.ref:'';ST.frame=o.frame?{min:o.frame[0],max:o.frame[1]}:null;ST.fig='';$('figSel').value='';setBase(m,o);compute();renderAll('instant');
+    finishOpen(m,o);
     msg(`Открыто: ${m.F.length} ${plural(m.F.length,'треугольник','треугольника','треугольников')}${isDense()?' — упрощаю до '+ST.faces:''}`);},'Читаю модель…'));}
-function save(){const j={type:'md-art',v:1,name:ST.name,dims:ST.dims,t:ST.t,mat:ST.mat,sheet:ST.sheet,sw:ST.sw,sl:ST.sl,cut:ST.cut,minW:ST.minW,weld:ST.weld,gap:ST.gap,useT:ST.useT,ngap:ST.ngap,engrave:ST.engrave,tpl:ST.tpl,bend:ST.bend,perf:ST.perf,...Object.fromEntries(Object.keys(SLOT_KEYS).filter(k=>k in ST).map(k=>[k,ST[k]])),diss:0,
+function figJSON(){const j={type:'md-art',v:1,name:ST.name,dims:ST.dims,t:ST.t,mat:ST.mat,sheet:ST.sheet,sw:ST.sw,sl:ST.sl,cut:ST.cut,minW:ST.minW,weld:ST.weld,gap:ST.gap,useT:ST.useT,ngap:ST.ngap,engrave:ST.engrave,tpl:ST.tpl,bend:ST.bend,perf:ST.perf,...Object.fromEntries(Object.keys(SLOT_KEYS).filter(k=>k in ST).map(k=>[k,ST[k]])),diss:0,
     V:CUR.M3.V.map(p=>p.map(x=>Math.round(x*100)/100)),F:CUR.M3.F};if(isPoly()){j.P=ST.base.P;j.S=ST.base.S||[];}if(ST.refId){j.ref=ST.refId;const fb=traceFrame();j.frame=[fb.min,fb.max].map(p=>p.map(x=>Math.round(x*100)/100));}
-  saveBlob((ST.name||'figura')+'.json',new Blob([JSON.stringify(j)],{type:'application/json'}));}
+  if(typeof ST.mk!=='undefined')j.mk=ST.mk;   // разметка (если есть) — вместе с версией
+  return j;}
+/* ---------- версии фигуры в браузере (#148): «Сохранить» кладёт версию в память браузера и скачивает .json ---------- */
+const VSTO={get:k=>localStorage.getItem(k),set:(k,v)=>localStorage.setItem(k,v)},verName=(b,n)=>((FIGURES[b]||{}).name||b)+'.'+n;   // нет памяти — бросает, verPut/verList это ловят
+function verOptions(){const sel=$('figSel');sel.querySelectorAll('option[data-ver]').forEach(o=>o.remove());
+  Object.keys(FIGURES).forEach(b=>{let at=[...sel.options].find(o=>o.value===b);if(!at)return;verList(VSTO,b).forEach(v=>{const o=document.createElement('option');o.value='ver:'+b+':'+v.n;o.dataset.ver=v.key;o.textContent=verName(b,v.n);at.after(o);at=o;});});}
+function save(){const j=figJSON(),b=ST.verBase,r=b?verPut(VSTO,b,j):null,file=(ST.name||'figura')+(r&&r.n?'.'+r.n:'')+'.json';
+  saveBlob(file,new Blob([JSON.stringify(j)],{type:'application/json'}));
+  if(!r)return;if(r.err){msg('Версию в браузере сохранить не удалось — сохранён только файл');return;}
+  ST.ver=r.n;verOptions();$('figSel').value='ver:'+b+':'+r.n;msg(`Сохранено: «${verName(b,r.n)}» — в браузере и файлом ${file}`);}
+function loadVersion(val){FIG_WANT=val;const [,base,n]=val.split(':'),back=()=>{$('figSel').value=ST.ver?'ver:'+ST.verBase+':'+ST.ver:ST.fig||'';},j=verGet(VSTO,verKey(base,+n));
+  if(!j){msg('Эту версию не прочитать: в памяти браузера её нет');back();return;}
+  const go=()=>later(()=>{const {m,o}=figFromJSON(j,FIGURES[base]?FIGURES[base].name:base);const edit=ST.edit;finishOpen(m,o,{base,n:+n},edit);msg(`Открыта версия «${verName(base,+n)}»`);},'Открываю версию…'),
+    rid=j.ref&&FIGURES[j.ref]?j.ref:base;
+  if(!figureReady(rid,()=>{if(FIG_WANT===val)go();},()=>{if(FIG_WANT===val){loading(false);back();msg('Фигура не загрузилась — проверьте интернет и выберите версию ещё раз');}})){loading(true,'Загружаю фигуру…');return;}
+  go();}
+
 // скачать файл. Ссылку-blob держим минуту: Safari на iPad начинает загрузку не сразу, и через 2 с файл иногда уже «не найден»
 const BLOB_TTL=60000;
 function saveBlob(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.rel='noopener';a.style.display='none';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),BLOB_TTL);}
@@ -218,7 +239,7 @@ function perfUI(){$('cPerf').checked=!!ST.perf;$('cNotch').checked=!!ST.slotNotc
 
 /* ---------- события ---------- */
 let RT=0;const recalc=(fit,heavy)=>{clearTimeout(RT);RT=setTimeout(()=>heavy?later(()=>{compute();renderAll(fit);}):(compute(),renderAll(fit)),heavy?150:60);};
-$('figSel').addEventListener('change',e=>{if(e.target.value)loadFigure(e.target.value);});
+$('figSel').addEventListener('change',e=>{const v=e.target.value;if(!v)return;if(v.startsWith('ver:'))loadVersion(v);else loadFigure(v);});
 $('bOpen').addEventListener('click',()=>$('fileIn').click());
 $('fileIn').addEventListener('change',e=>{const f=e.target.files[0];if(f)openFile(f);e.target.value='';});
 $('bSave').addEventListener('click',save);
@@ -375,7 +396,7 @@ $('bFlat').addEventListener('click',()=>{if($('bFlat').classList.contains('off')
 $('bTri').addEventListener('click',()=>{if($('bTri').classList.contains('off'))return;pushUndo();applyE(triangulateBad(E(),1.5));});
 $('bUndo').addEventListener('click',undo);$('bRedo').addEventListener('click',redo);
 $('bBlank').addEventListener('click',()=>{const k=$('blank').value,b=k==='box'?blankBox():blankSphere();ST.fig='';$('figSel').value='';
-  const m=polyBase(b.V,b.P),s=meshBox(m.V).size;setBase(m,{name:k==='box'?'Заготовка — куб':'Заготовка — шар',dims:{W:Math.round(s[0]),H:Math.round(s[1]),D:Math.round(s[2])}});
+  ST.verBase='';ST.ver=0;const m=polyBase(b.V,b.P),s=meshBox(m.V).size;setBase(m,{name:k==='box'?'Заготовка — куб':'Заготовка — шар',dims:{W:Math.round(s[0]),H:Math.round(s[1]),D:Math.round(s[2])}});
   ST.edit=true;$('cEdit').checked=true;compute();renderAll('instant');});
 addEventListener('keydown',e=>{if(!ST.edit||/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;const k=e.key.toLowerCase();
   if((e.ctrlKey||e.metaKey)&&(k==='z'||k==='я')&&!e.shiftKey){e.preventDefault();undo();}else if((e.ctrlKey||e.metaKey)&&(k==='y'||k==='н'||k==='z'&&e.shiftKey)){e.preventDefault();redo();}
@@ -441,6 +462,6 @@ $('traceSel').addEventListener('change',e=>{ST.tref=e.target.value;if(trOn()&&ST
 function startFig(hash,saved){const hf=/f=([a-z0-9_]+)/.exec(hash||'');return hf&&FIGURES[hf[1]]?hf[1]:saved&&FIGURES[saved]?saved:'shepherd';}
 // старт
 if(/og/.test(location.hash)){document.body.classList.add('og');ST.nums=false;ST.small=false;$('cNums').checked=false;}
-metalUI();
+metalUI();verOptions();
 if(typeof THREE==='undefined'){loading(true,'Не загрузилась 3D-библиотека — проверьте интернет');}
 else{const f=startFig(location.hash,store('shepherd-fig'));$('figSel').value=f;loadFigure(f);}

@@ -1,0 +1,17 @@
+// версии фигуры в браузере (#148): node --test shepherd-v6j3w/tools/versions.test.js
+const test=require('node:test'),assert=require('node:assert'),fs=require('fs'),vm=require('vm');
+const c={console,Date,JSON};vm.createContext(c);vm.runInContext(fs.readFileSync(__dirname+'/../js/versions.js','utf8'),c);
+const run=(s,env={})=>{Object.assign(c,env);return vm.runInContext(s,c);};
+const mem=()=>{const m=new Map();return {m,get:k=>m.has(k)?m.get(k):null,set:(k,v)=>m.set(k,String(v))};};
+const broken={get(){throw new Error('denied');},set(){throw new Error('denied');}};
+const full=()=>{const s=mem();return {...s,set(k,v){throw new Error('QuotaExceededError');}};};
+const J=x=>JSON.parse(JSON.stringify(x));
+test('verPut даёт номера 1, 2, 3',()=>{const st=mem();[1,2,3].forEach(n=>assert.deepStrictEqual(J(run('verPut(st,"shepherd5",{name:"a",V:[1]})',{st})),{n}));});
+test('verList по порядку номеров, с ключом и временем',()=>{const st=mem();for(let i=0;i<3;i++)run('verPut(st,"b",{x:1})',{st});const L=J(run('verList(st,"b")',{st}));assert.deepStrictEqual(L.map(v=>v.n),[1,2,3]);assert.strictEqual(L[1].key,'shepherd-ver-b-2');assert.ok(L.every(v=>typeof v.at==='string'&&v.at.length>=10));});
+test('verGet возвращает то же, что положили',()=>{const st=mem(),j={type:'md-art',name:'Овчарка 5',V:[[1,2,3]],P:[[0]],ref:'shepherd5',frame:[[0,0,0],[1,1,1]],mk:[{k:'line'}]};run('verPut(st,"shepherd5",j)',{st,j});assert.deepStrictEqual(J(run('verGet(st,"shepherd-ver-shepherd5-1")',{st})),J(j));});
+test('версии разных фигур не смешиваются',()=>{const st=mem();run('verPut(st,"a",{})',{st});run('verPut(st,"a",{})',{st});run('verPut(st,"b",{})',{st});assert.deepStrictEqual(J(run('verList(st,"a")',{st})).map(v=>v.n),[1,2]);assert.deepStrictEqual(J(run('verList(st,"b")',{st})).map(v=>v.n),[1]);});
+test('хранилище бросает исключение → verPut {err}, verList [], verGet null',()=>{const st=broken;const r=J(run('verPut(st,"b",{x:1})',{st}));assert.strictEqual(typeof r.err,'string');assert.ok(r.err.length>0&&r.n===undefined);assert.deepStrictEqual(J(run('verList(st,"b")',{st})),[]);assert.strictEqual(run('verGet(st,"shepherd-ver-b-1")',{st}),null);});
+test('память полна (set бросает) → {err}, список не портится',()=>{const st=full();const r=J(run('verPut(st,"b",{x:1})',{st}));assert.strictEqual(typeof r.err,'string');assert.deepStrictEqual(J(run('verList(st,"b")',{st})),[]);});
+test('мусор в списке и в версии → пустой список / null',()=>{const st=mem();st.set('shepherd-ver-b','мусор');assert.deepStrictEqual(J(run('verList(st,"b")',{st})),[]);st.set('shepherd-ver-b-1','{не json');assert.strictEqual(run('verGet(st,"shepherd-ver-b-1")',{st}),null);st.set('shepherd-ver-b','[{"n":"x"},5,null,{"n":2,"at":"2026-11-23T01:00:00.000Z"}]');assert.deepStrictEqual(J(run('verList(st,"b")',{st})).map(v=>v.n),[2]);});
+test('следующий номер — после самого большого, а не по числу версий',()=>{const st=mem();st.set('shepherd-ver-b','[{"n":1,"at":"x"},{"n":4,"at":"y"}]');assert.deepStrictEqual(J(run('verPut(st,"b",{})',{st})),{n:5});});
+test('verPut не сохраняет версию, если не вышло записать список (нет «потерянных» версий в списке)',()=>{const st=mem();let n=0;const st2={get:st.get,set(k,v){if(k==='shepherd-ver-b'&&++n>0)throw new Error('quota');st.set(k,v);}};const r=J(run('verPut(st2,"b",{})',{st2}));assert.strictEqual(typeof r.err,'string');assert.deepStrictEqual(J(run('verList(st2,"b")',{st2})),[]);});
