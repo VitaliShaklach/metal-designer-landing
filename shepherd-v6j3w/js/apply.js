@@ -4,7 +4,7 @@
    Симметрия: штрих режется и на зеркальной половине (по точным зеркальным точкам); штрих поперёк оси x = 0 делается симметричным и режется один раз */
 const AP_SNAP=8,AP_MINW=15,AP_STEP=1;
 const AP_WHY={edge:'линия не доходит до края детали',narrow:'выйдет деталь уже 15 мм',hole:'слить нельзя: выйдет дыра',selfx:'выйдет самопересечение',
-  closed:'замкнутая линия — отверстие (будет в следующей версии)',multi:'линия идёт через несколько деталей',none:'линия идёт по краю детали — резать нечего',
+  closed:'замкнутая линия — отверстие (будет в следующей версии)',multi:'линия выходит из детали и возвращается',none:'линия идёт по краю детали — резать нечего',
   nocross:'зачёркивание не пересекает шов между деталями',off:'линия не на фигуре'};
 // плоскость грани: 2D-координаты (u,w) от первой точки
 function apFrame(V,Q){const n=polyNorm(V,Q),o=V[Q[0]];let u=Math.abs(n[0])<.9?[1,0,0]:[0,1,0];u=V3.norm(V3.sub(u,V3.mul(n,V3.dot(u,n))));const w=V3.cross(n,u);
@@ -72,10 +72,20 @@ function applyMarkup(E,mk,o={}){const sym=!!o.sym,done=[],fail=[];E=ecopy(E);
   return {E:compact(E),done:done.sort((a,b)=>a-b),fail:fail.sort((a,b)=>a.i-b.i)};}
 function apCross(E,s,sym){if(s.pts.length<2)return {why:AP_WHY.nocross};const at=apIndex(E),a=at(s.pts[0]),b=at(s.pts[s.pts.length-1]);
   if(a<0||b<0)return {why:AP_WHY.off};if(a===b||!polysAdjacent(E,a,b))return {why:AP_WHY.nocross};const r=mergePolys(E,a,b,sym);return r?{E:r}:{why:AP_WHY.hole};}
-// линия: грань — та, над которой больше всего точек штриха; с симметрией — и зеркальная (по точкам, где прошёл разрез)
+/* линия через несколько деталей (#153): точки через 1 мм → деталь-хозяйка у каждой → подряд идущие одной хозяйки — кусок (короче AP_SNAP — угол задет, пропуск);
+   кусок с захватом 3 мм в соседей (по ребру обрежется) режет свою деталь; стык на общем ребре — та же точка (вставлена в обе грани, конец соседа прилипает к ней).
+   Не вышел хоть один кусок — вся линия не применяется, фигура та же. → {E, pts — по каким точкам прошёл разрез} или {why} */
+function apPieces(at,pts){const d=apDense(pts,AP_STEP),own=d.map(at),runs=[];let a=0;for(let i=1;i<=d.length;i++)if(i===d.length||own[i]!==own[a]){runs.push([a,i-1,own[a]]);a=i;}
+  const ext=Math.round(3/AP_STEP);return runs.filter(r=>r[2]>=0&&apLen(d.slice(r[0],r[1]+1))>=AP_SNAP).map(([a,b])=>d.slice(Math.max(0,a-ext),Math.min(d.length,b+1+ext)));}
+// штрих → по поверхности: точки через 2 мм → ближайшая точка граней (≤ 40 мм) — как он нарисован (mkDrape); прямая между кликами иначе уходит внутрь выпуклой фигуры
+function apProject(E,pts){const tr=tlTris(E.V,E.P),G=tlGrid(tr,t=>[[0,1,2].map(k=>Math.min(t.a[k],t.b[k],t.c[k])),[0,1,2].map(k=>Math.max(t.a[k],t.b[k],t.c[k]))],48,40);
+  return apDense(pts,2).map(p=>{let best=p,bd=1600;for(const k of G.at(p)){const t=tr[k],q=tlClosest(p,t.a,t.b,t.c),d=(q[0]-p[0])**2+(q[1]-p[1])**2+(q[2]-p[2])**2;if(d<bd){bd=d;best=q;}}return best;});}
+function apStroke(E,pts,o){pts=apProject(E,pts);const P=apPieces(apIndex(E),pts);if(!P.length)return {why:AP_WHY.off};const path=[];
+  for(const pc of P){const at=apIndex(E),own=new Map();pc.forEach(p=>{const f=at(p);if(f>=0)own.set(f,(own.get(f)||0)+1);});if(!own.size)return {why:AP_WHY.off};
+    const pi=[...own].sort((x,y)=>y[1]-x[1])[0][0],r=cutPolyline(E,pi,pc,o);if(r.why)return r;E=r.E;const q=r.pts;
+    path.push(...(path.length&&V3.len(V3.sub(path[path.length-1],q[0]))<.01?q.slice(1):q));}
+  return {E,pts:path,pieces:P.length};}
+// линия: с симметрией — и зеркальная (по точкам, где прошёл разрез); поперёк оси — симметричная, один раз; на оси — не двоится
 function apLine(E,s,sym,o){let pts=s.pts;if(pts.length<2)return {why:AP_WHY.edge};const sl=sym?apSymLine(pts):null;if(sl)pts=sl;
-  const at=apIndex(E),own=new Map();apDense(pts,2).forEach(p=>{const f=at(p);if(f>=0)own.set(f,(own.get(f)||0)+1);});if(!own.size)return {why:AP_WHY.off};
-  const pi=[...own].sort((x,y)=>y[1]-x[1])[0][0],r=cutPolyline(E,pi,pts,o);if(r.why||!sym||sl)return r;
-  const m=r.pts.map(p=>[-p[0],p[1],p[2]]);if(r.pts.every(p=>Math.abs(p[0])<=MK_AXIS))return r;   // на оси — не двоится
-  const at2=apIndex(r.E),own2=new Map();apDense(m,2).forEach(p=>{const f=at2(p);if(f>=0)own2.set(f,(own2.get(f)||0)+1);});if(!own2.size)return {why:AP_WHY.off};
-  const pj=[...own2].sort((x,y)=>y[1]-x[1])[0][0],r2=cutPolyline(r.E,pj,m,o);return r2.why?{why:r2.why}:r2;}
+  const r=apStroke(E,pts,o);if(r.why||!sym||sl||r.pts.every(p=>Math.abs(p[0])<=MK_AXIS))return r;
+  const r2=apStroke(r.E,r.pts.map(p=>[-p[0],p[1],p[2]]),o);return r2.why?{why:r2.why}:{E:r2.E,pts:r.pts,pieces:r.pieces};}

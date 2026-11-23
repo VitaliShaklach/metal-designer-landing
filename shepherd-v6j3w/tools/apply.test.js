@@ -33,3 +33,14 @@ test('замкнутая линия — пока отказ с причиной;
   assert.deepStrictEqual(r.done,[1]);assert.strictEqual(r.fail[0].i,0);assert.match(r.fail[0].why,/отверстие/);assert.strictEqual(r.E.P.length,7);});
 test('линия через ребро на соседнюю грань дальше 8 мм — не режет молча, а отказ',()=>{const r=ap([{k:'line',pts:[[50,200,100],[50,200,200],[50,150,200]]}]);assert.strictEqual(r.done.length,0);assert.strictEqual(r.E.P.length,6);});
 test('два конца на одном ребре (вырез «скобкой»)',()=>{const r=ap([{k:'line',pts:[[-60,200,0],[-60,200,60],[60,200,60],[60,200,0]]}]);assert.deepStrictEqual(r.done,[0]);assert.strictEqual(r.E.P.length,7);assert.ok(good(r.E));});
+// #153: линия через несколько деталей
+test('линия через две грани (верх и перед) от ребра до ребра → обе разрезаны, стык — одна точка на общем ребре',()=>{const r=ap([{k:'line',pts:[[50,200,0],[50,200,200],[50,0,200]]}]);
+  assert.deepStrictEqual(r.done,[0]);assert.strictEqual(r.E.P.length,8);assert.ok(good(r.E));assert.ok(!dupV(r.E),'нет двойных точек');assert.strictEqual(r.E.V.length,11,'3 новые точки: два конца и стык');});
+test('через две грани с симметрией: правый бок и верх → и зеркальные; симметрична',()=>{const r=ap([{k:'line',pts:[[100,0,100],[100,200,100],[60,200,0]]}],{sym:true});
+  assert.deepStrictEqual(r.done,[0]);assert.strictEqual(r.E.P.length,10);assert.ok(good(r.E));assert.ok(sym(r.E),'симметрична');assert.ok(!dupV(r.E));});
+test('через две грани, вторая часть оборвана → вся линия не применяется, фигура та же',()=>{const r=ap([{k:'line',pts:[[50,200,0],[50,200,200],[50,100,200]]}]);
+  assert.deepStrictEqual(r.done,[]);assert.strictEqual(r.fail[0].why,'линия не доходит до края детали');assert.strictEqual(r.E.P.length,6);assert.strictEqual(r.E.V.length,8);});
+test('несколько линий: удачные применяются, отказ — у своей линии',()=>{const r=ap([{k:'line',pts:[[50,200,0],[50,200,200],[50,0,200]]},{k:'line',pts:[[-50,200,100],[-50,200,150]]},{k:'line',pts:[[-100,100,0],[-100,100,200]]}]);
+  assert.deepStrictEqual(r.done,[0,2]);assert.deepStrictEqual(r.fail.map(f=>f.i),[1]);assert.strictEqual(r.E.P.length,9);assert.ok(good(r.E));});
+test('линия через три грани (бок, верх, бок) поперёк оси с симметрией — один раз, симметрична',()=>{const r=ap([{k:'line',pts:[[100,0,100],[100,200,100],[-100,200,100],[-100,0,100]]}],{sym:true});
+  assert.deepStrictEqual(r.done,[0]);assert.strictEqual(r.E.P.length,9);assert.ok(good(r.E));assert.ok(sym(r.E));assert.ok(!dupV(r.E));});
