@@ -42,3 +42,7 @@ FIGURES.shepherd5={name:'Овчарка 5',H:1000,poly:true,need:'plates-shepher
   // две кальки в одном кадре: с текстуры модели и со швов четырёх согласованных картинок (project.js → out/shepherd5/tex-p.png), выбор — рядом с галочкой «Калька»
   refs:[['shepherd5','с модели'],['shepherd5p','с картинок']]};
 LAZY['plates-shepherd5']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY.shepherd5,wait:null};
+/* ---------- Оригинал (вид) (тикет #146): модель Meshy как есть, только смотреть; view — рабочая фигура (там расчёт), orig — ключ в ORIG ----------
+   Для другой фигуры из Meshy — такая же строка + файл js/orig-<id>.js (from-dev/art/tools/plates/orig.js) + <option> в index.html */
+FIGURES.shepherd5_orig={name:'Овчарка 5 — оригинал (вид)',view:'shepherd5',orig:'shepherd5',need:'orig-shepherd5'};
+LAZY['orig-shepherd5']={ok:()=>typeof ORIG!=='undefined'&&!!ORIG.shepherd5,wait:null};

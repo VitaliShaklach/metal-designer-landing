@@ -7,7 +7,7 @@ const store=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localSto
 function msg(t){$('msg').textContent=t||'';}
 
 // состояние фигуры
-const ST={frame:null,edit:false,sym:true,sv:-1,sp:-1,sp2:-1,seam:null,traceUrl:false,verBase:'',ver:0,refId:'',tref:'',name:'',fig:'shepherd',base:null,faces:260,diss:0,dims:{W:0,H:600,D:0},prop:true,t:2,mat:'steel',sheet:'1250x2500',sw:1250,sl:2500,cut:'laser',minW:15,weld:'tig',gap:0.5,useT:true,ngap:5,ngapOwn:false,engrave:true,tpl:false,bend:true,perf:true,slotW:2,slotL:40,slotBr:3,slotEb:3,slotEl:5,slotNotch:true,slotD:3,selB:-1,allParts:false,sel:-1,nums:false,small:true};
+const ST={frame:null,edit:false,sym:true,sv:-1,sp:-1,sp2:-1,seam:null,traceUrl:false,verBase:'',ver:0,orig:null,refId:'',tref:'',name:'',fig:'shepherd',base:null,faces:260,diss:0,dims:{W:0,H:600,D:0},prop:true,t:2,mat:'steel',sheet:'1250x2500',sw:1250,sl:2500,cut:'laser',minW:15,weld:'tig',gap:0.5,useT:true,ngap:5,ngapOwn:false,engrave:true,tpl:false,bend:true,perf:true,slotW:2,slotL:40,slotBr:3,slotEb:3,slotEl:5,slotNotch:true,slotD:3,selB:-1,allParts:false,sel:-1,nums:false,small:true};
 ST.layers=layersLoad(store('shepherd-layers'));   // слои мастерской (#145), хранятся в браузере
 let SIMP={key:'',m:null},CUR=null,CALC_KEY='';   // CUR = {M3,R,T,small}
 const DENSE=2000;                    // больше стольких треугольников — модель гладкая, упрощаем
@@ -76,7 +76,8 @@ function compute0(){const b=ST.base;let S=b;
 function mergeFlat(M3){const G=dissolve(M3,ST.diss,Math.max(ST.dims.W,ST.dims.H,ST.dims.D)*.01),open=openVerts(G);
   const V=planarize(G.V,G.P,(i,q)=>{if(open.has(i)&&Math.abs(G.V[i][2])<.5)q[2]=0;return q;},400);return fitMesh(polyMesh(V,G.P),ST.dims);}
 
-function renderAll(fit){if(!CUR)return;if(pierceOn()&&!CUR.pierce)CUR.pierce=pierceOf(ST.base);const ed=ST.edit&&isPoly(),T=ST.base.T,tri=set=>{const o=new Set();if(T)T.forEach((pi,fi)=>{if(set.has(pi))o.add(fi);});return o;};
+function renderAll(fit){if(!CUR||ST.orig)return;   // под оригиналом (вид) рабочая фигура стоит как была, сцену не трогаем
+  if(pierceOn()&&!CUR.pierce)CUR.pierce=pierceOf(ST.base);const ed=ST.edit&&isPoly(),T=ST.base.T,tri=set=>{const o=new Set();if(T)T.forEach((pi,fi)=>{if(set.has(pi))o.add(fi);});return o;};
   build3D(CUR.M3,CUR.R,{...(typeof angBuildOpts==='function'?angBuildOpts():{}),sel:ST.sel,bent:CUR.bentKey&&CUR.bentKey.size?e=>e.p.length===2&&CUR.bentKey.has(bendKey(e.p[0],e.p[1])):null,grp:selBlank()>=0?new Set(CUR.BL[selBlank()].parts):null,small:ST.small?CUR.small:null,nums:ST.nums&&!ed,mat:ST.mat,edges:!ed||ST.layers.edges,verts:ed&&vertsShown(),sv:ST.sv,hi:ed&&ST.sp>=0?tri(new Set([ST.sp,ST.sp2])):null,warn:isPoly()?tri(CUR.bad):null,blue:ed&&CUR.selfx?tri(CUR.selfx):null,pierce:pierceOn()&&CUR.pierce?tri(CUR.pierce):null,mark:ed&&ST.seam?ST.seam:null,tex:traceTex(),diff:ed&&traceOn()&&ST.layers.diff?TRC.diff:null,backs:CUR.R.parts.filter(p=>p.back).map(p=>p.full.map(i=>V3.sub(CUR.M3.V[i],V3.mul(p.n,BACK_DEPTH))))});edUI();layersUI();traceUI();if(fit)fitBox(meshBox(CUR.M3.V),fit==='instant');
   stats();sizeUI();facesUI();selUI();partsTable();sumTable();sheetsUI();$('ttl').textContent=ST.name||'Фигура';label3D();if(typeof angAfter==='function')angAfter();}
 // 3D-окно для читалок экрана: название, детали, габарит — меняется вместе с фигурой и названием
@@ -186,12 +187,12 @@ function sumTable(){const T=CUR.T,[sl,sw]=sheetWL(),warn=[];
   $('sum').innerHTML='<tbody>'+rows.map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td></tr>`).join('')+'</tbody>';}
 
 /* ---------- загрузка фигур и файлов ---------- */
-function setBase(m,o={}){ST.base=m;SIMP={key:'',m:null};ST.sel=-1;ST.selB=-1;ST.name=o.name||ST.name;$('mName').value=ST.name;
+function setBase(m,o={}){origLeave();ST.base=m;SIMP={key:'',m:null};ST.sel=-1;ST.selB=-1;ST.name=o.name||ST.name;$('mName').value=ST.name;
   ST.faces=o.faces||(isDense()?250:m.F.length);if(o.dims)ST.dims=o.dims;else dimsFromH(o.H||600);ST.sv=ST.sp=-1;UNDO.length=REDO.length=0;ST.edit=false;$('cEdit').checked=false;if(m.P)setPolyDims();}
 // Доберманам 4–6 сначала нужен models.js (figureReady); выбрали другую фигуру, пока грузился, — его onload ничего не строит
 let FIG_WANT='';
-function loadFigure(id){FIG_WANT=id;if(!figureReady(id,()=>{if(FIG_WANT===id)loadFigure(id);},()=>{if(FIG_WANT===id){loading(false);$('figSel').value=ST.fig||'';msg('Фигура не загрузилась — проверьте интернет и выберите её ещё раз');}})){loading(true,'Загружаю фигуру…');return;}
-  later(()=>{const f=FIGURES[id];ST.fig=id;ST.verBase=id;ST.ver=0;ST.refId=f.ref||'';const htr=/trace=([a-z0-9_]+)/.exec(location.hash);ST.tref=htr?htr[1]:'';ST.frame=f.frame?{min:f.frame[0],max:f.frame[1]}:null;setBase(figureMesh(id,12),{name:f.name,faces:f.faces,H:f.H});const hn=/faces=(\d+)/.exec(location.hash),hd=/diss=(\d+)/.exec(location.hash);if(hn)ST.faces=+hn[1];if(hd)ST.diss=+hd[1];if(/edit/.test(location.hash)){ST.edit=true;$('cEdit').checked=true;}if(/trace/.test(location.hash)&&ST.refId)ST.traceUrl=true;if(ST.refId&&trOn())traceLoadFor(traceId());compute();renderAll('instant');store('shepherd-fig',id);msg('');const hv=/v=([a-z]+)/.exec(location.hash);if(hv)viewDir(hv[1],meshBox(CUR.M3.V),/og/.test(location.hash));},'Строю фигуру…');}
+function loadFigure(id,after){FIG_WANT=id;if(FIGURES[id].view){loadOrig(id);return;}if(!figureReady(id,()=>{if(FIG_WANT===id)loadFigure(id,after);},()=>{if(FIG_WANT===id){loading(false);$('figSel').value=ST.fig||'';msg('Фигура не загрузилась — проверьте интернет и выберите её ещё раз');}})){loading(true,'Загружаю фигуру…');return;}
+  later(()=>{const f=FIGURES[id];ST.fig=id;ST.verBase=id;ST.ver=0;ST.refId=f.ref||'';const htr=/trace=([a-z0-9_]+)/.exec(location.hash);ST.tref=htr?htr[1]:'';ST.frame=f.frame?{min:f.frame[0],max:f.frame[1]}:null;setBase(figureMesh(id,12),{name:f.name,faces:f.faces,H:f.H});const hn=/faces=(\d+)/.exec(location.hash),hd=/diss=(\d+)/.exec(location.hash);if(hn)ST.faces=+hn[1];if(hd)ST.diss=+hd[1];if(/edit/.test(location.hash)){ST.edit=true;$('cEdit').checked=true;}if(/trace/.test(location.hash)&&ST.refId)ST.traceUrl=true;if(ST.refId&&trOn())traceLoadFor(traceId());compute();renderAll('instant');store('shepherd-fig',id);msg('');const hv=/v=([a-z]+)/.exec(location.hash);if(hv)viewDir(hv[1],meshBox(CUR.M3.V),/og/.test(location.hash));if(after)after();},'Строю фигуру…');}
 // файл фигуры .json (и версия из браузера — тот же JSON) → сетка и настройки
 function figFromJSON(j,name){if(j.type!=='md-art')throw new Error('это не файл фигуры');ST.weld='mig';/* старые файлы без weld — полуавтомат, зазор из файла */const m=j.P?polyBase(j.V,j.P,j.S):{V:j.V,F:j.F},o={name:j.name||name,dims:j.dims,faces:j.F.length,ref:j.ref,frame:j.frame};
   ['t','mat','sheet','sw','sl','cut','minW','weld','gap','useT','ngap','engrave','tpl','bend','perf','diss'].forEach(k=>{if(j[k]!==undefined)ST[k]=j[k];});
@@ -211,6 +212,20 @@ function figJSON(){const j={type:'md-art',v:1,name:ST.name,dims:ST.dims,t:ST.t,m
     V:CUR.M3.V.map(p=>p.map(x=>Math.round(x*100)/100)),F:CUR.M3.F};if(isPoly()){j.P=ST.base.P;j.S=ST.base.S||[];}if(ST.refId){j.ref=ST.refId;const fb=traceFrame();j.frame=[fb.min,fb.max].map(p=>p.map(x=>Math.round(x*100)/100));}
   if(typeof ST.mk!=='undefined')j.mk=ST.mk;   // разметка (если есть) — вместе с версией
   return j;}
+/* ---------- оригинал (вид) (#146): фигура с view — только 3D модели Meshy, расчёта нет ----------
+   Рабочая фигура view остаётся в памяти как была (правки, слои, разметка), оригинал рисуется поверх сцены; вернулись — всё на месте, камера та же.
+   Нет рабочей фигуры (ссылка #f=shepherd5_orig) — сначала грузим её, потом открываем оригинал. */
+function loadOrig(id){FIG_WANT=id;const f=FIGURES[id],run=()=>{if(CUR&&ST.verBase===f.view)later(()=>origEnter(id),'Открываю оригинал…');else loadFigure(f.view,()=>origEnter(id));};
+  if(!figureReady(id,()=>{if(FIG_WANT===id)run();},()=>{if(FIG_WANT===id){loading(false);$('figSel').value=ST.orig?id:ST.ver?'ver:'+ST.verBase+':'+ST.ver:ST.fig||'';msg('Оригинал не загрузился — проверьте интернет и выберите его ещё раз');}})){loading(true,'Загружаю оригинал…');return;}
+  run();}
+function origEnter(id){const f=FIGURES[id],box=meshBox(CUR.M3.V),k=camKeep(box),back=ST.ver?'ver:'+ST.verBase+':'+ST.ver:ST.verBase,w=FIGURES[f.view].name;
+  if('tool' in ST)ST.tool='';   // инструмент разметки выключается, сама разметка не трогается
+  ST.orig={id,tex:$('cOrigTex').checked,back};document.body.classList.add('origview');$('origBox').hidden=false;$('bSave').disabled=true;
+  origShow(f.orig,ST.orig.tex);camRestore(k,box);$('figSel').value=id;$('ttl').textContent=f.name;
+  $('origNote').textContent='Это вид оригинала. Для расчёта выберите «'+w+'»';$('hint').textContent='Оригинал (вид): левая кнопка — крутить, колесо — масштаб, правая — сдвиг · галочка «Текстура» — швы или серый';msg('Это вид оригинала. Для расчёта выберите «'+w+'»');}
+function origLeave(){if(!ST.orig)return;origDispose();ST.orig=null;document.body.classList.remove('origview');$('origBox').hidden=true;$('bSave').disabled=false;}
+function origReturn(){const box=meshBox(CUR.M3.V),k=camKeep(box);$('figSel').value=ST.orig.back;origLeave();later(()=>{renderAll();camRestore(k,box);msg('');},'Возвращаю фигуру…');}
+$('cOrigTex').addEventListener('change',e=>{if(!ST.orig)return;ST.orig.tex=e.target.checked;origTex(ST.orig.tex);});
 /* ---------- версии фигуры в браузере (#148): «Сохранить» кладёт версию в память браузера и скачивает .json ---------- */
 const VSTO={get:k=>localStorage.getItem(k),set:(k,v)=>localStorage.setItem(k,v)},verName=(b,n)=>((FIGURES[b]||{}).name||b)+'.'+n;   // нет памяти — бросает, verPut/verList это ловят
 function verOptions(){const sel=$('figSel');sel.querySelectorAll('option[data-ver]').forEach(o=>o.remove());
@@ -239,7 +254,7 @@ function perfUI(){$('cPerf').checked=!!ST.perf;$('cNotch').checked=!!ST.slotNotc
 
 /* ---------- события ---------- */
 let RT=0;const recalc=(fit,heavy)=>{clearTimeout(RT);RT=setTimeout(()=>heavy?later(()=>{compute();renderAll(fit);}):(compute(),renderAll(fit)),heavy?150:60);};
-$('figSel').addEventListener('change',e=>{const v=e.target.value;if(!v)return;if(v.startsWith('ver:'))loadVersion(v);else loadFigure(v);});
+$('figSel').addEventListener('change',e=>{const v=e.target.value;if(!v)return;if(ST.orig&&v===ST.orig.back){origReturn();return;}if(v.startsWith('ver:'))loadVersion(v);else loadFigure(v);});
 $('bOpen').addEventListener('click',()=>$('fileIn').click());
 $('fileIn').addEventListener('change',e=>{const f=e.target.files[0];if(f)openFile(f);e.target.value='';});
 $('bSave').addEventListener('click',save);
@@ -294,7 +309,7 @@ document.querySelectorAll('.subtabs').forEach(bar=>{const bs=[...bar.querySelect
   const show=k=>bs.forEach(b=>{const on=b.dataset.sub===k;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;$('sub-'+b.dataset.sub).hidden=!on;});
   bs.forEach((b,i)=>{b.addEventListener('click',()=>show(b.dataset.sub));
     b.addEventListener('keydown',e=>{const d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(!d)return;const n=bs[(i+d+bs.length)%bs.length];n.focus();show(n.dataset.sub);});});});
-document.querySelectorAll('.controls .grp').forEach(g=>g.querySelector('.gt').addEventListener('click',()=>g.classList.toggle('shut')));
+document.querySelectorAll('.controls .grp').forEach(g=>{const t=g.querySelector('.gt');if(t)t.addEventListener('click',()=>g.classList.toggle('shut'));});   // у блока «оригинал (вид)» заголовка нет
 function drawer(o){const bt=$('drawerBtn');$('controls').classList.toggle('open',o);bt.setAttribute('aria-expanded',String(o));bt.textContent=o?'Готово':'Панель';}
 $('drawerBtn').addEventListener('click',()=>drawer(!$('controls').classList.contains('open')));$('drawerClose').addEventListener('click',()=>drawer(false));
 /* ---------- раскрой, чертежи, карты: только по кнопке «Рассчитать» (editor/common/calc.js), как в мангале ----------
@@ -398,7 +413,7 @@ $('bUndo').addEventListener('click',undo);$('bRedo').addEventListener('click',re
 $('bBlank').addEventListener('click',()=>{const k=$('blank').value,b=k==='box'?blankBox():blankSphere();ST.fig='';$('figSel').value='';
   ST.verBase='';ST.ver=0;const m=polyBase(b.V,b.P),s=meshBox(m.V).size;setBase(m,{name:k==='box'?'Заготовка — куб':'Заготовка — шар',dims:{W:Math.round(s[0]),H:Math.round(s[1]),D:Math.round(s[2])}});
   ST.edit=true;$('cEdit').checked=true;compute();renderAll('instant');});
-addEventListener('keydown',e=>{if(!ST.edit||/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;const k=e.key.toLowerCase();
+addEventListener('keydown',e=>{if(!ST.edit||ST.orig||/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;const k=e.key.toLowerCase();
   if((e.ctrlKey||e.metaKey)&&(k==='z'||k==='я')&&!e.shiftKey){e.preventDefault();undo();}else if((e.ctrlKey||e.metaKey)&&(k==='y'||k==='н'||k==='z'&&e.shiftKey)){e.preventDefault();redo();}
   else if(k==='delete'&&ST.sp>=0){pushUndo();applyE(delPoly(E(),ST.sp,ST.sym));}
   else if(k==='escape'&&ST.seam){ST.seam=null;renderAll();}});
@@ -435,14 +450,14 @@ $('traceSel').addEventListener('change',e=>{ST.tref=e.target.value;if(trOn()&&ST
 
 // клик по грани — выбрать деталь; в редакторе — точку или грань, точку можно тянуть
 (()=>{if(!ok)return;const cv=renderer.domElement,tag=$('hovTag');let down=null,drag=null,raf=0;
-  cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};if(e.button!==0||!ST.edit||!isPoly()||!CUR)return;
+  cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};if(e.button!==0||!ST.edit||ST.orig||!isPoly()||!CUR)return;
     const v=vertsShown()?pickVert(e,ST.base.V):-1;if(v<0)return;if(ST.seam){if(ST.sp>=0&&ST.base.P[ST.sp].includes(v)){down=null;addCut(v);}return;}ST.sv=v;ST.sp=-1;ST.sel=-1;drag={v,snap:snapE(),moved:false};ST.drag=true;controls.enabled=false;cv.setPointerCapture(e.pointerId);renderAll();});
   cv.addEventListener('pointermove',e=>{if(drag){const p=dragPoint(e,ST.base.V[drag.v]);if(!p)return;drag.moved=true;tag.hidden=true;if(raf)return;
       raf=requestAnimationFrame(()=>{raf=0;if(!drag)return;const e2={V:ST.base.V.map(q=>q.slice()),P:ST.base.P,S:ST.base.S||[]};moveVert(e2,drag.v,dragPoint(e,ST.base.V[drag.v])||p,ST.sym);applyE(e2,true);});return;}
     if(!CUR||e.buttons){tag.hidden=true;return;}const t=pickTri(e);if(t<0){tag.hidden=true;return;}const p=CUR.R.parts[CUR.R.partOf[t]],r=stage.getBoundingClientRect();
     tag.textContent=`№ ${p.no} · ${Math.round(p.L)} × ${Math.round(p.W)} мм`;tag.style.left=(e.clientX-r.left)+'px';tag.style.top=(e.clientY-r.top)+'px';tag.hidden=false;});
   cv.addEventListener('pointerup',e=>{if(drag){const d=drag;drag=null;ST.drag=false;controls.enabled=true;if(d.moved){UNDO.push(d.snap);REDO.length=0;renderAll();}down=null;return;}
-    if(!down||!CUR)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>5||e.button!==0)return;
+    if(!down||!CUR||ST.orig)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>5||e.button!==0)return;
     const t=pickTri(e),pi=t>=0?CUR.R.partOf[t]:-1;
     if(ST.edit&&isPoly()){const fp=t>=0?ST.base.T[t]:-1;
       if(ST.seam){if(fp!==ST.sp||ST.sp<0)return;const h=pickHit(e);if(!h)return;const B=ST.base,Q=B.P[ST.sp];let be=null,bd=15;   // ближайшее ребро выбранной грани
