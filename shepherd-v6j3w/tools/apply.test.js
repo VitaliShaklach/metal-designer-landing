@@ -29,8 +29,19 @@ test('зачёркивание шва после разреза → граней
   // зачёркивание идёт первым: шва ещё нет — отказ; линия режет
   assert.deepStrictEqual(r.done,[0]);assert.strictEqual(r.fail[0].why,'зачёркивание не пересекает шов между деталями');
   c.E1=r.E;const r2=JSON.parse(JSON.stringify(run("applyMarkup(E1,[{k:'cross',pts:[[-20,200,100],[20,200,100]]}],{})")));assert.deepStrictEqual(r2.done,[0]);assert.strictEqual(r2.E.P.length,6);assert.ok(good(r2.E));});
-test('замкнутая линия — пока отказ с причиной; остальное применяется',()=>{const r=ap([{k:'pen',closed:true,pts:[[0,200,80],[20,200,100],[0,200,120],[-20,200,100]]},{k:'line',pts:[[50,200,0],[50,200,200]]}]);
-  assert.deepStrictEqual(r.done,[1]);assert.strictEqual(r.fail[0].i,0);assert.match(r.fail[0].why,/отверстие/);assert.strictEqual(r.E.P.length,7);});
+// #154 отверстие из замкнутой линии (было «пока отказ» — по тикету #154 стало отверстием)
+const circ=(cx,cz,r,n=96)=>Array.from({length:n},(_,k)=>[cx+r*Math.cos(k/n*2*Math.PI),200,cz+r*Math.sin(k/n*2*Math.PI)]);
+const meas=E=>{c.TE=E;return JSON.parse(JSON.stringify(run('(()=>{const b=polyBase(TE.V,TE.P,TE.S,TE.H),R=buildParts({V:b.V,F:b.F,T:b.T,S:b.S,H:b.H},1.5,1.5);let area=0,cut=0,weld=0,open=0;R.parts.forEach(p=>{area+=p.area;cut+=p.perim+(p.holeLen||0);});R.edges.forEach(e=>{if(e.hole)return;if(e.open)open+=e.len;else weld+=e.len;});return {area,cut,weld,open,parts:R.parts.length,holes:R.parts.reduce((s,p)=>s+p.holes,0)};})()')));};
+test('окружность Ø 30 в грани → отверстие: площадь меньше на π·15² (±1 %), рез больше на 2π·15 (±1 %), сварка и открытый край те же',()=>{const r=ap([{k:'pen',closed:true,pts:circ(40,100,15)},{k:'line',pts:[[-50,200,0],[-50,200,200]]}]);
+  assert.deepStrictEqual(r.done,[0,1]);assert.strictEqual(r.E.H.length,1);const m0=meas(cube()),m1=meas(r.E),r0=ap([{k:'line',pts:[[-50,200,0],[-50,200,200]]}]),mL=meas(r0.E);
+  const dA=mL.area-m1.area,dC=m1.cut-mL.cut;assert.ok(Math.abs(dA/(Math.PI*225)-1)<=.01,'площадь: '+dA.toFixed(1)+' вместо '+(Math.PI*225).toFixed(1));assert.ok(Math.abs(dC/(Math.PI*30)-1)<=.01,'рез: '+dC.toFixed(2)+' вместо '+(Math.PI*30).toFixed(2));
+  assert.ok(Math.abs(m1.weld-mL.weld)<1e-6&&Math.abs(m1.open-mL.open)<1e-6,'сварка и открытый край не меняются');assert.strictEqual(m1.holes,1);assert.strictEqual(m1.parts,mL.parts);});
+test('контур ближе 5 мм к краю детали → отказ с причиной, фигура та же',()=>{const r=ap([{k:'pen',closed:true,pts:circ(80,100,17)}]);assert.deepStrictEqual(r.fail,[{i:0,why:'отверстие ближе 5 мм к краю детали'}]);assert.strictEqual(r.E.H.length,0);assert.strictEqual(r.E.V.length,8);});
+test('отверстие с симметрией — и зеркальное; фигура симметрична; на оси — отказ',()=>{const r=ap([{k:'pen',closed:true,pts:circ(40,100,15,48)}],{sym:true});assert.deepStrictEqual(r.done,[0]);assert.strictEqual(r.E.H.length,2);assert.ok(sym(r.E),'симметрична');
+  const r2=ap([{k:'pen',closed:true,pts:circ(3,100,15,48)}],{sym:true});assert.match(r2.fail[0].why,/оси симметрии/);});
+test('.json туда-обратно: отверстие на месте (H), площадь та же; после «Нарезать» по детали отверстие держится',()=>{const r=ap([{k:'pen',closed:true,pts:circ(40,100,15)}]);const j=JSON.parse(JSON.stringify({V:r.E.V,P:r.E.P,S:r.E.S,H:r.E.H}));
+  assert.ok(Math.abs(meas(j).area-meas(r.E).area)<1e-6);c.E2=r.E;const r3=JSON.parse(JSON.stringify(run("applyMarkup(E2,[{k:'line',pts:[[-50,200,0],[-50,200,200]]}],{})")));assert.strictEqual(r3.E.H.length,1);assert.ok(Math.abs(meas(r3.E).area-meas(r.E).area)<1e-6,'отверстие не потерялось');});
+test('второе отверстие внахлёст с первым — отказ',()=>{const r=ap([{k:'pen',closed:true,pts:circ(40,100,15)},{k:'pen',closed:true,pts:circ(50,100,15)}]);assert.deepStrictEqual(r.done,[0]);assert.match(r.fail[0].why,/другое отверстие/);});
 test('линия через ребро на соседнюю грань дальше 8 мм — не режет молча, а отказ',()=>{const r=ap([{k:'line',pts:[[50,200,100],[50,200,200],[50,150,200]]}]);assert.strictEqual(r.done.length,0);assert.strictEqual(r.E.P.length,6);});
 test('два конца на одном ребре (вырез «скобкой»)',()=>{const r=ap([{k:'line',pts:[[-60,200,0],[-60,200,60],[60,200,60],[60,200,0]]}]);assert.deepStrictEqual(r.done,[0]);assert.strictEqual(r.E.P.length,7);assert.ok(good(r.E));});
 // #153: линия через несколько деталей

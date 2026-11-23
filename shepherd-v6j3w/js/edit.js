@@ -4,8 +4,26 @@
 
 // модель для расчёта: треугольники + какой треугольник из какой грани
 // S — швы, проведённые руками: пары точек; через них грани не склеиваются в одну деталь, даже в одной плоскости
-function polyBase(V,P,S){const F=[],T=[];P.forEach((Q,pi)=>earClip(V,Q).forEach(t=>{F.push(t);T.push(pi);}));return {V,P,F,T,S:S||[]};}
-const ecopy=E=>({V:E.V.map(p=>p.slice()),P:E.P.map(Q=>Q.slice()),S:(E.S||[]).map(s=>s.slice())});
+// H — отверстия (#154): петли номеров точек V (в гранях P эти точки не участвуют); отверстие — в той грани, в плоскости и внутри которой лежит; грань с отверстием — треугольники с мостом
+function polyBase(V,P,S,H){const F=[],T=[],own=holeOwners(V,P,H);P.forEach((Q,pi)=>(own.has(pi)?earClipHoles(V,Q,own.get(pi)):earClip(V,Q)).forEach(t=>{F.push(t);T.push(pi);}));return {V,P,F,T,S:S||[],H:H||[]};}
+const ecopy=E=>({V:E.V.map(p=>p.slice()),P:E.P.map(Q=>Q.slice()),S:(E.S||[]).map(s=>s.slice()),H:(E.H||[]).map(L=>L.slice())});
+// плоскость многоугольника: 2D-координаты
+function hFrame(V,Q){const n=polyNorm(V,Q),o=V[Q[0]];let u=Math.abs(n[0])<.9?[1,0,0]:[0,1,0];u=V3.norm(V3.sub(u,V3.mul(n,V3.dot(u,n))));const w=V3.cross(n,u);return {n,o,f:p=>{const d=V3.sub(p,o);return [V3.dot(d,u),V3.dot(d,w)];}};}
+function hIn(q,x,y){let c=false;for(let i=0,j=q.length-1;i<q.length;j=i++){const a=q[i],b=q[j];if(a[1]>y!==b[1]>y&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;}
+const hArea=q=>{let s=0;q.forEach((p,i)=>{const r=q[(i+1)%q.length];s+=p[0]*r[1]-r[0]*p[1];});return s/2;};
+// чьё отверстие: грань, в плоскости которой (≤ 2 мм) лежит центр петли и внутри контура которой он
+function holeOwners(V,P,H){const own=new Map();(H||[]).forEach(L=>{if(L.length<3)return;const c=polyC(V,L);let best=-1,bd=2;
+    P.forEach((Q,pi)=>{const fr=hFrame(V,Q),d=Math.abs(V3.dot(V3.sub(c,fr.o),fr.n));if(d>=bd)return;const c2=fr.f(c);if(!hIn(Q.map(i=>fr.f(V[i])),c2[0],c2[1]))return;bd=d;best=pi;});
+    if(best>=0){let a=own.get(best);if(!a)own.set(best,a=[]);a.push(L);}});return own;}
+// грань с отверстиями → треугольники: каждое отверстие (обход навстречу контуру) мостом к ближайшей видимой точке контура → один многоугольник → earClip;
+// площадь не сошлась (≠ контур − отверстия ±1 %) — грань без отверстий, как раньше
+function earClipHoles(V,Q,Ls){const fr=hFrame(V,Q),p2=i=>fr.f(V[i]),A0=hArea(Q.map(p2));let R=Q.slice(),want=Math.abs(A0);
+  const X=(a,b,c,d)=>{const cr=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]),d1=cr(c,d,a),d2=cr(c,d,b),d3=cr(a,b,c),d4=cr(a,b,d);return (d1>0)!==(d2>0)&&(d3>0)!==(d4>0)&&d1&&d2&&d3&&d4;};
+  for(const L0 of Ls){let L=L0.slice();const a=hArea(L.map(p2));if(a*A0>0)L.reverse();want-=Math.abs(a);const segs=[];[R,L].forEach(G=>G.forEach((x,k)=>segs.push([x,G[(k+1)%G.length]])));
+    let best=null;L.forEach((h,hk)=>R.forEach((o,ok)=>{const ph=p2(h),po=p2(o),d=Math.hypot(ph[0]-po[0],ph[1]-po[1]);if(best&&d>=best.d)return;
+      if(segs.some(([x,y])=>x!==h&&y!==h&&x!==o&&y!==o&&X(ph,po,p2(x),p2(y))))return;best={d,hk,ok};}));if(!best)return earClip(V,Q);
+    const Lr=[...L.slice(best.hk),...L.slice(0,best.hk)];R=[...R.slice(0,best.ok+1),...Lr,Lr[0],...R.slice(best.ok)];}
+  const T=earClip(V,R);let s=0;T.forEach(t=>{s+=Math.abs(hArea(t.map(p2)));});return Math.abs(s-want)<=.01*Math.abs(A0)?T:earClip(V,Q);}
 function polyNorm(V,Q){let n=[0,0,0];Q.forEach((i,j)=>{const a=V[i],b=V[Q[(j+1)%Q.length]];n[0]+=(a[1]-b[1])*(a[2]+b[2]);n[1]+=(a[2]-b[2])*(a[0]+b[0]);n[2]+=(a[0]-b[0])*(a[1]+b[1]);});return V3.norm(n);}
 const polyC=(V,Q)=>V3.mul(Q.reduce((s,i)=>V3.add(s,V[i]),[0,0,0]),1/Q.length);
 // насколько грань не плоская, мм
@@ -17,10 +35,10 @@ function mirrorMap(V,tol=.6){const key=p=>Math.round(p[0]/tol)+','+Math.round(p[
   return V.map(p=>{if(Math.abs(p[0])<tol)return -2;const q=[-p[0],p[1],p[2]];let j=M.get(key(q));if(j===undefined)j=near(q);return j<0?-1:j;});}  // -2 — на середине
 function mirrorPoly(E,pi,mm){const Q=E.P[pi],t=Q.map(i=>mm[i]===-2?i:mm[i]);if(t.some(i=>i<0))return -1;const k=[...t].sort((a,b)=>a-b).join();
   return E.P.findIndex(R=>R.length===t.length&&[...R].sort((a,b)=>a-b).join()===k);}
-function compact(E){const used=new Map(),V=[];const P=E.P.filter(Q=>Q.length>=3).map(Q=>Q.map(i=>{let j=used.get(i);if(j===undefined){j=V.length;V.push(E.V[i]);used.set(i,j);}return j;}));
+function compact(E){const used=new Map(),V=[],id=i=>{let j=used.get(i);if(j===undefined){j=V.length;V.push(E.V[i]);used.set(i,j);}return j;};const P=E.P.filter(Q=>Q.length>=3).map(Q=>Q.map(id)),H=(E.H||[]).filter(L=>L.length>=3).map(L=>L.map(id));   // точки отверстий (#154) тоже остаются
   // швы — только те, что остались общим ребром двух граней
   const ec=new Map();P.forEach(Q=>Q.forEach((a,k)=>{const b=Q[(k+1)%Q.length],key=a<b?a+'_'+b:b+'_'+a;ec.set(key,(ec.get(key)||0)+1);}));
-  const S=(E.S||[]).map(([a,b])=>[used.get(a),used.get(b)]).filter(([a,b])=>a!==undefined&&b!==undefined&&ec.get(a<b?a+'_'+b:b+'_'+a)===2);return {V,P,S};}
+  const S=(E.S||[]).map(([a,b])=>[used.get(a),used.get(b)]).filter(([a,b])=>a!==undefined&&b!==undefined&&ec.get(a<b?a+'_'+b:b+'_'+a)===2);return {V,P,S,H};}
 // точка на ребре: если уже есть — берём её
 function vAt(E,p){const i=E.V.findIndex(q=>Math.abs(q[0]-p[0])<.05&&Math.abs(q[1]-p[1])<.05&&Math.abs(q[2]-p[2])<.05);if(i>=0)return i;E.V.push(p);return E.V.length-1;}
 // вставить точку m в ребро a–b у всех граней (чтобы не было «щелей»)
@@ -56,8 +74,8 @@ function delPoly(E,pi,sym){E=ecopy(E);return withMirror(E,pi,sym,()=>{});}
 function nonPlanar(E,tol=.8){const r=[];E.P.forEach((Q,i)=>{if(polyDev(E.V,Q)>tol)r.push(i);});return r;}
 function flattenAll(E,sym,pin){const mm=sym?mirrorMap(E.V):null,open=openVerts(E);
   const fix=(i,q)=>{if(pin!==undefined&&(i===pin||mm&&mm[pin]===i))return E.V[i].slice();if(mm&&mm[i]===-2)q[0]=0;if(open.has(i)&&Math.abs(E.V[i][2])<.5)q[2]=0;return q;};
-  let V=planarize(E.V,E.P,fix,300);if(mm)V=V.map((p,i)=>mm[i]>=0&&i>mm[i]?[-V[mm[i]][0],V[mm[i]][1],V[mm[i]][2]]:p);return {V,P:E.P.map(Q=>Q.slice()),S:(E.S||[]).map(s=>s.slice())};}
-function triangulateBad(E,tol=.8){const S=(E.S||[]).map(s=>s.slice());const bad=new Set(nonPlanar(E,tol));const P=[];E.P.forEach((Q,i)=>{if(!bad.has(i)){P.push(Q.slice());return;}for(let k=1;k+1<Q.length;k++)P.push([Q[0],Q[k],Q[k+1]]);});return {V:E.V.map(p=>p.slice()),P,S};}
+  let V=planarize(E.V,E.P,fix,300);if(mm)V=V.map((p,i)=>mm[i]>=0&&i>mm[i]?[-V[mm[i]][0],V[mm[i]][1],V[mm[i]][2]]:p);return {V,P:E.P.map(Q=>Q.slice()),S:(E.S||[]).map(s=>s.slice()),H:(E.H||[]).map(L=>L.slice())};}
+function triangulateBad(E,tol=.8){const S=(E.S||[]).map(s=>s.slice());const bad=new Set(nonPlanar(E,tol));const P=[];E.P.forEach((Q,i)=>{if(!bad.has(i)){P.push(Q.slice());return;}for(let k=1;k+1<Q.length;k++)P.push([Q[0],Q[k],Q[k+1]]);});return {V:E.V.map(p=>p.slice()),P,S,H:(E.H||[]).map(L=>L.slice())};}
 
 // заготовки: куб и шар (икосаэдр, разбитый один раз), мм, спина на z=0
 function blankBox(W=300,H=400,D=260){const x=W/2,V=[[-x,0,0],[x,0,0],[x,H,0],[-x,H,0],[-x,0,D],[x,0,D],[x,H,D],[-x,H,D]];

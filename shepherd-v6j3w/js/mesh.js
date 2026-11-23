@@ -120,7 +120,7 @@ function fitMesh(m,dims){const b=meshBox(m.V),s=[dims.W/(b.size[0]||1),dims.H/(b
 
 /* ---------- детали: соседние треугольники в одной плоскости; m.T (из какой грани-многоугольника) — треугольники одной грани всегда вместе ---------- */
 const DENS={steel:7850,inox:7900,corten:7850,alu:2700};
-function buildParts(m,tolDeg=.5,tolMm=.3){const {V,F}=m,SK=new Set((m.S||[]).flatMap(([a,b])=>[a+'_'+b,b+'_'+a])),N=F.map(f=>V3.norm(triN(V,f))),cos=Math.cos(tolDeg*Math.PI/180);
+function buildParts(m,tolDeg=.5,tolMm=.3){const {V,F}=m,HV=new Set((m.H||[]).flat()),SK=new Set((m.S||[]).flatMap(([a,b])=>[a+'_'+b,b+'_'+a])),N=F.map(f=>V3.norm(triN(V,f))),cos=Math.cos(tolDeg*Math.PI/180);
   const E=new Map(),ek=(a,b)=>a<b?a+'_'+b:b+'_'+a;F.forEach((f,fi)=>{for(let k=0;k<3;k++){const key=ek(f[k],f[(k+1)%3]);(E.get(key)||E.set(key,[]).get(key)).push(fi);}});
   const part=new Int32Array(F.length).fill(-1),groups=[];
   F.forEach((f,s)=>{if(part[s]>=0)return;const g=[s],pl=V3.dot(N[s],V[f[0]]);part[s]=groups.length;
@@ -131,14 +131,16 @@ function buildParts(m,tolDeg=.5,tolMm=.3){const {V,F}=m,SK=new Set((m.S||[]).fla
   const parts=groups.map((g,pi)=>{const n=V3.norm(g.reduce((s,fi)=>V3.add(s,triN(V,F[fi])),[0,0,0]));let area=0;g.forEach(fi=>area+=V3.len(triN(V,F[fi]))/2);
     const nxt=new Map();g.forEach(fi=>{const f=F[fi];for(let k=0;k<3;k++){const a=f[k],b=f[(k+1)%3],o=E.get(ek(a,b)).filter(x=>x!==fi);if(!o.some(x=>part[x]===pi))nxt.set(a,b);}});
     const loops=[],used=new Set();nxt.forEach((_,st)=>{if(used.has(st))return;const L=[];let c=st;while(c!==undefined&&!used.has(c)){used.add(c);L.push(c);c=nxt.get(c);}if(L.length>2)loops.push(L);});
-    loops.sort((a,b)=>b.length-a.length);
+    // внешний контур — с наибольшей площадью (у отверстия-окружности точек бывает больше, чем у контура, #154)
+    const la=L=>{let s=[0,0,0];L.forEach((i,k)=>{s=V3.add(s,V3.cross(V[i],V[L[(k+1)%L.length]]));});return Math.abs(V3.dot(s,n))/2;};loops.sort((a,b)=>la(b)-la(a)||b.length-a.length);
+    const hloops=loops.slice(1),holeLen=hloops.reduce((s,L)=>s+L.reduce((t,i,k)=>t+V3.len(V3.sub(V[L[(k+1)%L.length]],V[i])),0),0);
     // убираем лишние вершины на прямой (из-за триангуляции)
     const loop=(loops[0]||[]).filter((v,i,L)=>{const a=V[L[(i+L.length-1)%L.length]],b=V[v],c=V[L[(i+1)%L.length]];const d1=V3.norm(V3.sub(b,a)),d2=V3.norm(V3.sub(c,b));return V3.dot(d1,d2)<.99995;});
     const c=V3.mul(loop.reduce((s,i)=>V3.add(s,V[i]),[0,0,0]),1/(loop.length||1));
-    return {tris:g,n,area,loop,full:loops[0]||[],holes:loops.length-1,c};});
+    return {tris:g,n,area,loop,full:loops[0]||[],holes:loops.length-1,hloops,holeLen,c};});
   // соседи и углы между гранями
   const edges=[];E.forEach((fs,key)=>{const [a,b]=key.split('_').map(Number);const ps=[...new Set(fs.map(fi=>part[fi]))];
-    if(ps.length===1&&fs.length===1){edges.push({a,b,p:[ps[0]],open:true,len:V3.len(V3.sub(V[a],V[b]))});return;}
+    if(ps.length===1&&fs.length===1){const h=HV.has(a)&&HV.has(b);edges.push({a,b,p:[ps[0]],open:!h,hole:h||undefined,len:V3.len(V3.sub(V[a],V[b]))});return;}   // край отверстия — не открытый край, а внутренний рез
     if(ps.length!==2)return;const [p,q]=ps,P=parts[p],Qp=parts[q];const ang=Math.acos(Math.max(-1,Math.min(1,V3.dot(P.n,Qp.n))))*180/Math.PI;
     const convex=V3.dot(V3.sub(Qp.c,P.c),P.n)<0;edges.push({a,b,p:[p,q],len:V3.len(V3.sub(V[a],V[b])),dih:convex?180-ang:180+ang,convex});});
   // стороны детали (по развёртке): длина, сосед, угол между гранями
@@ -170,8 +172,8 @@ function convexHull(P){const p=P.map(x=>x.slice()).sort((a,b)=>a[0]-b[0]||a[1]-b
   lo.pop();up.pop();return lo.concat(up);}
 
 // итоги: масса, рез, швы, листы
-function totals(R,o){const dens=DENS[o.mat]||7850,t=o.t;let area=0,cut=0,weld=0,open=0;R.parts.forEach(p=>{area+=p.area;cut+=p.perim;});
-  R.edges.forEach(e=>{if(e.open)open+=e.len;else weld+=e.len;});
+function totals(R,o){const dens=DENS[o.mat]||7850,t=o.t;let area=0,cut=0,weld=0,open=0;R.parts.forEach(p=>{area+=p.area;cut+=p.perim+(p.holeLen||0);});
+  R.edges.forEach(e=>{if(e.hole)return;if(e.open)open+=e.len;else weld+=e.len;});   // отверстие (#154): рез, но не шов и не открытый край
   const mass=area*1e-6*t*1e-3*dens,minW=Math.min(...R.parts.map(p=>p.minW)),sheet=o.sheet[0]*o.sheet[1];
   return {n:R.parts.length,area,cut,weld,open,mass,minW,sheets:Math.max(1,Math.ceil(area/(sheet*.7)))};}
 

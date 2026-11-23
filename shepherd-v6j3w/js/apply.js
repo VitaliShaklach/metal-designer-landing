@@ -4,7 +4,7 @@
    Симметрия: штрих режется и на зеркальной половине (по точным зеркальным точкам); штрих поперёк оси x = 0 делается симметричным и режется один раз */
 const AP_SNAP=8,AP_MINW=15,AP_STEP=1;
 const AP_WHY={edge:'линия не доходит до края детали',narrow:'выйдет деталь уже 15 мм',hole:'слить нельзя: выйдет дыра',selfx:'выйдет самопересечение',
-  closed:'замкнутая линия — отверстие (будет в следующей версии)',multi:'линия выходит из детали и возвращается',none:'линия идёт по краю детали — резать нечего',
+  hedge:'отверстие ближе 5 мм к краю детали',hself:'контур отверстия пересекает сам себя',hone:'отверстие не в одной детали',hsym:'отверстие на оси симметрии — нарисуйте его по одну сторону',hover:'отверстие задевает другое отверстие',multi:'линия выходит из детали и возвращается',none:'линия идёт по краю детали — резать нечего',
   nocross:'зачёркивание не пересекает шов между деталями',off:'линия не на фигуре'};
 // плоскость грани: 2D-координаты (u,w) от первой точки
 function apFrame(V,Q){const n=polyNorm(V,Q),o=V[Q[0]];let u=Math.abs(n[0])<.9?[1,0,0]:[0,1,0];u=V3.norm(V3.sub(u,V3.mul(n,V3.dot(u,n))));const w=V3.cross(n,u);
@@ -67,11 +67,25 @@ function apSymLine(pts){const cs=[];for(let i=1;i<pts.length;i++)if(pts[i-1][0]*
 function applyMarkup(E,mk,o={}){const sym=!!o.sym,done=[],fail=[];E=ecopy(E);
   const order=mk.map((s,i)=>i).sort((a,b)=>(mk[a].k==='cross'?0:1)-(mk[b].k==='cross'?0:1));
   for(const i of order){const s=mk[i];let r;
-    if(s.k==='cross')r=apCross(E,s,sym);else if(s.closed)r={why:AP_WHY.closed};else r=apLine(E,s,sym,o);
+    if(s.k==='cross')r=apCross(E,s,sym);else if(s.closed)r=apHole(E,s,sym);else r=apLine(E,s,sym,o);
     if(r.why)fail.push({i,why:r.why});else{E=r.E;done.push(i);}}
   return {E:compact(E),done:done.sort((a,b)=>a-b),fail:fail.sort((a,b)=>a.i-b.i)};}
 function apCross(E,s,sym){if(s.pts.length<2)return {why:AP_WHY.nocross};const at=apIndex(E),a=at(s.pts[0]),b=at(s.pts[s.pts.length-1]);
   if(a<0||b<0)return {why:AP_WHY.off};if(a===b||!polysAdjacent(E,a,b))return {why:AP_WHY.nocross};const r=mergePolys(E,a,b,sym);return r?{E:r}:{why:AP_WHY.hole};}
+/* отверстие (#154): замкнутая линия внутри детали → вырез. Контур — по поверхности, целиком в одной детали, ≥ 5 мм от её края и от других отверстий, сам себя не пересекает;
+   точки контура — в плоскости грани, в E.V (в грани не входят), петля — в E.H. → E или {why}. E не меняется */
+const AP_HEDGE=5;
+function holeAdd(E,pts){if(pts.length<3)return {why:AP_WHY.hself};const pp=apProject(E,[...pts,pts[0]]).slice(0,-1),at=apIndex(E),own=new Map();pp.forEach(p=>{const f=at(p);own.set(f,(own.get(f)||0)+1);});
+  const pi=[...own].sort((x,y)=>y[1]-x[1])[0][0];if(pi<0||own.get(pi)<pp.length)return {why:AP_WHY.hone};
+  const Q=E.P[pi],fr=apFrame(E.V,Q),q2=Q.map(i=>fr.to2(E.V[i]));let h=apDP2([...pp.map(fr.to2),fr.to2(pp[0])],.05).slice(0,-1);if(h.length<3)return {why:AP_WHY.hself};
+  if(h.some(p=>!inPoly2(q2,p[0],p[1])||apOnRing(q2,p).d<AP_HEDGE))return {why:AP_WHY.hedge};
+  const n=h.length;for(let i=0;i<n;i++)for(let j=i+2;j<n;j++){if(i===0&&j===n-1)continue;if(apSegX(h[i],h[(i+1)%n],h[j],h[(j+1)%n])>=0)return {why:AP_WHY.hself};}
+  // другие отверстия этой грани: ни точкой внутрь, ни ближе 5 мм
+  for(const L of E.H||[]){const l2=L.map(i=>E.V[i]);if(l2.some(p=>Math.abs(V3.dot(V3.sub(p,fr.o),fr.n))>2))continue;const o2=l2.map(fr.to2);
+    if(h.some(p=>inPoly2(o2,p[0],p[1])||apOnRing(o2,p).d<AP_HEDGE)||o2.some(p=>inPoly2(h,p[0],p[1])))return {why:AP_WHY.hover};}
+  E=ecopy(E);const L=h.map(q=>{E.V.push(fr.to3(q));return E.V.length-1;});E.H.push(L);return {E,pts:L.map(i=>E.V[i].slice())};}
+function apHole(E,s,sym){const xs=s.pts.map(p=>p[0]);if(sym&&Math.min(...xs)<MK_AXIS&&Math.max(...xs)>-MK_AXIS)return {why:AP_WHY.hsym};const r=holeAdd(E,s.pts);if(r.why||!sym)return r;
+  const r2=holeAdd(r.E,r.pts.map(p=>[-p[0],p[1],p[2]]));return r2.why?{why:r2.why}:r2;}
 /* линия через несколько деталей (#153): точки через 1 мм → деталь-хозяйка у каждой → подряд идущие одной хозяйки — кусок (короче AP_SNAP — угол задет, пропуск);
    кусок с захватом 3 мм в соседей (по ребру обрежется) режет свою деталь; стык на общем ребре — та же точка (вставлена в обе грани, конец соседа прилипает к ней).
    Не вышел хоть один кусок — вся линия не применяется, фигура та же. → {E, pts — по каким точкам прошёл разрез} или {why} */
