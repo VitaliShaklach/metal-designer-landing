@@ -166,7 +166,9 @@ const DIGITS={0:[[[0,0],[1,0],[1,2],[0,2],[0,0]]],1:[[[.5,0],[.5,2],[.2,1.7]],[[
   m:[[[0,0],[0,1.2]],[[0,.9],[.25,1.2],[.5,.9],[.5,0]],[[.5,.9],[.75,1.2],[1,.9],[1,0]]],'(':[[[.7,2],[.35,1.4],[.35,.6],[.7,0]]],')':[[[.3,2],[.65,1.4],[.65,.6],[.3,0]]]};   // V144 (2) — сгиб
 // самое просторное место внутри детали: точка, дальше всего от кромок (перебор по сетке + уточнение).
 // C — второй контур (контур реза заготовки): место внутри обоих, даль — от кромок обоих
-function innerPoint(P,C){const dP=polyDist(P),dC=C&&polyDist(C),d=dC?p=>Math.min(dP(p),dC(p)):dP,inP=dC?p=>inPoly(p,P)&&inPoly(p,C):p=>inPoly(p,P),xs=P.map(p=>p[0]),ys=P.map(p=>p[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);let best=null,bd=-1,step=Math.max(x1-x0,y1-y0)/24;
+// H — отверстия (#155): их край — тоже кромка, внутри них места нет
+function innerPoint(P,C,H){const dP=polyDist(P),dC=C&&polyDist(C),dH=(H||[]).map(polyDist),d0=dC?p=>Math.min(dP(p),dC(p)):dP,d=dH.length?p=>Math.min(d0(p),...dH.map(f=>f(p))):d0,
+    in0=dC?p=>inPoly(p,P)&&inPoly(p,C):p=>inPoly(p,P),inP=H&&H.length?p=>in0(p)&&!H.some(h=>inPoly(p,h)):in0,xs=P.map(p=>p[0]),ys=P.map(p=>p[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);let best=null,bd=-1,step=Math.max(x1-x0,y1-y0)/24;
   for(let x=x0+step/2;x<x1;x+=step)for(let y=y0+step/2;y<y1;y+=step){const p=[x,y];if(!inP(p))continue;const v=d(p);if(v>bd){bd=v;best=p;}}
   if(!best)return null;for(let k=0;k<3;k++){step/=3;const c=best;for(let i=-2;i<=2;i++)for(let j=-2;j<=2;j++){const p=[c[0]+i*step,c[1]+j*step];if(!inP(p))continue;const v=d(p);if(v>bd){bd=v;best=p;}}}
   return {p:best,r:bd};}
@@ -185,7 +187,7 @@ function partHasPt(p,M3,q,m=0){if(!p.tris||!p.tris.length)return true;const {V,F
   if(!on(q))return false;if(!m)return true;const d=V3.norm(V3.cross(n,Math.abs(n[0])<.9?[1,0,0]:[0,1,0])),e=V3.cross(n,d);return [0,1,2,3,4,5,6,7].every(k=>on(V3.add(q,V3.add(V3.mul(d,m*Math.cos(k*Math.PI/4)),V3.mul(e,m*Math.sin(k*Math.PI/4))))));}
 // отрезки гравировки номера внутри детали P (координаты те же, y вверх); null — деталь слишком узкая (меньше 3 мм высоты цифр).
 // o.clip — контур, за который тоже нельзя (у заготовки: деталь P — грань модели, её край у шва срезан зазором под сварку)
-function engraveSegs(no,P,o={}){const ip=innerPoint(P,o.clip);if(!ip)return null;const t=String(no),n=t.length,uw=n*1.5-.5,uh=2,  // ширина/высота блока в единицах
+function engraveSegs(no,P,o={}){const ip=innerPoint(P,o.clip,o.holes);if(!ip)return null;const t=String(no),n=t.length,uw=n*1.5-.5,uh=2,  // ширина/высота блока в единицах
     clear=o.clear??2,u=Math.min((o.maxH||20)/2,(ip.r-clear)/Math.hypot(uw/2,uh/2));if(2*u<(o.minH||3))return null;
   const ox=ip.p[0]-uw*u/2,oy=ip.p[1]-uh*u/2,seg=[];
   [...t].forEach((ch,i)=>(DIGITS[ch]||[]).forEach(L=>{for(let k=0;k+1<L.length;k++)seg.push([ox+(i*1.5+L[k][0])*u,oy+L[k][1]*u,ox+(i*1.5+L[k+1][0])*u,oy+L[k+1][1]*u]);}));

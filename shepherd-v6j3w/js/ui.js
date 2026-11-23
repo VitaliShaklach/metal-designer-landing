@@ -36,8 +36,9 @@ function prodCalc(){const R=CUR.R,[W,H]=sheetWL();CUR.C=R.parts.map(p=>cutContou
   const BJ=CUR.BP?CUR.BL.flatMap(b=>b.bends.map(id=>CUR.BP.J[id])):[];CUR.bentKey=new Set(BJ.map(j=>bendKey(j.p,j.q)));CUR.blankOf=new Int32Array(R.parts.length).fill(-1);CUR.BL.forEach((b,i)=>b.parts.forEach(pi=>CUR.blankOf[pi]=i));
   CUR.bendSt={V:BJ.filter(j=>j.kind==='V').length,m:BJ.filter(j=>j.kind==='m').length,len:BJ.reduce((a,j)=>a+j.len,0)};
   // куски на резку: отдельные детали и заготовки, по номеру первой детали
-  CUR.PC=R.parts.filter(p=>CUR.blankOf[p.id]<0).map(p=>({id:p.id,no:p.no,pts:CUR.C[p.id].pts,bad:CUR.C[p.id].bad,parts:[p.id],key:p.no}))
-    .concat(CUR.BL.map((b,i)=>({id:'b'+i,no:'Г'+b.no,pts:b.pts,parts:b.parts,key:R.parts[b.parts[0]].no,B:b}))).sort((a,b)=>a.key-b.key);
+  // holes — отверстия (#155) в той же системе, что pts
+  CUR.PC=R.parts.filter(p=>CUR.blankOf[p.id]<0).map(p=>({id:p.id,no:p.no,pts:CUR.C[p.id].pts,bad:CUR.C[p.id].bad,parts:[p.id],key:p.no,holes:p.hpts||[]}))
+    .concat(CUR.BL.map((b,i)=>({id:'b'+i,no:'Г'+b.no,pts:b.pts,parts:b.parts,key:R.parts[b.parts[0]].no,B:b,holes:b.holes||[]}))).sort((a,b)=>a.key-b.key);
   // раскладка тяжёлая (секунды) — считаем только когда нужна (Итого, Раскрой, Чертежи, DXF) и в фоне; одинаковые контуры — из кэша
   NEST.items=CUR.PC.filter(o=>!o.bad).map(o=>({id:o.id,no:o.no,pts:o.pts}));
   // уголки-шаблоны (галочка) — в раскрой вместе с деталями: под углы швов и сгибов (гнутые стыки — не швы)
@@ -101,7 +102,7 @@ function facesUI(){$('fRng').disabled=$('dRng').disabled=isPoly();$('dRng').valu
 /* ---------- деталь: развёртка с длинами сторон и соседями ---------- */
 function partSVG(p,big){const P=p.pts;if(!P.length)return '';const pad=big?Math.max(p.L,p.W)*.16+8:2,w=p.L+2*pad,h=p.W+2*pad,fs=Math.max(p.L,p.W)*.07+3;
   const q=mainPart(CUR.R,p),[ra,tt]=svgAlt(`${big?'Развёртка':'Эскиз'} детали № ${p.no}: ${Math.round(q.L)} × ${Math.round(q.W)} мм${big?', длины сторон и номера соседей':''}`);   // числа — как в таблице (у «.1» — основной)
-  let s=`<svg class="${big?'flat':'mini'}" viewBox="${-pad} ${-pad} ${w} ${h}" ${big?'':'width="64" height="40"'}${ra}>${tt}<polygon points="${P.map(q=>q[0].toFixed(1)+','+(p.W-q[1]).toFixed(1)).join(' ')}" class="pf" vector-effect="non-scaling-stroke"/>`;
+  let s=`<svg class="${big?'flat':'mini'}" viewBox="${-pad} ${-pad} ${w} ${h}" ${big?'':'width="64" height="40"'}${ra}>${tt}<polygon points="${P.map(q=>q[0].toFixed(1)+','+(p.W-q[1]).toFixed(1)).join(' ')}" class="pf" vector-effect="non-scaling-stroke"/>${(p.hpts||[]).map(H=>`<polygon points="${H.map(q=>q[0].toFixed(1)+','+(p.W-q[1]).toFixed(1)).join(' ')}" class="pf" vector-effect="non-scaling-stroke"/>`).join('')}`;
   if(big){const cx=p.pts.reduce((s,q)=>s+q[0],0)/P.length,cy=p.pts.reduce((s,q)=>s+q[1],0)/P.length;
     p.segs.forEach((g,i)=>{const a=P[i],b=P[(i+1)%P.length],mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=mx-cx,dy=my-cy,l=Math.hypot(dx,dy)||1,ox=mx+dx/l*fs*1.1,oy=my+dy/l*fs*1.1;
       const nb=g.nb>=0?CUR.R.parts[g.nb].no:null;
@@ -451,7 +452,7 @@ function traceUI(){$('traceRow').hidden=!ST.refId;$('cTrace').checked=trOn();$('
 const traceHas=rid=>!!(window.TRACE&&TRACE[rid]||window.TRACE_L&&TRACE_L[rid]);
 function traceLoadFor(rid){if(TRC.id===rid&&(TRC.t||TRC.L)||TRC.loading)return;const done=()=>{TRC.loading=false;if(!traceHas(rid)){msg('Калька не загрузилась');return;}
     TRC.t=window.TRACE&&TRACE[rid]?traceLoad(TRACE[rid]):null;TRC.L=window.TRACE_L&&TRACE_L[rid]?tlinesLoad(TRACE_L[rid]):null;TRC.seg=null;TRC.id=rid;TRC.b0=meshBox(modelPoly(ST.refId).V);TRC.key='';msg('');renderAll();};
-  if(traceHas(rid)){done();return;}TRC.loading=true;const s=document.createElement('script');s.src='js/trace-'+rid+'.js?v=2026-11-23j';s.onload=done;s.onerror=()=>{TRC.loading=false;msg('Калька не загрузилась');};document.head.appendChild(s);msg('Загружаю кальку…');}
+  if(traceHas(rid)){done();return;}TRC.loading=true;const s=document.createElement('script');s.src='js/trace-'+rid+'.js?v=2026-11-23k';s.onload=done;s.onerror=()=>{TRC.loading=false;msg('Калька не загрузилась');};document.head.appendChild(s);msg('Загружаю кальку…');}
 const layerSet=(k,v)=>{ST.layers[k]=v;store('shepherd-layers',layersSave(ST.layers));};   // нет доступа к памяти браузера — слои живут до перезагрузки
 $('cLEdges').addEventListener('change',e=>{layerSet('edges',e.target.checked);renderAll();});
 $('cLVerts').addEventListener('change',e=>{layerSet('verts',e.target.checked);if(!e.target.checked)ST.sv=-1;renderAll();});

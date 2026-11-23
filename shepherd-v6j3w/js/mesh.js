@@ -165,7 +165,9 @@ function flatten(V,P){if(P.loop.length<3)return {pts:[],L:0,W:0,minW:0,perim:0};
   const c=Math.cos(-ba),s=Math.sin(-ba);pts=pts.map(p=>[c*p[0]-s*p[1],s*p[0]+c*p[1]]);
   const mnx=Math.min(...pts.map(p=>p[0])),mny=Math.min(...pts.map(p=>p[1]));pts=pts.map(p=>[p[0]-mnx,p[1]-mny]);
   const L=Math.max(...pts.map(p=>p[0])),W=Math.max(...pts.map(p=>p[1]));let perim=0;pts.forEach((p,i)=>{const q=pts[(i+1)%pts.length];perim+=Math.hypot(q[0]-p[0],q[1]-p[1]);});
-  return {pts,L,W,minW:bw,perim};}
+  // отверстия (#155) — в той же развёртке, что контур (тот же поворот и сдвиг)
+  const hpts=(P.hloops||[]).map(Lh=>Lh.map(i=>{const d=V3.sub(V[i],o),x=V3.dot(d,u),y=V3.dot(d,w);return [c*x-s*y-mnx,s*x+c*y-mny];}));
+  return {pts,L,W,minW:bw,perim,hpts};}
 function convexHull(P){const p=P.map(x=>x.slice()).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);if(p.length<3)return p;const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
   const lo=[],up=[];p.forEach(x=>{while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],x)<=0)lo.pop();lo.push(x);});
   for(let i=p.length-1;i>=0;i--){const x=p[i];while(up.length>1&&cr(up[up.length-2],up[up.length-1],x)<=0)up.pop();up.push(x);}

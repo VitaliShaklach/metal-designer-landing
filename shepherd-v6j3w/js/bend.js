@@ -108,7 +108,10 @@ function bendBlank(b,R,V,P,o){const J=P.J,F2=P.F2,bent=new Set(b.bends),EB=new M
   const regions=b.parts.map(pi=>({pi,pts:R.parts[pi].full.map(v=>at(pi,v))}));
   const lines=b.order.map((id,k)=>{const j=J[id],m=v=>{const A=at(j.p,v),C=at(j.q,v);return [(A[0]+C[0])/2,(A[1]+C[1])/2];};return {id,k:k+1,kind:j.kind,ang:Math.round(j.ang),len:j.len,BD:BD.get(id),p:j.p,q:j.q,segs:bad?[]:clipSeg(m(j.A),m(j.B),pts).filter(z=>Math.hypot(z[2]-z[0],z[3]-z[1])>2)};});
   const [W,Lg]=bendDims(pts.length?pts:regions.flatMap(z=>z.pts));
-  return {pts,bad,regions,lines,W,L:Lg,area:Math.abs(area2(pts))};}
+  // отверстия деталей (#155) — на развёртке заготовки: точка → плоскость детали (как bendFlat) → её место на развёртке
+  const holes=b.parts.flatMap(pi=>{const Pp=R.parts[pi],o3=V[Pp.full[0]],n=Pp.n;let u=Math.abs(n[0])<.9?[1,0,0]:[0,1,0];u=V3.norm(V3.sub(u,V3.mul(n,V3.dot(u,n))));const w=V3.cross(n,u),f=pl.get(pi);
+    return (Pp.hloops||[]).map(Lh=>Lh.map(v=>{const d=V3.sub(V[v],o3),p=[V3.dot(d,u),V3.dot(d,w)];return [f.c*p[0]-f.s*p[1]+f.x,f.s*p[0]+f.c*p[1]+f.y];}));});
+  return {pts,bad,regions,lines,W,L:Lg,area:Math.abs(area2(pts)),holes};}
 // отрезок a–b внутри многоугольника P: куски
 function clipSeg(a,b,P){const ts=[0,1],d=[b[0]-a[0],b[1]-a[1]];P.forEach((p,i)=>{const q=P[(i+1)%P.length],e=[q[0]-p[0],q[1]-p[1]],den=d[0]*e[1]-d[1]*e[0];if(Math.abs(den)<1e-12)return;
     const w=[p[0]-a[0],p[1]-a[1]],t=(w[0]*e[1]-w[1]*e[0])/den,u=(w[0]*d[1]-w[1]*d[0])/den;if(t>0&&t<1&&u>=-1e-9&&u<=1+1e-9)ts.push(t);});   // допуск: линия ровно через вершину контура — пересечение с кромкой выходит u = −1e-17 и терялось
