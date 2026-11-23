@@ -449,7 +449,7 @@ function traceUI(){$('traceRow').hidden=!ST.refId;$('cTrace').checked=trOn();$('
 const traceHas=rid=>!!(window.TRACE&&TRACE[rid]||window.TRACE_L&&TRACE_L[rid]);
 function traceLoadFor(rid){if(TRC.id===rid&&(TRC.t||TRC.L)||TRC.loading)return;const done=()=>{TRC.loading=false;if(!traceHas(rid)){msg('Калька не загрузилась');return;}
     TRC.t=window.TRACE&&TRACE[rid]?traceLoad(TRACE[rid]):null;TRC.L=window.TRACE_L&&TRACE_L[rid]?tlinesLoad(TRACE_L[rid]):null;TRC.seg=null;TRC.id=rid;TRC.b0=meshBox(modelPoly(ST.refId).V);TRC.key='';msg('');renderAll();};
-  if(traceHas(rid)){done();return;}TRC.loading=true;const s=document.createElement('script');s.src='js/trace-'+rid+'.js?v=2026-11-23f';s.onload=done;s.onerror=()=>{TRC.loading=false;msg('Калька не загрузилась');};document.head.appendChild(s);msg('Загружаю кальку…');}
+  if(traceHas(rid)){done();return;}TRC.loading=true;const s=document.createElement('script');s.src='js/trace-'+rid+'.js?v=2026-11-23g';s.onload=done;s.onerror=()=>{TRC.loading=false;msg('Калька не загрузилась');};document.head.appendChild(s);msg('Загружаю кальку…');}
 const layerSet=(k,v)=>{ST.layers[k]=v;store('shepherd-layers',layersSave(ST.layers));};   // нет доступа к памяти браузера — слои живут до перезагрузки
 $('cLEdges').addEventListener('change',e=>{layerSet('edges',e.target.checked);renderAll();});
 $('cLVerts').addEventListener('change',e=>{layerSet('verts',e.target.checked);if(!e.target.checked)ST.sv=-1;renderAll();});
@@ -472,8 +472,11 @@ function mkDraw(){mkSync();const k=MK.ver+'|'+ST.sym+'|'+ST.base.V.length+'|'+ST
   MK.draw={base:ST.base,own:mkDrape([...own,...cur],ST.base.V,ST.base.P,ST.base),mirror:mkDrape(mir,ST.base.V,ST.base.P,ST.base),pts:new Float32Array(cur.flatMap(s=>s.pts.flat()))};MK.dkey=k;return MK.draw;}
 function mkUI(){const on=ST.edit&&isPoly()&&!ST.orig;if(!on&&ST.tool){ST.tool='';mkCtl();}$('mkBox').hidden=!(on&&MK.fine);if(!on)return;mkSync();
   $('mkTools').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.tool===ST.tool));$('cMagnet').checked=ST.magnet;
-  const nl=ST.mk.filter(s=>s.k!=='cross').length,nc=ST.mk.length-nl;$('bMkClear').classList.toggle('off',!ST.mk.length&&!ST.mkCur);
-  $('mkNote').textContent=(ST.mk.length?`Разметка: ${nl} ${plural(nl,'линия','линии','линий')}, ${nc} ${plural(nc,'зачёркивание','зачёркивания','зачёркиваний')}. `:'Разметки нет. ')+(ST.tool==='line'?'Линия: кликайте по фигуре — точки; двойной клик или Enter — конец, Esc — отменить линию. Крутить — правой кнопкой':ST.tool==='cross'?'Зачеркнуть: два клика поперёк шва. Esc — отменить. Крутить — правой кнопкой':'');}
+  const nl=ST.mk.filter(s=>s.k!=='cross').length,nc=ST.mk.length-nl,nz=ST.mk.filter(s=>s.closed).length;$('bMkClear').classList.toggle('off',!ST.mk.length&&!ST.mkCur);
+  $('mkNote').textContent=(ST.mk.length?`Разметка: ${nl} ${plural(nl,'линия','линии','линий')}, ${nc} ${plural(nc,'зачёркивание','зачёркивания','зачёркиваний')}${nz?`, замкнутых ${nz}`:''}. `:'Разметки нет. ')+(ST.tool==='pen'?'Карандаш: ведите мышкой с зажатой левой кнопкой — линия сгладится сама; концы ближе 6 мм — замкнутая (будущее отверстие). Крутить — правой кнопкой':ST.tool==='line'?'Линия: кликайте по фигуре — точки; двойной клик или Enter — конец, Esc — отменить линию. Крутить — правой кнопкой':ST.tool==='cross'?'Зачеркнуть: два клика поперёк шва. Esc — отменить. Крутить — правой кнопкой':'');}
+// «Карандаш» (#151): пока ведут — лёгкое превью (одна линия поверх, без пересборки сцены); отпустили — сгладить, магнит, замкнутость
+function mkPreview(pts){if(!ok)return;if(!MK.pv){MK.pv=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0xe07a35,depthTest:false}));MK.pv.renderOrder=5;scene.add(MK.pv);}
+  MK.pv.geometry.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts.flat(),3));MK.pv.geometry=g;MK.pv.visible=pts.length>1;req3D();}
 function mkClick(e){const h=pickHit(e);if(!h)return;const p=mkSnap(h,traceOn()?TRC.seg:null,ST.magnet),c=ST.mkCur;
   if(c){const q=c.pts[c.pts.length-1];if(Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2])<1.5)return;}   // второй клик двойного — не новая точка
   if(!c)ST.mkCur={k:ST.tool,pts:[p]};else c.pts.push(p);MK.ver++;if(ST.tool==='cross'&&ST.mkCur.pts.length===2)mkFinish();renderAll();}
@@ -486,14 +489,17 @@ addEventListener('keydown',e=>{if(!ST.tool||typing())return;
 $('traceSel').addEventListener('change',e=>{ST.tref=e.target.value;if(trOn()&&ST.refId)traceLoadFor(traceId());renderAll();});
 
 // клик по грани — выбрать деталь; в редакторе — точку или грань, точку можно тянуть
-(()=>{if(!ok)return;const cv=renderer.domElement,tag=$('hovTag');let down=null,drag=null,raf=0;
-  cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};if(e.button!==0||!ST.edit||ST.orig||!isPoly()||!CUR||ST.tool)return;
+(()=>{if(!ok)return;const cv=renderer.domElement,tag=$('hovTag');let down=null,drag=null,raf=0,pen=null;
+  cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};
+    if(ST.tool==='pen'&&e.button===0&&ST.edit&&!ST.orig&&isPoly()&&CUR){down=null;const h=pickHit(e);if(h){pen={raw:[h]};cv.setPointerCapture(e.pointerId);}return;}   // карандаш (#151)if(e.button!==0||!ST.edit||ST.orig||!isPoly()||!CUR||ST.tool)return;
     const v=vertsShown()?pickVert(e,ST.base.V):-1;if(v<0)return;if(ST.seam){if(ST.sp>=0&&ST.base.P[ST.sp].includes(v)){down=null;addCut(v);}return;}ST.sv=v;ST.sp=-1;ST.sel=-1;drag={v,snap:snapE(),moved:false};ST.drag=true;controls.enabled=false;cv.setPointerCapture(e.pointerId);renderAll();});
-  cv.addEventListener('pointermove',e=>{if(drag){const p=dragPoint(e,ST.base.V[drag.v]);if(!p)return;drag.moved=true;tag.hidden=true;if(raf)return;
+  cv.addEventListener('pointermove',e=>{if(pen){const h=pickHit(e),q=pen.raw[pen.raw.length-1];if(h&&Math.hypot(h[0]-q[0],h[1]-q[1],h[2]-q[2])>=.3){pen.raw.push(h);mkPreview(pen.raw);}return;}
+    if(drag){const p=dragPoint(e,ST.base.V[drag.v]);if(!p)return;drag.moved=true;tag.hidden=true;if(raf)return;
       raf=requestAnimationFrame(()=>{raf=0;if(!drag)return;const e2={V:ST.base.V.map(q=>q.slice()),P:ST.base.P,S:ST.base.S||[]};moveVert(e2,drag.v,dragPoint(e,ST.base.V[drag.v])||p,ST.sym);applyE(e2,true);});return;}
     if(!CUR||e.buttons){tag.hidden=true;return;}const t=pickTri(e);if(t<0){tag.hidden=true;return;}const p=CUR.R.parts[CUR.R.partOf[t]],r=stage.getBoundingClientRect();
     tag.textContent=`№ ${p.no} · ${Math.round(p.L)} × ${Math.round(p.W)} мм`;tag.style.left=(e.clientX-r.left)+'px';tag.style.top=(e.clientY-r.top)+'px';tag.hidden=false;});
-  cv.addEventListener('pointerup',e=>{if(drag){const d=drag;drag=null;ST.drag=false;controls.enabled=true;if(d.moved){UNDO.push(d.snap);REDO.length=0;renderAll();}down=null;return;}
+  cv.addEventListener('pointerup',e=>{if(pen){const raw=pen.raw;pen=null;mkPreview([]);if(raw.length>=3){ST.mk.push(mkPen(raw,traceOn()?TRC.seg:null,ST.magnet));mkStore();}renderAll();return;}
+    if(drag){const d=drag;drag=null;ST.drag=false;controls.enabled=true;if(d.moved){UNDO.push(d.snap);REDO.length=0;renderAll();}down=null;return;}
     if(!down||!CUR||ST.orig)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>5||e.button!==0)return;
     if(ST.tool&&ST.edit&&isPoly()){mkClick(e);return;}   // разметка (#150)
     const t=pickTri(e),pi=t>=0?CUR.R.partOf[t]:-1;

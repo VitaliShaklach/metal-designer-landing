@@ -19,3 +19,19 @@ test('mkSnap: точка ближе 5 мм к линии кальки ложит
   assert.deepStrictEqual(J(run('mkSnap([30,100,53],null,true)')),[30,100,53]);});
 test('mkDrape: прямая между двумя точками на соседних гранях куба идёт по поверхности, не внутрь',()=>{const S=run("mkDrape([{k:'line',pts:[[50,100,80],[50,80,100]]}],CV,CP)");
   assert.ok(S.length>=12);for(let i=0;i<S.length;i+=3){const onTop=Math.abs(S[i+1]-100.6)<1e-4,onFront=Math.abs(S[i+2]-100.6)<1e-4;assert.ok(onTop||onFront,S[i+1]+','+S[i+2]);}});
+// «Карандаш» (#151): сглаживание и замкнутость
+const dev=pts=>Math.max(...pts.map(p=>Math.abs(p[1])));   // отклонение от прямой y = 0
+const turn=(pts,ring)=>{let m=0;const n=pts.length;for(let i=ring?0:1;i<(ring?n:n-1);i++){const a=pts[(i-1+n)%n],b=pts[i],c=pts[(i+1)%n],u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],v=[c[0]-b[0],c[1]-b[1],c[2]-b[2]],
+  cs=(u[0]*v[0]+u[1]*v[1]+u[2]*v[2])/(Math.hypot(...u)*Math.hypot(...v)||1);m=Math.max(m,Math.acos(Math.max(-1,Math.min(1,cs)))*180/Math.PI);}return m;};
+test('mkSmooth: дрожащая рука (зигзаг ±1,5 мм вдоль прямой 100 мм) → отклонение ≤ 0,5 мм',()=>{c.ZZ=Array.from({length:201},(_,i)=>[i/2,i===0||i===200?0:(i%2?1.5:-1.5),0]);
+  const s=run('mkSmooth(ZZ)');assert.ok(dev(s)<=.5,'отклонение '+dev(s).toFixed(3));assert.ok(Math.abs(s[0][0])<1e-9&&Math.abs(s[s.length-1][0]-100)<1e-9,'концы на месте');assert.ok(s.length<40,'точек немного: '+s.length);});
+test('mkSmooth: зигзаг с шагом 0,3 мм (мышь чаще) — тоже ≤ 0,5 мм',()=>{c.ZZ2=Array.from({length:334},(_,i)=>[i*.3,i===0||i===333?0:Math.sin(i*1.7)*1.5,0]);assert.ok(dev(run('mkSmooth(ZZ2)'))<=.5);});
+test('mkSmooth: дуга с дрожью — гладкая (излом между отрезками ≤ 25°), не дальше 1,5 мм от дуги',()=>{c.ARC=Array.from({length:181},(_,i)=>{const a=i/180*Math.PI,r=50+(i%2?1:-1);return [r*Math.cos(a),r*Math.sin(a),0];});
+  const s=run('mkSmooth(ARC)');assert.ok(turn(s,false)<=25,'излом '+turn(s,false).toFixed(1));s.forEach(p=>assert.ok(Math.abs(Math.hypot(p[0],p[1])-50)<=1.5+1e-9,Math.hypot(p[0],p[1])));});
+test('mkSmooth: окружность с дрожью — замкнутое гладкое кольцо',()=>{c.CIR=Array.from({length:241},(_,i)=>{const a=i/240*2*Math.PI,r=30+(i%2?1:-1)*(i%240?1:0);return [r*Math.cos(a),r*Math.sin(a),5];});
+  assert.strictEqual(run('mkClosed(CIR)'),true);const s=run('mkSmooth(CIR)');assert.ok(turn(s,true)<=30,'излом '+turn(s,true).toFixed(1));s.forEach(p=>assert.ok(Math.abs(Math.hypot(p[0],p[1])-30)<=2.5,Math.hypot(p[0],p[1])));
+  const e=Math.hypot(s[0][0]-s[s.length-1][0],s[0][1]-s[s.length-1][1]);assert.ok(e>0.1&&e<8,'кольцо без повтора первой точки, шаг '+e.toFixed(2));});
+test('mkPen: замкнутая — closed, дуга 270° — нет; магнит кладёт точки на линию кальки',()=>{const p=run('mkPen(CIR,null,true)');assert.strictEqual(p.k,'pen');assert.strictEqual(p.closed,true);
+  c.A270=Array.from({length:91},(_,i)=>{const a=i/90*1.5*Math.PI;return [30*Math.cos(a),30*Math.sin(a),0];});assert.strictEqual(run('mkPen(A270,null,true)').closed,undefined);
+  run('SG2=new Float32Array([0,2,0, 100,2,0])');const q=run('mkPen(ZZ,SG2,true)');q.pts.forEach(p=>assert.ok(Math.abs(p[1]-2)<1e-4,'на линии: '+p[1]));
+  assert.ok(run('mkPen(ZZ,SG2,false)').pts.some(p=>Math.abs(p[1]-2)>.5),'без магнита — как вёл');});
