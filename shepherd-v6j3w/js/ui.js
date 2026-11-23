@@ -422,11 +422,13 @@ function addCut(v){if(!ST.seam||ST.sp<0)return;if(!ST.seam.includes(v))ST.seam.p
   if(ST.seam.length===2){const r=cutPoly(E(),ST.sp,ST.seam[0],ST.seam[1],ST.sym);if(r){pushUndo();applyE(r);msg('Шов проведён');return;}msg('Между этими точками уже есть край грани — выберите несоседние');ST.seam=[];}renderAll();}
 // калька: облако эталона (js/trace-<id>.js, грузится по галочке) → атлас на наши грани; пересчёт, только когда меняется форма
 const TRC={id:'',t:null,b0:null,key:'',at:null,loading:false};
-// какая калька: у фигуры может быть несколько (FIGURES[ref].refs, #142 Овчарка 5) — все в кадре фигуры ST.refId; ST.tref — выбранная, '' — основная
-function traceId(){const R=(FIGURES[ST.refId]||{}).refs;return ST.tref&&R&&R.some(r=>r[0]===ST.tref)?ST.tref:ST.refId;}
+// какая калька: у фигуры может быть несколько (FIGURES[ref].refs, #142 Овчарка 5) — все в кадре фигуры ST.refId; ST.tref — выбранная, '' — первая в списке (#149), без списка — основная
+function traceId(){const R=(FIGURES[ST.refId]||{}).refs;return ST.tref&&R&&R.some(r=>r[0]===ST.tref)?ST.tref:R&&R.length?R[0][0]:ST.refId;}
+// калька без облака (только линии, «форма оригинала»): сверки нет
+const traceNoCloud=()=>TRC.id===traceId()&&!!TRC.L&&!TRC.t;
 // слои (#145): калька включена галочкой в мастерской или ссылкой &trace; точки углов видны по галочке и пока идёт «Провести шов» (там по ним кликают)
 const trOn=()=>!!(ST.traceUrl||ST.layers.trace&&ST.edit),vertsShown=()=>ST.layers.verts||!!ST.seam;
-function traceOn(){return !!(trOn()&&ST.refId&&TRC.id===traceId()&&TRC.t&&CUR&&isPoly());}
+function traceOn(){return !!(trOn()&&ST.refId&&TRC.id===traceId()&&(TRC.t||TRC.L)&&CUR&&isPoly());}
 // рамка кальки: габарит эталона в координатах фигуры (у правленой копии — её исходный габарит, ST.frame), иначе — габарит самой фигуры
 function traceFrame(){const pb=meshBox(CUR.M3.V);if(!ST.frame)return pb;const rb=meshBox(ST.base.V),m=p=>p.map((x,k)=>(x-rb.min[k])*pb.size[k]/(rb.size[k]||1)+pb.min[k]),min=m(ST.frame.min),max=m(ST.frame.max);return {min,max,size:max.map((x,k)=>x-min[k])};}
 function traceMapNow(){return traceMap(TRC.b0,traceFrame());}
@@ -438,14 +440,16 @@ function traceUpd(){const {V,P}=ST.base;let h=V.length*31+P.length;V.forEach((p,
   // пока тянут точку — старый рисунок (те же треугольники / те же линии), пересчёт после отпускания
   if(TRC.key!==key&&ST.drag&&(TRC.L?TRC.seg:TRC.at&&TRC.at.uv.length===ST.base.F.length*6))return;
   if(TRC.key!==key){const t0=performance.now();const mp=traceMapNow();if(TRC.L){TRC.seg=tlinesOnFigure(TRC.L,mp,V,P,12,ST.base);TRC.at=null;}else TRC.at=traceAtlas(V,P,ST.base.F,ST.base.T,mp,TRC.t);
-    TRC.diff=traceDiff(CUR.R.edges,V,ST.base.F,mp,TRC.t);TRC.key=key;if(!TRC.logged){TRC.logged=1;console.log(TRC.L?'калька: линии '+TRC.L.n+', на фигуре '+Math.round(TRC.seg.drawn*100)+' %':'калька: атлас '+TRC.at.W+'×'+TRC.at.H,Math.round(performance.now()-t0)+' мс');}}}
+    TRC.diff=TRC.t?traceDiff(CUR.R.edges,V,ST.base.F,mp,TRC.t):null;TRC.key=key;if(!TRC.logged){TRC.logged=1;console.log(TRC.L?'калька: линии '+TRC.L.n+', на фигуре '+Math.round(TRC.seg.drawn*100)+' %':'калька: атлас '+TRC.at.W+'×'+TRC.at.H,Math.round(performance.now()-t0)+' мс');}}}
 function layersUI(){$('cLEdges').checked=ST.layers.edges;$('cLVerts').checked=ST.layers.verts;}
-function traceUI(){$('traceRow').hidden=!ST.refId;$('cTrace').checked=trOn();$('diffRow').hidden=!ST.refId;$('cDiff').checked=ST.layers.diff;$('cDiff').disabled=!trOn();const R=ST.refId&&(FIGURES[ST.refId]||{}).refs,ts=$('traceSel');ts.hidden=!(R&&trOn());
+function traceUI(){$('traceRow').hidden=!ST.refId;$('cTrace').checked=trOn();$('diffRow').hidden=!ST.refId;$('cDiff').checked=ST.layers.diff;$('cDiff').disabled=!trOn()||traceNoCloud();$('diffNo').hidden=!(trOn()&&traceNoCloud());const R=ST.refId&&(FIGURES[ST.refId]||{}).refs,ts=$('traceSel');ts.hidden=!(R&&trOn());
   if(R){const h=R.map(r=>`<option value="${r[0]}">Калька ${r[1]}</option>`).join('');if(ts.innerHTML!==h)ts.innerHTML=h;ts.value=traceId();}const d=ST.edit&&traceOn()&&ST.layers.diff?TRC.diff:null,el=$('edTrace');el.hidden=!d;if(!d)return;
   el.innerHTML=`Сверка с калькой: на шве эталона ${Math.round(d.on*100)}% длины наших швов, рядом (до ${TR_FAR} мм) — ${Math.round(d.near*100)}%. `+(d.red.length?`<b style="color:#d01f1f">Красные линии</b> — ${d.red.length} ${plural(d.red.length,'шов, которого','шва, которых','швов, которых')} у эталона нет: «Убрать шов». `:'')+(d.parts?`<b style="color:#c08a00">Жёлтые точки</b> — ${d.parts} ${plural(d.parts,'участок','участка','участков')} швов эталона, ${plural(d.parts,'которого','которых','которых')} нет у нас: «Провести шов».`:'')+(!d.red.length&&!d.parts?'Лишних и недостающих швов нет.':'');}
-function traceLoadFor(rid){if(TRC.id===rid&&TRC.t||TRC.loading)return;const done=()=>{TRC.loading=false;if(!(window.TRACE&&TRACE[rid])){msg('Калька не загрузилась');return;}
-    TRC.t=traceLoad(TRACE[rid]);TRC.L=window.TRACE_L&&TRACE_L[rid]?tlinesLoad(TRACE_L[rid]):null;TRC.seg=null;TRC.id=rid;TRC.b0=meshBox(modelPoly(ST.refId).V);TRC.key='';msg('');renderAll();};
-  if(window.TRACE&&TRACE[rid]){done();return;}TRC.loading=true;const s=document.createElement('script');s.src='js/trace-'+rid+'.js?v=2026-11-23d';s.onload=done;s.onerror=()=>{TRC.loading=false;msg('Калька не загрузилась');};document.head.appendChild(s);msg('Загружаю кальку…');}
+// калька: облако TRACE.<id> (для сверки) и/или линии TRACE_L.<id>; у «формы оригинала» (#149) только линии
+const traceHas=rid=>!!(window.TRACE&&TRACE[rid]||window.TRACE_L&&TRACE_L[rid]);
+function traceLoadFor(rid){if(TRC.id===rid&&(TRC.t||TRC.L)||TRC.loading)return;const done=()=>{TRC.loading=false;if(!traceHas(rid)){msg('Калька не загрузилась');return;}
+    TRC.t=window.TRACE&&TRACE[rid]?traceLoad(TRACE[rid]):null;TRC.L=window.TRACE_L&&TRACE_L[rid]?tlinesLoad(TRACE_L[rid]):null;TRC.seg=null;TRC.id=rid;TRC.b0=meshBox(modelPoly(ST.refId).V);TRC.key='';msg('');renderAll();};
+  if(traceHas(rid)){done();return;}TRC.loading=true;const s=document.createElement('script');s.src='js/trace-'+rid+'.js?v=2026-11-23e';s.onload=done;s.onerror=()=>{TRC.loading=false;msg('Калька не загрузилась');};document.head.appendChild(s);msg('Загружаю кальку…');}
 const layerSet=(k,v)=>{ST.layers[k]=v;store('shepherd-layers',layersSave(ST.layers));};   // нет доступа к памяти браузера — слои живут до перезагрузки
 $('cLEdges').addEventListener('change',e=>{layerSet('edges',e.target.checked);renderAll();});
 $('cLVerts').addEventListener('change',e=>{layerSet('verts',e.target.checked);if(!e.target.checked)ST.sv=-1;renderAll();});
@@ -469,7 +473,7 @@ $('traceSel').addEventListener('change',e=>{ST.tref=e.target.value;if(trOn()&&ST
         Q.forEach((a,k)=>{const b=Q[(k+1)%Q.length],ab=V3.sub(B.V[b],B.V[a]),L=V3.len(ab),u=Math.max(0,Math.min(1,V3.dot(V3.sub(h,B.V[a]),ab)/(L*L||1))),q=V3.add(B.V[a],V3.mul(ab,u)),d=V3.len(V3.sub(h,q));if(d<bd&&u*L>8&&(1-u)*L>8){bd=d;be={a,b,q};}});
         if(!be){msg('Кликните ближе к ребру выбранной грани или по её углу');return;}
         // магнит: с калькой точка встаёт туда, где ребро пересекает шов эталона
-        const mg=traceOn()?seamOnEdge(B.V[be.a],B.V[be.b],h,traceMapNow(),TRC.t):null;if(mg)be.q=mg;
+        const mg=traceOn()&&TRC.t?seamOnEdge(B.V[be.a],B.V[be.b],h,traceMapNow(),TRC.t):null;if(mg)be.q=mg;
         pushUndo();const r=addEdgePoint(E(),be.a,be.b,be.q,ST.sym);applyE(r.E,true);addCut(r.m);if(mg&&ST.seam&&ST.seam.length===1)msg('Точка — на шве эталона');return;}
       if(e.shiftKey&&ST.sp>=0&&fp>=0&&fp!==ST.sp){ST.sp2=fp;ST.sv=-1;renderAll();return;}
       ST.sv=-1;ST.sp=fp;ST.sp2=-1;ST.sel=pi;renderAll();return;}

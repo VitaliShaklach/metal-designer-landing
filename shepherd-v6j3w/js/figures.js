@@ -39,8 +39,9 @@ LAZY['plates-shepherd3']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY
 /* ---------- Овчарка 5 (тикет #142): плиты конвейера по гранёной модели Meshy 7.1 со швами на текстуре; собирает tools/make-shepherd.js shepherd5 ----------
    ref — калька js/trace-shepherd5.js (швы исходной текстуры), по ней морду доводят в мастерской */
 FIGURES.shepherd5={name:'Овчарка 5',H:1000,poly:true,need:'plates-shepherd5',build:()=>modelPoly('shepherd5'),ref:'shepherd5',
-  // две кальки в одном кадре: с текстуры модели и со швов четырёх согласованных картинок (project.js → out/shepherd5/tex-p.png), выбор — рядом с галочкой «Калька»
-  refs:[['shepherd5','с модели'],['shepherd5p','с картинок']]};
+  // три кальки в одном кадре (#149), выбор — рядом с галочкой «Калька», первая открывается по умолчанию: со швов четырёх согласованных картинок (project.js → out/shepherd5/tex-p.png),
+  // с текстуры модели, «форма оригинала» — изломы 3D-формы модели ≥ 4° (tracing.js edges=4, только линии, без облака — сверки у неё нет)
+  refs:[['shepherd5p','с картинок'],['shepherd5','с модели'],['shepherd5f','форма оригинала']]};
 LAZY['plates-shepherd5']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY.shepherd5,wait:null};
 /* ---------- Оригинал (вид) (тикет #146): модель Meshy как есть, только смотреть; view — рабочая фигура (там расчёт), orig — ключ в ORIG ----------
    Для другой фигуры из Meshy — такая же строка + файл js/orig-<id>.js (from-dev/art/tools/plates/orig.js) + <option> в index.html */
