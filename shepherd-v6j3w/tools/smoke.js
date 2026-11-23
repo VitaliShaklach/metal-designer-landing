@@ -508,6 +508,15 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
   if(fs.existsSync(TF)){const tc={console,Math,Buffer};tc.window=tc;vm.createContext(tc);vm.runInContext(['mesh','edit','models-poly','figures','trace','plates-'+id].map(f=>fs.readFileSync(P+f+'.js','utf8')).join('\n;\n')+'\n;\n'+fs.readFileSync(TF,'utf8'),tc);
     const T=vm.runInContext(`(()=>{const t=traceLoad(TRACE.shepherd5p),b=modelPoly('${id}'),bx=meshBox(b.V),mp=traceMap(bx,bx);return {n:t.n,seams:t.seams,all:traceAtlas(b.V,b.P,b.F,b.T,mp,t).cover};})()`,tc);
     ok(T.seams>1000&&T.all>=.95,`Овчарка 5, калька с картинок: точек ${T.n}, швов ${T.seams}; атлас находит облако на ${(T.all*100).toFixed(1)} % граней`);}}
+// #147 калька чёткими линиями: у обеих калек Овчарки 5 в файле есть ломаные TRACE_L (> 200), на фигуре нарисовано ≥ 90 % их точек (плита дальше 12 мм — точка не рисуется, не висит в воздухе);
+// страница: tlines.js подключён, линии идут в build3D, у кальки с линиями грани не красятся атласом
+{const HT=fs.readFileSync(__dirname+'/../index.html','utf8'),UI=fs.readFileSync(P+'ui.js','utf8'),V3S=fs.readFileSync(P+'view3d.js','utf8');
+  ok(/<script src="js\/tlines\.js\?v=[^"]+"><\/script>/.test(HT)&&HT.indexOf('js/tlines.js')<HT.indexOf('js/ui.js')&&UI.includes('tlines:traceSeg()')&&UI.includes('TRC.L=window.TRACE_L&&TRACE_L[rid]?tlinesLoad(TRACE_L[rid]):null')&&UI.includes('return TRC.L?null:TRC.at')&&V3S.includes('o.tlines&&o.tlines.length'),
+    'калька линиями: tlines.js подключён до ui.js, линии кальки идут в build3D (tlines), с линиями грани не красятся атласом');
+  for(const id of ['shepherd5','shepherd5p']){const tc={console,Math,Buffer};tc.window=tc;vm.createContext(tc);
+    vm.runInContext(['mesh','edit','models-poly','figures','trace','tlines','plates-shepherd5'].map(f=>fs.readFileSync(P+f+'.js','utf8')).join('\n;\n')+'\n;\n'+fs.readFileSync(P+'trace-'+id+'.js','utf8'),tc);
+    const T=vm.runInContext(`(()=>{if(!window.TRACE_L||!TRACE_L.${id})return null;const L=tlinesLoad(TRACE_L.${id}),b=modelPoly('shepherd5'),bx=meshBox(b.V),S=tlinesOnFigure(L,traceMap(bx,bx),b.V,b.P,12,{F:b.F,T:b.T});return {n:L.n,pts:S.pts,drawn:S.drawn};})()`,tc);
+    ok(!!T&&T.n>200&&T.drawn>=.9,`Овчарка 5, калька ${id==='shepherd5'?'с модели':'с картинок'} линиями: `+(T?`ломаных ${T.n}, на фигуре нарисовано ${(T.drawn*100).toFixed(1)} % из ${T.pts} точек`:'нет TRACE_L'));}}
 // #145 слои мастерской: четыре галочки, «Другие операции» закрыты, слои по умолчанию как в спеке, ui.js передаёт точки и сверку только при включённом слое
 {const HT=fs.readFileSync(__dirname+'/../index.html','utf8'),UI=fs.readFileSync(P+'ui.js','utf8'),V3=fs.readFileSync(P+'view3d.js','utf8'),LY=fs.readFileSync(P+'layers.js','utf8'),lc={console};vm.createContext(lc);vm.runInContext(LY,lc);
   const more=/<details id="edMore"([^>]*)>\s*<summary>Другие операции<\/summary>([\s\S]*?)<\/details>/.exec(HT);
@@ -544,4 +553,8 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
   ok(Math.abs(cm.same[0]-700)<1e-9&&Math.abs(cm.same[1]-600)<1e-9&&Math.abs(cm.same[2]-1900)<1e-9&&Math.abs(cm.big[0]-1720)<1e-9&&Math.abs(cm.big[2]-3800)<1e-9&&cm.stopped,'оригинал: camKeep/camRestore — в том же кадре камера та же, в другом — тот же угол и масштаб по высоте; пролёт камеры остановлен');
   ok(HT.indexOf('js/orig.js')>0&&HT.indexOf('js/orig.js')<HT.indexOf('js/ui.js')&&HT.includes('id="cOrigTex"')&&HT.includes('id="origBox"'),'оригинал: orig.js подключён раньше ui.js, есть галочка «Текстура» и блок-строка');
   ok(UI.includes('function renderAll(fit){if(!CUR||ST.orig)return;')&&UI.includes('camKeep(box)')&&UI.includes('camRestore(k,box)')&&UI.includes("if('tool' in ST)ST.tool=''")&&UI.includes('ST.orig&&v===ST.orig.back')&&UI.includes('Это вид оригинала. Для расчёта выберите')&&UI.includes('origLeave();ST.base=m'),'оригинал: под видом рабочая фигура не перерисовывается, возврат на месте с тем же ракурсом, инструмент выключается, строка про расчёт, другой выбор выгружает оригинал');}
+// модульные тесты страницы (tools/*.test.js: слои, версии, проверка фигуры, линии кальки…) — в общем прогоне test:editor через этот smoke (#147; package.json не трогаем)
+{const T=fs.readdirSync(__dirname).filter(f=>/\.test\.js$/.test(f)).map(f=>__dirname+'/'+f),r=require('child_process').spawnSync(process.execPath,['--test',...T],{encoding:'utf8'}),
+  m=k=>{const x=new RegExp('^ℹ '+k+' (\\d+)','m').exec(r.stdout||'');return x?+x[1]:-1;};
+  ok(r.status===0&&m('fail')===0&&m('pass')>0,`модульные тесты страницы (${T.length} файлов): прошло ${m('pass')}, упало ${m('fail')}`);if(r.status!==0)console.log((r.stdout||'')+(r.stderr||''));}
 console.log(bad?'ОШИБОК: '+bad:'всё ок'+(warned?' (предупреждений: '+warned+')':''));process.exit(bad?1:0);
