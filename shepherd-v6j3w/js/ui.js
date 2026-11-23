@@ -78,7 +78,7 @@ function mergeFlat(M3){const G=dissolve(M3,ST.diss,Math.max(ST.dims.W,ST.dims.H,
 
 function renderAll(fit){if(!CUR||ST.orig)return;   // под оригиналом (вид) рабочая фигура стоит как была, сцену не трогаем
   if(pierceOn()&&!CUR.pierce)CUR.pierce=pierceOf(ST.base);const ed=ST.edit&&isPoly(),T=ST.base.T,tri=set=>{const o=new Set();if(T)T.forEach((pi,fi)=>{if(set.has(pi))o.add(fi);});return o;};
-  build3D(CUR.M3,CUR.R,{...(typeof angBuildOpts==='function'?angBuildOpts():{}),sel:ST.sel,bent:CUR.bentKey&&CUR.bentKey.size?e=>e.p.length===2&&CUR.bentKey.has(bendKey(e.p[0],e.p[1])):null,grp:selBlank()>=0?new Set(CUR.BL[selBlank()].parts):null,small:ST.small?CUR.small:null,nums:ST.nums&&!ed,mat:ST.mat,edges:!ed||ST.layers.edges,verts:ed&&vertsShown(),sv:ST.sv,hi:ed&&ST.sp>=0?tri(new Set([ST.sp,ST.sp2])):null,warn:isPoly()?tri(CUR.bad):null,blue:ed&&CUR.selfx?tri(CUR.selfx):null,pierce:pierceOn()&&CUR.pierce?tri(CUR.pierce):null,mark:ed&&ST.seam?ST.seam:null,tex:traceTex(),tlines:traceSeg(),diff:ed&&traceOn()&&ST.layers.diff?TRC.diff:null,backs:CUR.R.parts.filter(p=>p.back).map(p=>p.full.map(i=>V3.sub(CUR.M3.V[i],V3.mul(p.n,BACK_DEPTH))))});edUI();layersUI();traceUI();if(fit)fitBox(meshBox(CUR.M3.V),fit==='instant');
+  build3D(CUR.M3,CUR.R,{...(typeof angBuildOpts==='function'?angBuildOpts():{}),sel:ST.sel,bent:CUR.bentKey&&CUR.bentKey.size?e=>e.p.length===2&&CUR.bentKey.has(bendKey(e.p[0],e.p[1])):null,grp:selBlank()>=0?new Set(CUR.BL[selBlank()].parts):null,small:ST.small?CUR.small:null,nums:ST.nums&&!ed,mat:ST.mat,edges:!ed||ST.layers.edges,verts:ed&&vertsShown(),sv:ST.sv,hi:ed&&ST.sp>=0?tri(new Set([ST.sp,ST.sp2])):null,warn:isPoly()?tri(CUR.bad):null,blue:ed&&CUR.selfx?tri(CUR.selfx):null,pierce:pierceOn()&&CUR.pierce?tri(CUR.pierce):null,mark:ed&&ST.seam?ST.seam:null,tex:traceTex(),tlines:traceSeg(),markup:ed?mkDraw():null,diff:ed&&traceOn()&&ST.layers.diff?TRC.diff:null,backs:CUR.R.parts.filter(p=>p.back).map(p=>p.full.map(i=>V3.sub(CUR.M3.V[i],V3.mul(p.n,BACK_DEPTH))))});edUI();mkUI();layersUI();traceUI();if(fit)fitBox(meshBox(CUR.M3.V),fit==='instant');
   stats();sizeUI();facesUI();selUI();partsTable();sumTable();sheetsUI();$('ttl').textContent=ST.name||'Фигура';label3D();if(typeof angAfter==='function')angAfter();}
 // 3D-окно для читалок экрана: название, детали, габарит — меняется вместе с фигурой и названием
 function label3D(){if(!ok||!CUR)return;const n=CUR.R.parts.length,b=meshBox(CUR.M3.V).size,pc=CUR.BL&&CUR.BL.length?CUR.PC.length:0;
@@ -219,7 +219,7 @@ function loadOrig(id){FIG_WANT=id;const f=FIGURES[id],run=()=>{if(CUR&&ST.verBas
   if(!figureReady(id,()=>{if(FIG_WANT===id)run();},()=>{if(FIG_WANT===id){loading(false);$('figSel').value=ST.orig?id:ST.ver?'ver:'+ST.verBase+':'+ST.ver:ST.fig||'';msg('Оригинал не загрузился — проверьте интернет и выберите его ещё раз');}})){loading(true,'Загружаю оригинал…');return;}
   run();}
 function origEnter(id){const f=FIGURES[id],box=meshBox(CUR.M3.V),k=camKeep(box),back=ST.ver?'ver:'+ST.verBase+':'+ST.ver:ST.verBase,w=FIGURES[f.view].name;
-  if('tool' in ST)ST.tool='';   // инструмент разметки выключается, сама разметка не трогается
+  if('tool' in ST)ST.tool='';if(typeof mkCtl==='function')mkCtl();   // инструмент разметки выключается, сама разметка не трогается
   ST.orig={id,tex:$('cOrigTex').checked,back};document.body.classList.add('origview');$('origBox').hidden=false;$('bSave').disabled=true;
   origShow(f.orig,ST.orig.tex);camRestore(k,box);$('figSel').value=id;$('ttl').textContent=f.name;
   $('origNote').textContent='Это вид оригинала. Для расчёта выберите «'+w+'»';$('hint').textContent='Оригинал (вид): левая кнопка — крутить, колесо — масштаб, правая — сдвиг · галочка «Текстура» — швы или серый';msg('Это вид оригинала. Для расчёта выберите «'+w+'»');}
@@ -399,7 +399,7 @@ function edUI(){const on=ST.edit&&isPoly();$('hint').textContent=on?(ST.seam?'П
   const n=CUR&&CUR.bad?CUR.bad.size:0,nx=CUR&&CUR.selfx?CUR.selfx.size:0,nw=CUR&&CUR.small?CUR.small.size:0,np=CUR&&CUR.pierce?CUR.pierce.size:0;$('edPlan').className='note'+(n||nx||nw||np?' warn':'');$('edPlan').textContent=(np?`${np} ${plural(np,'грань протыкает','грани протыкают','граней протыкают')} другие — фиолетовые: детали прошли бы друг сквозь друга, отодвиньте точки. `:'')+(nx?`Самопересекающихся граней: ${nx} — синие, разрежьте их «Провести шов». `:'')+(nw?`Узких деталей: ${nw} — красные. `:'')+(n?`Неплоских граней: ${n} — подсвечены жёлтым. Плоский лист так не согнёшь: выровняйте (точки сдвинутся на миллиметры) или разбейте на треугольники`:'Все грани плоские — каждая режется одним куском');
   ['bFlat','bTri'].forEach(id=>$(id).classList.toggle('off',!n));$('bUndo').classList.toggle('off',!UNDO.length);$('bRedo').classList.toggle('off',!REDO.length);}
 $('cEdit').addEventListener('change',e=>{ST.edit=e.target.checked;if(ST.edit&&CUR){toPoly();compute();}if(ST.edit&&ST.refId&&trOn())traceLoadFor(traceId());renderAll();});
-$('cSym').addEventListener('change',e=>{ST.sym=e.target.checked;});
+$('cSym').addEventListener('change',e=>{ST.sym=e.target.checked;if(ST.mk.length||ST.mkCur)renderAll();});   // зеркальная разметка видна сразу
 $('edSel').addEventListener('change',e=>{if(ST.sv<0||!['vX','vY','vZ'].includes(e.target.id))return;pushUndo();const e2={V:ST.base.V.map(p=>p.slice()),P:ST.base.P};
   moveVert(e2,ST.sv,[+$('vX').value,+$('vY').value,+$('vZ').value],ST.sym);applyE(e2,true);});
 $('edOps').addEventListener('click',e=>{const b=e.target.closest('button[data-op]');if(!b)return;if(ST.sp<0){msg('Сначала кликните грань на модели');return;}if(b.dataset.op==='merge'&&b.classList.contains('off')){msg('Для «Убрать шов» кликните грань, потом Shift+клик по соседней');return;}const d=Math.max(1,+$('edD').value||0),op=b.dataset.op;
@@ -449,17 +449,45 @@ function traceUI(){$('traceRow').hidden=!ST.refId;$('cTrace').checked=trOn();$('
 const traceHas=rid=>!!(window.TRACE&&TRACE[rid]||window.TRACE_L&&TRACE_L[rid]);
 function traceLoadFor(rid){if(TRC.id===rid&&(TRC.t||TRC.L)||TRC.loading)return;const done=()=>{TRC.loading=false;if(!traceHas(rid)){msg('Калька не загрузилась');return;}
     TRC.t=window.TRACE&&TRACE[rid]?traceLoad(TRACE[rid]):null;TRC.L=window.TRACE_L&&TRACE_L[rid]?tlinesLoad(TRACE_L[rid]):null;TRC.seg=null;TRC.id=rid;TRC.b0=meshBox(modelPoly(ST.refId).V);TRC.key='';msg('');renderAll();};
-  if(traceHas(rid)){done();return;}TRC.loading=true;const s=document.createElement('script');s.src='js/trace-'+rid+'.js?v=2026-11-23e';s.onload=done;s.onerror=()=>{TRC.loading=false;msg('Калька не загрузилась');};document.head.appendChild(s);msg('Загружаю кальку…');}
+  if(traceHas(rid)){done();return;}TRC.loading=true;const s=document.createElement('script');s.src='js/trace-'+rid+'.js?v=2026-11-23f';s.onload=done;s.onerror=()=>{TRC.loading=false;msg('Калька не загрузилась');};document.head.appendChild(s);msg('Загружаю кальку…');}
 const layerSet=(k,v)=>{ST.layers[k]=v;store('shepherd-layers',layersSave(ST.layers));};   // нет доступа к памяти браузера — слои живут до перезагрузки
 $('cLEdges').addEventListener('change',e=>{layerSet('edges',e.target.checked);renderAll();});
 $('cLVerts').addEventListener('change',e=>{layerSet('verts',e.target.checked);if(!e.target.checked)ST.sv=-1;renderAll();});
 $('cTrace').addEventListener('change',e=>{ST.traceUrl=false;layerSet('trace',e.target.checked);if(trOn()&&ST.refId)traceLoadFor(traceId());renderAll();});
 $('cDiff').addEventListener('change',e=>{layerSet('diff',e.target.checked);renderAll();});
+/* ---------- разметка (#150): «Линия», «Зачеркнуть» — штрихи поверх граней, фигура не меняется; магнит к линиям кальки; зеркальная — бледная; хранится в браузере по фигуре ----------
+   инструмент включён — левая кнопка ставит точки, крутить — правой (OrbitControls); выключен — как было. На телефоне (нет точного указателя) инструментов нет */
+ST.tool='';ST.mk=[];ST.mkCur=null;ST.magnet=true;
+const MK={key:null,ver:0,draw:null,dkey:'',mb0:null,fine:typeof matchMedia==='function'&&matchMedia('(pointer:fine)').matches};
+const mkFig=()=>ST.ver?ST.verBase+'.'+ST.ver:(ST.fig||'file');
+function mkSync(){const k=mkKey(mkFig());if(MK.key!==k){MK.key=k;ST.mk=mkLoad(store(k));ST.mkCur=null;MK.ver++;}}
+function mkStore(){if(MK.key)store(MK.key,mkSave(ST.mk));MK.ver++;}   // нет памяти браузера — разметка живёт до перезагрузки
+function mkFinish(){const c=ST.mkCur;ST.mkCur=null;if(c&&c.pts.length>=2){ST.mk.push(c);mkStore();}else MK.ver++;}
+// управление камерой: с инструментом левая кнопка не крутит, крутит правая
+function mkCtl(){if(!ok)return;if(!MK.mb0)MK.mb0={...controls.mouseButtons};if(!ST.tool&&ST.mkCur)mkFinish();
+  controls.mouseButtons=ST.tool?{LEFT:-1,MIDDLE:MK.mb0.MIDDLE,RIGHT:THREE.MOUSE.ROTATE}:{...MK.mb0};stage.classList.toggle('drawing',!!ST.tool);}
+// отрезки штрихов на фигуре (пересчёт — когда меняется разметка, форма или симметрия)
+function mkDraw(){mkSync();const k=MK.ver+'|'+ST.sym+'|'+ST.base.V.length+'|'+ST.base.P.length+'|'+(ST.base.V[0]||[]).join();if(MK.dkey===k&&MK.draw&&MK.draw.base===ST.base)return MK.draw;
+  const own=[...ST.mk],cur=ST.mkCur?[ST.mkCur]:[],mir=ST.sym?[...own,...cur].map(mkMirror).filter(Boolean):[];
+  MK.draw={base:ST.base,own:mkDrape([...own,...cur],ST.base.V,ST.base.P,ST.base),mirror:mkDrape(mir,ST.base.V,ST.base.P,ST.base),pts:new Float32Array(cur.flatMap(s=>s.pts.flat()))};MK.dkey=k;return MK.draw;}
+function mkUI(){const on=ST.edit&&isPoly()&&!ST.orig;if(!on&&ST.tool){ST.tool='';mkCtl();}$('mkBox').hidden=!(on&&MK.fine);if(!on)return;mkSync();
+  $('mkTools').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.tool===ST.tool));$('cMagnet').checked=ST.magnet;
+  const nl=ST.mk.filter(s=>s.k!=='cross').length,nc=ST.mk.length-nl;$('bMkClear').classList.toggle('off',!ST.mk.length&&!ST.mkCur);
+  $('mkNote').textContent=(ST.mk.length?`Разметка: ${nl} ${plural(nl,'линия','линии','линий')}, ${nc} ${plural(nc,'зачёркивание','зачёркивания','зачёркиваний')}. `:'Разметки нет. ')+(ST.tool==='line'?'Линия: кликайте по фигуре — точки; двойной клик или Enter — конец, Esc — отменить линию. Крутить — правой кнопкой':ST.tool==='cross'?'Зачеркнуть: два клика поперёк шва. Esc — отменить. Крутить — правой кнопкой':'');}
+function mkClick(e){const h=pickHit(e);if(!h)return;const p=mkSnap(h,traceOn()?TRC.seg:null,ST.magnet),c=ST.mkCur;
+  if(c){const q=c.pts[c.pts.length-1];if(Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2])<1.5)return;}   // второй клик двойного — не новая точка
+  if(!c)ST.mkCur={k:ST.tool,pts:[p]};else c.pts.push(p);MK.ver++;if(ST.tool==='cross'&&ST.mkCur.pts.length===2)mkFinish();renderAll();}
+$('mkTools').addEventListener('click',e=>{const b=e.target.closest('button[data-tool]');if(!b)return;const t=b.dataset.tool;b.blur();mkFinish();ST.seam=null;ST.tool=ST.tool===t?'':t;mkCtl();renderAll();});
+$('cMagnet').addEventListener('change',e=>{ST.magnet=e.target.checked;});
+$('bMkClear').addEventListener('click',()=>{if(!ST.mk.length&&!ST.mkCur)return;ST.mk=[];ST.mkCur=null;mkStore();renderAll();msg('Разметка очищена');});
+const typing=()=>{const el=document.activeElement;return !!el&&(/SELECT|TEXTAREA/.test(el.tagName)||el.tagName==='INPUT'&&!/checkbox|radio|button|range/.test(el.type));};   // галочка в фокусе — не ввод текста
+addEventListener('keydown',e=>{if(!ST.tool||typing())return;
+  if(e.key==='Escape'&&ST.mkCur){ST.mkCur=null;MK.ver++;renderAll();}else if(e.key==='Enter'&&ST.mkCur){e.preventDefault();mkFinish();renderAll();}});   // Enter не нажимает кнопку в фокусе
 $('traceSel').addEventListener('change',e=>{ST.tref=e.target.value;if(trOn()&&ST.refId)traceLoadFor(traceId());renderAll();});
 
 // клик по грани — выбрать деталь; в редакторе — точку или грань, точку можно тянуть
 (()=>{if(!ok)return;const cv=renderer.domElement,tag=$('hovTag');let down=null,drag=null,raf=0;
-  cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};if(e.button!==0||!ST.edit||ST.orig||!isPoly()||!CUR)return;
+  cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};if(e.button!==0||!ST.edit||ST.orig||!isPoly()||!CUR||ST.tool)return;
     const v=vertsShown()?pickVert(e,ST.base.V):-1;if(v<0)return;if(ST.seam){if(ST.sp>=0&&ST.base.P[ST.sp].includes(v)){down=null;addCut(v);}return;}ST.sv=v;ST.sp=-1;ST.sel=-1;drag={v,snap:snapE(),moved:false};ST.drag=true;controls.enabled=false;cv.setPointerCapture(e.pointerId);renderAll();});
   cv.addEventListener('pointermove',e=>{if(drag){const p=dragPoint(e,ST.base.V[drag.v]);if(!p)return;drag.moved=true;tag.hidden=true;if(raf)return;
       raf=requestAnimationFrame(()=>{raf=0;if(!drag)return;const e2={V:ST.base.V.map(q=>q.slice()),P:ST.base.P,S:ST.base.S||[]};moveVert(e2,drag.v,dragPoint(e,ST.base.V[drag.v])||p,ST.sym);applyE(e2,true);});return;}
@@ -467,6 +495,7 @@ $('traceSel').addEventListener('change',e=>{ST.tref=e.target.value;if(trOn()&&ST
     tag.textContent=`№ ${p.no} · ${Math.round(p.L)} × ${Math.round(p.W)} мм`;tag.style.left=(e.clientX-r.left)+'px';tag.style.top=(e.clientY-r.top)+'px';tag.hidden=false;});
   cv.addEventListener('pointerup',e=>{if(drag){const d=drag;drag=null;ST.drag=false;controls.enabled=true;if(d.moved){UNDO.push(d.snap);REDO.length=0;renderAll();}down=null;return;}
     if(!down||!CUR||ST.orig)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>5||e.button!==0)return;
+    if(ST.tool&&ST.edit&&isPoly()){mkClick(e);return;}   // разметка (#150)
     const t=pickTri(e),pi=t>=0?CUR.R.partOf[t]:-1;
     if(ST.edit&&isPoly()){const fp=t>=0?ST.base.T[t]:-1;
       if(ST.seam){if(fp!==ST.sp||ST.sp<0)return;const h=pickHit(e);if(!h)return;const B=ST.base,Q=B.P[ST.sp];let be=null,bd=15;   // ближайшее ребро выбранной грани
@@ -480,6 +509,7 @@ $('traceSel').addEventListener('change',e=>{ST.tref=e.target.value;if(trOn()&&ST
     if(typeof ANG!=='undefined'&&ANG.on){angTapUI(pi);return;}
     ST.sel=pi===ST.sel?-1:pi;ST.selB=-1;renderAll();
     if(pi>=0){$('controls').querySelector('[data-g="view"]').classList.remove('shut');revealRow($('parts').querySelector(`tr[data-p="${pi}"]`));}});
+  cv.addEventListener('dblclick',()=>{if(ST.tool==='line'&&ST.mkCur){mkFinish();renderAll();}});
   cv.addEventListener('pointerleave',()=>tag.hidden=true);})();
 
 // стартовая фигура: #f=… из адреса, иначе запомненная в браузере (свой ключ shepherd-fig — ключи собаки и коня с этим не путаются), иначе Овчарка; неизвестный id — тоже Овчарка

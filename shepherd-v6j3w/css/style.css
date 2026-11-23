@@ -408,6 +408,8 @@ body.origview .controls .grp:not(#origBox),body.origview section.tabs,body.origv
 .edsel .xyz3{margin-top:6px}
 #edPlan.warn{color:#b0700a}
 #stage.editing canvas{cursor:crosshair}
+#stage.drawing canvas{cursor:copy}
+#mkBox{margin:4px 0 8px}
 .controls button:disabled{opacity:.45;cursor:default}
 /* чертежи и раскрой */
 .sheets{display:flex;flex-direction:column;gap:18px;margin-top:10px}

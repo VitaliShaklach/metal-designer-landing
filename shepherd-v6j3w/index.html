@@ -6,9 +6,9 @@
 <title>Овчарка — фигура из листа · Редактор</title>
 <meta name="description" content="Овчарка из листа металла, высота 1000 мм. Растягивайте фигуру — детали, масса, длина реза и швов пересчитываются.">
 <link rel="icon" href="../editor/mangal/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../fonts/fonts.css?v=2026-11-23e">
-<link rel="stylesheet" href="../editor/editor.css?v=2026-11-23e">
-<link rel="stylesheet" href="css/style.css?v=2026-11-23e">
+<link rel="stylesheet" href="../fonts/fonts.css?v=2026-11-23f">
+<link rel="stylesheet" href="../editor/editor.css?v=2026-11-23f">
+<link rel="stylesheet" href="css/style.css?v=2026-11-23f">
 </head>
 <body>
 <div class="edbar">
@@ -66,6 +66,13 @@
             <label class="chk" id="diffRow" hidden><input type="checkbox" id="cDiff"><span>Подсказки сверки</span></label>
             <p class="note" id="diffNo" hidden style="margin:-4px 0 8px 26px">У этой кальки нет сверки — только линии формы</p>
             <div id="edSel" class="edsel"></div>
+            <div id="mkBox" hidden>
+              <p class="note laynote">Разметка</p>
+              <div class="edbtns" id="mkTools"><button type="button" data-tool="line" id="mk_line">Линия</button><button type="button" data-tool="cross" id="mk_cross">Зачеркнуть</button></div>
+              <label class="chk"><input type="checkbox" id="cMagnet" checked><span>Магнит</span></label>
+              <div class="btns"><button id="bMkClear" type="button">Очистить разметку</button></div>
+              <p class="note" id="mkNote"></p>
+            </div>
             <details id="edMore"><summary>Другие операции</summary>
             <div class="row2"><label>На сколько, мм<input class="inp" id="edD" type="number" value="30" min="1" step="5"></label><span></span></div>
             <div class="edbtns" id="edOps"><button type="button" data-op="extrude" id="op_extrude">Выдавить</button><button type="button" data-op="inset" id="op_inset">Вдавить</button><button type="button" data-op="bump" id="op_bump">Бугор</button><button type="button" data-op="pit" id="op_pit">Впадина</button><button type="button" data-op="split" id="op_split">Разрезать пополам</button><button type="button" data-op="del" id="op_del">Удалить грань</button><button type="button" data-op="merge" id="op_merge">Убрать шов</button><button type="button" data-op="cut" id="op_cut">Провести шов</button></div>
@@ -170,30 +177,31 @@
 </div>
 
 <div class="zoom" id="zoom" hidden><div class="zoombar"><span id="zoomTtl"></span><button type="button" id="zoomOut" aria-label="Мельче">−</button><span id="zoomK">100%</span><button type="button" id="zoomIn" aria-label="Крупнее">+</button><button type="button" id="zoomFit">Весь лист</button><button type="button" id="zoomX" aria-label="Закрыть">✕</button></div><div class="zoombox" id="zoomBox"></div></div>
-<script src="../vendor/three/three.min.js?v=2026-11-23e"></script>
-<script src="../vendor/three/OrbitControls.js?v=2026-11-23e"></script>
-<script src="../vendor/three/CSS2DRenderer.js?v=2026-11-23e"></script>
-<script src="../editor/common/calc.js?v=2026-11-23e"></script>
-<script src="js/mesh.js?v=2026-11-23e"></script>
-<script src="js/models-poly.js?v=2026-11-23e"></script>
-<script src="js/figures.js?v=2026-11-23e"></script>
-<script src="js/plates-shepherd.js?v=2026-11-23e"></script>
-<script src="js/layers.js?v=2026-11-23e"></script>
-<script src="js/edit.js?v=2026-11-23e"></script>
-<script src="js/versions.js?v=2026-11-23e"></script>
-<script src="js/trace.js?v=2026-11-23e"></script>
-<script src="js/tlines.js?v=2026-11-23e"></script>
-<script src="js/view3d.js?v=2026-11-23e"></script>
-<script src="js/orig.js?v=2026-11-23e"></script>
-<script src="js/prod.js?v=2026-11-23e"></script>
-<script src="js/bend.js?v=2026-11-23e"></script>
-<script src="js/bend3d.js?v=2026-11-23e"></script>
-<script src="js/slots.js?v=2026-11-23e"></script>
-<script src="js/sheets.js?v=2026-11-23e"></script>
-<script src="js/ui.js?v=2026-11-23e"></script>
-<script src="js/angles-core.js?v=2026-11-23e"></script>
-<script src="js/angles.js?v=2026-11-23e"></script>
-<script src="js/tips.js?v=2026-11-23e"></script>
+<script src="../vendor/three/three.min.js?v=2026-11-23f"></script>
+<script src="../vendor/three/OrbitControls.js?v=2026-11-23f"></script>
+<script src="../vendor/three/CSS2DRenderer.js?v=2026-11-23f"></script>
+<script src="../editor/common/calc.js?v=2026-11-23f"></script>
+<script src="js/mesh.js?v=2026-11-23f"></script>
+<script src="js/models-poly.js?v=2026-11-23f"></script>
+<script src="js/figures.js?v=2026-11-23f"></script>
+<script src="js/plates-shepherd.js?v=2026-11-23f"></script>
+<script src="js/layers.js?v=2026-11-23f"></script>
+<script src="js/edit.js?v=2026-11-23f"></script>
+<script src="js/versions.js?v=2026-11-23f"></script>
+<script src="js/trace.js?v=2026-11-23f"></script>
+<script src="js/tlines.js?v=2026-11-23f"></script>
+<script src="js/markup.js?v=2026-11-23f"></script>
+<script src="js/view3d.js?v=2026-11-23f"></script>
+<script src="js/orig.js?v=2026-11-23f"></script>
+<script src="js/prod.js?v=2026-11-23f"></script>
+<script src="js/bend.js?v=2026-11-23f"></script>
+<script src="js/bend3d.js?v=2026-11-23f"></script>
+<script src="js/slots.js?v=2026-11-23f"></script>
+<script src="js/sheets.js?v=2026-11-23f"></script>
+<script src="js/ui.js?v=2026-11-23f"></script>
+<script src="js/angles-core.js?v=2026-11-23f"></script>
+<script src="js/angles.js?v=2026-11-23f"></script>
+<script src="js/tips.js?v=2026-11-23f"></script>
 <div id="printBox"></div>
 </body>
 </html>
