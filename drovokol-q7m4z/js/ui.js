@@ -19,7 +19,9 @@ function writeOrder(){const o=ORDER,set=(id,v)=>{const e=$(id);if(e&&e.value!==S
   $('ownSheet').hidden=o.sheet!=='own';}
 // любое изменение заказа: результат «Рассчитать» сверяется с новым ключом (устарел — убирается), «Что купить» пересчитывается сразу
 function onOrderChange(){ORDER=readOrder();$('ownSheet').hidden=ORDER.sheet!=='own';CALC.check();orderViews();}
-const orderViews=()=>{};   // картинки и «Что купить» — по мере тикетов (#166, #167)
+// «Что купить» — лёгкий расчёт, сразу, без кнопки
+function orderViews(){const L=buyList(ORDER);
+  $('buyBox').innerHTML=L.length?`<table class="buy"><thead><tr><th>Что</th><th>Размер</th><th>Штук</th></tr></thead><tbody>${L.map(r=>`<tr><td>${escH(r.name)}</td><td>${escH(r.size)}</td><td>${r.n}</td></tr>`).join('')}</tbody></table>`:'<p class="empty">Покупать нечего: в заказе нет деталей</p>';}
 $('panel').addEventListener('input',onOrderChange);
 $('panel').addEventListener('change',()=>{onOrderChange();writeOrder();});
 
@@ -69,5 +71,5 @@ function saveText(name,text,type){const a=document.createElement('a');a.href=URL
 $('bDxf').addEventListener('click',()=>{CALC.check();if(!CALC.ready()||!RESULT||!RESULT.res.sheets.length)return;saveText(dxfName(RESULT.o),orderDxf(RESULT.res,RESULT.o),'application/dxf');});
 
 /* ---------- старт ---------- */
-showAsm('A',SEL.A);showAsm('B',SEL.B);
+showAsm('A',SEL.A);showAsm('B',SEL.B);$('earSvg').innerHTML=partSVG(earPart(),{dims:true,m:24,title:'Ухо к стене 120 × 40'});
 writeOrder();orderViews();

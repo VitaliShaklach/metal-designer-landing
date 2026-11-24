@@ -6,8 +6,8 @@
 <meta name="robots" content="noindex,nofollow">
 <title>Дровокол настенный · раскладка под лазер</title>
 <link rel="icon" href="../editor/mangal/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../fonts/fonts.css?v=2026-11-25b">
-<link rel="stylesheet" href="css/style.css?v=2026-11-25b">
+<link rel="stylesheet" href="../fonts/fonts.css?v=2026-11-25c">
+<link rel="stylesheet" href="css/style.css?v=2026-11-25c">
 </head>
 <body>
 <div class="wrap">
@@ -32,6 +32,7 @@
             <figure class="pic"><figcaption>Сборка с ручкой B — излом от лезвия</figcaption><div id="asmB" class="asmbox"></div></figure>
           </div>
           <div class="thumbs" id="thumbs" aria-label="Профили ручек"></div>
+          <figure class="pic earpic"><figcaption>Ухо к стене · 120 × 40, без гиба, 2 отв. под анкер M10</figcaption><div id="earSvg"></div></figure>
           <p class="note">Красная кромка — под заточку, на ручке там гравировка «ЛЕЗВИЕ» со стрелкой. Картинки показывают профиль (угол), длину 60 / 70 / 80 — нет: прибавка уходит в рукоять.</p>
         </div>
         <form class="panel" id="panel" autocomplete="off" onsubmit="return false">
@@ -50,13 +51,14 @@
           <hr>
           <div class="row2" id="cntRow">
             <label>Пластины, шт<input class="inp" id="oPlates" type="number" min="0" step="1" value="4"></label>
+            <label>Уши к стене, шт<input class="inp" id="oEars" type="number" min="0" step="1" value="0"></label>
           </div>
           <div class="hlist">
             <div class="hhead">Ручки <small>тип · профиль · длина · штук</small></div>
             <div id="hrows"></div>
             <button type="button" id="hAdd" class="addbtn">+ ручка</button>
           </div>
-          <p class="note">Комплект на стену: 4 пластины и 1 ручка. Металл один на весь заказ: нужны детали разной толщины — два расчёта, два DXF.</p>
+          <p class="note">Комплект на стену: 4 пластины, 1 ручка, 2 уха. Металл один на весь заказ: нужны детали разной толщины — два расчёта, два DXF.</p>
         </form>
       </div>
     </div>
@@ -69,19 +71,19 @@
     </div>
 
     <div class="tabpane" id="tab-buy" role="tabpanel" aria-labelledby="t-buy" hidden>
-      <p class="tabnote">Покупное по заказу. В DXF его нет.</p>
+      <p class="tabnote">Покупное по текущему заказу, пересчитывается сразу при изменении. В DXF его нет.</p>
       <div id="buyBox"></div>
     </div>
   </section>
 </div>
-<script src="../editor/common/calc.js?v=2026-11-25b"></script>
-<script src="js/geom.js?v=2026-11-25b"></script>
-<script src="js/engrave.js?v=2026-11-25b"></script>
-<script src="js/nest.js?v=2026-11-25b"></script>
-<script src="js/dxf.js?v=2026-11-25b"></script>
-<script src="js/order.js?v=2026-11-25b"></script>
-<script src="js/calc-run.js?v=2026-11-25b"></script>
-<script src="js/view.js?v=2026-11-25b"></script>
-<script src="js/ui.js?v=2026-11-25b"></script>
+<script src="../editor/common/calc.js?v=2026-11-25c"></script>
+<script src="js/geom.js?v=2026-11-25c"></script>
+<script src="js/engrave.js?v=2026-11-25c"></script>
+<script src="js/nest.js?v=2026-11-25c"></script>
+<script src="js/dxf.js?v=2026-11-25c"></script>
+<script src="js/order.js?v=2026-11-25c"></script>
+<script src="js/calc-run.js?v=2026-11-25c"></script>
+<script src="js/view.js?v=2026-11-25c"></script>
+<script src="js/ui.js?v=2026-11-25c"></script>
 </body>
 </html>

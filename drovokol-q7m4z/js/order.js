@@ -22,4 +22,18 @@ function orderKey(o){const [W,H]=sheetWH(o);return JSON.stringify([o.t,W,H,o.gap
 // детали заказа: [{part, n, flip}] — flip: можно ли раскладке класть деталь зеркально
 // ручки — только поворот: зеркальная A стала бы B (лезвие не у той кромки)
 function orderParts(o){const out=[];if(o.plates>0)out.push({part:platePart(),n:o.plates,flip:true});
-  o.handles.forEach(h=>{if(h.n>0)out.push({part:handlePart(h.type,h.prof,h.len),n:h.n,flip:false});});return out;}
+  o.handles.forEach(h=>{if(h.n>0)out.push({part:handlePart(h.type,h.prof,h.len),n:h.n,flip:false});});
+  if(o.ears>0)out.push({part:earPart(),n:o.ears,flip:true});return out;}
+
+/* ---------- «Что купить»: покупное по заказу (решение грилинга 3), в DXF его нет ----------
+   Нормы (план, Task 3): труба рукояти Ø28×2 — по штуке на ручку, длиной с хвостовик; стяжка пакета M10 — 4 болта на каждые 4 пластины (вверх);
+   ось ручки M12 — 1 на ручку; хвостовик — 3 болта M6 или заклёпки на ручку; анкер M10 — 2 на ухо. Строки с нулём не показываются */
+function buyList(o){const out=[],tubes=new Map();
+  o.handles.forEach(h=>{if(h.n>0){const L=tangLen(h.prof,h.len);tubes.set(L,(tubes.get(L)||0)+h.n);}});
+  [...tubes].sort((a,b)=>a[0]-b[0]).forEach(([L,n])=>out.push({name:'Труба рукояти Ø28 × 2',size:`${L} мм`,n}));
+  const hn=o.handles.reduce((a,h)=>a+h.n,0),bolts=Math.ceil(o.plates/4)*4;
+  if(bolts)out.push({name:'Болт M10 — стяжка пакета пластин',size:'M10',n:bolts});
+  if(hn)out.push({name:'Болт M12 — ось ручки',size:'M12',n:hn});
+  if(hn)out.push({name:'Болт M6 или заклёпка — труба на хвостовик',size:'M6 / Ø6',n:3*hn});
+  if(o.ears)out.push({name:'Анкер M10 — ухо к стене',size:'M10',n:2*o.ears});
+  return out;}

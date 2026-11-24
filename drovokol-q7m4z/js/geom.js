@@ -59,3 +59,10 @@ function handlePart(type,prof,len){const H=HANDLE,pf=HANDLE_PROFILES[prof],s=typ
   const part={name:handleName(type,prof,len),kind:'handle',type,prof,len,pts,holes,flip:false,tangLen:tang,
     bladeEdge:[[H.BLADE_FROM,h],[H.BLADE-H.BLADE_END,h]],axis:[[-H.CAP,0],P1,P2]};
   part.engr=bladeMark(part);return part;}
+
+/* ---------- ухо к стене: плоское, без гиба (решение Виталия 24.11) ----------
+   Полоса 120 × 40, концы — полукруги R20, два отверстия Ø10.5 под анкеры M10 в центрах полукругов (между ними 80).
+   Пакет приваривается к уху торцом посередине, анкеры — по обе стороны пакета. 2 уха на комплект: сверху и снизу */
+const EAR={L:120,W:40,HOLE_D:10.5};
+function earPart(){const r=EAR.W/2,pts=dedupe([...arcPts(EAR.L-r,r,r,-90,90),...arcPts(r,r,r,90,270)]);
+  return {name:'У',kind:'ear',pts,holes:[[r,r,EAR.HOLE_D],[EAR.L-r,r,EAR.HOLE_D]],flip:true};}

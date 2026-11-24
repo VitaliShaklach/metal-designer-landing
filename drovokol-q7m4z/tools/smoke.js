@@ -106,4 +106,27 @@ ok(run("(r=>r.too.length===1&&r.too[0]==='П'&&r.sheets.length===0)(runOrder({..
   ok(d.trim().endsWith('EOF'),'DXF: кончается EOF');
   ok(run("dxfName({t:5},new Date(2026,10,25))")==='drovokol-5mm-2026-11-25.dxf','DXF: имя drovokol-5mm-<дата>.dxf');}
 
+/* ---------- ухо к стене ---------- */
+{const e=run('earPart()'),[x0,y0,x1,y1]=bbox(e.pts);
+  ok(near(x1-x0,120,1e-9)&&near(y1-y0,40,1e-9),`ухо: габарит 120 × 40 (${x1-x0} × ${y1-y0})`);
+  ok(e.holes.length===2&&e.holes.every(h=>h[2]===10.5&&near(h[1],20))&&near(e.holes[0][0],20)&&near(e.holes[1][0],100)&&near(e.holes[1][0]-e.holes[0][0],80),'ухо: два отв. Ø10.5 в центрах полукругов, между ними 80');
+  const arcL=e.pts.filter(q=>q[0]<20-1e-6),arcR=e.pts.filter(q=>q[0]>100+1e-6);
+  ok(arcL.length>=30&&arcR.length>=30&&arcL.every(q=>near(Math.hypot(q[0]-20,q[1]-20),20,1e-9))&&arcR.every(q=>near(Math.hypot(q[0]-100,q[1]-20),20,1e-9)),'ухо: концы — полукруги R20');
+  ok(simple(e.pts)&&run('areaS(earPart().pts)')>0&&holesIn(e,3),'ухо: контур замкнут, без самопересечений, отверстия внутри ≥ 3 мм (плоское, без гиба — одна деталь)');
+  ok(run("(P=>P.length===4&&P[3].part.name==='У'&&P[3].n===4&&P[3].flip===true)(orderParts({...ORDER_DEFAULT,ears:4}))"),'заказ: уши в деталях, раскладка может их зеркалить (flip:true), пластины тоже');
+  const o=run("OE={...ORDER_DEFAULT,ears:20}"),res=run('RE=runOrder(OE)');
+  ok(res.stats.byKind['У']===20&&!res.too.length&&layoutOK(res,o),`раскладка с 20 ушами: все на листах (${res.sheets.length} л.), не внахлёст, не за краем`);
+  const d=run('orderDxf(RE,OE)'),ents=d.split('ENTITIES')[1];
+  ok((ents.match(/POLYLINE\r\n8\r\nCUT/g)||[]).length===26&&(ents.match(/CIRCLE\r\n8\r\nCUT/g)||[]).length===28+40,'DXF с ушами: контуров 26, отверстий 68');}
+
+/* ---------- «Что купить» ---------- */
+{const L=run('buyList(ORDER_DEFAULT)'),f=re=>L.filter(r=>re.test(r.name)),n=re=>f(re).reduce((a,r)=>a+r.n,0);
+  ok(f(/Труба/).length===1&&f(/Труба/)[0].size==='200 мм'&&f(/Труба/)[0].n===2,'«Что купить» по умолчанию: труба 200 × 2');
+  ok(n(/M12/)===2&&n(/M6/)===6&&n(/Болт M10/)===4&&n(/Анкер/)===0,'«Что купить» по умолчанию: M12 × 2, M6 × 6, M10 × 4, анкеров 0');
+  const B=run("buyList({...ORDER_DEFAULT,plates:5,ears:3,handles:[{type:'A',prof:3,len:70,n:2},{type:'B',prof:4,len:70,n:1},{type:'B',prof:1,len:80,n:1}]})"),g=re=>B.filter(r=>re.test(r.name));
+  ok(g(/Труба/).map(r=>r.size+'×'+r.n).join()==='320 мм×2,330 мм×1,400 мм×1','«Что купить»: трубы по длинам хвостовиков (A3-70 ×2 → 320, B4-70 → 330, B1-80 → 400)');
+  ok(g(/Болт M10/)[0].n===8&&g(/M12/)[0].n===4&&g(/M6/)[0].n===12&&g(/Анкер/)[0].n===6,'«Что купить»: 5 пластин → M10 × 8 (вверх до 4), 4 ручки → M12 × 4, M6 × 12, 3 уха → анкеров 6');
+  ok(run("buyList({...ORDER_DEFAULT,plates:0,ears:0,handles:[]}).length")===0,'«Что купить»: пустой заказ — пусто');
+  ok(!/Труба|Болт|Анкер/.test(run('orderDxf(R0,ORDER_DEFAULT)')),'DXF: покупного нет');}
+
 console.log(bad?`\n${bad} FAIL`:'\nвсё ok');process.exit(bad?1:0);
