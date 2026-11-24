@@ -6,8 +6,8 @@
 <meta name="robots" content="noindex,nofollow">
 <title>Дровокол настенный · раскладка под лазер</title>
 <link rel="icon" href="../editor/mangal/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../fonts/fonts.css?v=2026-11-25a">
-<link rel="stylesheet" href="css/style.css?v=2026-11-25a">
+<link rel="stylesheet" href="../fonts/fonts.css?v=2026-11-25b">
+<link rel="stylesheet" href="css/style.css?v=2026-11-25b">
 </head>
 <body>
 <div class="wrap">
@@ -27,7 +27,12 @@
     <div class="tabpane" id="tab-order" role="tabpanel" aria-labelledby="t-order">
       <div class="order">
         <div class="pics" id="pics">
-          <figure class="pic"><figcaption>Пластина · 100 × 420</figcaption><div id="plateSvg"></div></figure>
+          <div class="asms">
+            <figure class="pic"><figcaption>Сборка с ручкой A — излом к лезвию</figcaption><div id="asmA" class="asmbox"></div></figure>
+            <figure class="pic"><figcaption>Сборка с ручкой B — излом от лезвия</figcaption><div id="asmB" class="asmbox"></div></figure>
+          </div>
+          <div class="thumbs" id="thumbs" aria-label="Профили ручек"></div>
+          <p class="note">Красная кромка — под заточку, на ручке там гравировка «ЛЕЗВИЕ» со стрелкой. Картинки показывают профиль (угол), длину 60 / 70 / 80 — нет: прибавка уходит в рукоять.</p>
         </div>
         <form class="panel" id="panel" autocomplete="off" onsubmit="return false">
           <div class="row2">
@@ -46,13 +51,18 @@
           <div class="row2" id="cntRow">
             <label>Пластины, шт<input class="inp" id="oPlates" type="number" min="0" step="1" value="4"></label>
           </div>
-          <p class="note">Комплект на стену: 4 пластины. Металл один на весь заказ: нужны детали разной толщины — два расчёта, два DXF.</p>
+          <div class="hlist">
+            <div class="hhead">Ручки <small>тип · профиль · длина · штук</small></div>
+            <div id="hrows"></div>
+            <button type="button" id="hAdd" class="addbtn">+ ручка</button>
+          </div>
+          <p class="note">Комплект на стену: 4 пластины и 1 ручка. Металл один на весь заказ: нужны детали разной толщины — два расчёта, два DXF.</p>
         </form>
       </div>
     </div>
 
     <div class="tabpane" id="tab-nest" role="tabpanel" aria-labelledby="t-nest" hidden>
-      <p class="tabnote">Детали заказа разложены по листам с зазором между деталями и отступом от края (поля во вкладке «Заказ»). В DXF: SHEET — контур листа, CUT — контуры и отверстия. Подписи деталей — только на картинках листов.</p>
+      <p class="tabnote">Детали заказа разложены по листам с зазором между деталями и отступом от края (поля во вкладке «Заказ»). В DXF: SHEET — контур листа, CUT — контуры и отверстия, ENGRAVE — «ЛЕЗВИЕ» и стрелка на ручках. Подписи деталей — только на картинках листов.</p>
       <div class="dimbar"><button id="nestRun" class="calcbtn" type="button">Рассчитать</button><button id="bDxf" type="button" disabled>Скачать DXF</button></div>
       <div class="nestwait" id="nestWait" hidden><span class="nestStar" aria-hidden="true"><b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></b></span><span>Раскладываю детали</span><span class="nestCnt" id="nestCnt"></span></div>
       <div id="nestBox"></div>
@@ -64,13 +74,14 @@
     </div>
   </section>
 </div>
-<script src="../editor/common/calc.js?v=2026-11-25a"></script>
-<script src="js/geom.js?v=2026-11-25a"></script>
-<script src="js/nest.js?v=2026-11-25a"></script>
-<script src="js/dxf.js?v=2026-11-25a"></script>
-<script src="js/order.js?v=2026-11-25a"></script>
-<script src="js/calc-run.js?v=2026-11-25a"></script>
-<script src="js/view.js?v=2026-11-25a"></script>
-<script src="js/ui.js?v=2026-11-25a"></script>
+<script src="../editor/common/calc.js?v=2026-11-25b"></script>
+<script src="js/geom.js?v=2026-11-25b"></script>
+<script src="js/engrave.js?v=2026-11-25b"></script>
+<script src="js/nest.js?v=2026-11-25b"></script>
+<script src="js/dxf.js?v=2026-11-25b"></script>
+<script src="js/order.js?v=2026-11-25b"></script>
+<script src="js/calc-run.js?v=2026-11-25b"></script>
+<script src="js/view.js?v=2026-11-25b"></script>
+<script src="js/ui.js?v=2026-11-25b"></script>
 </body>
 </html>

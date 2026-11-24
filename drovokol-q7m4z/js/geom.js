@@ -36,3 +36,26 @@ const partArea=p=>Math.abs(areaS(p.pts))-p.holes.reduce((s,h)=>s+Math.PI*h[2]*h[
 const perim=P=>P.reduce((s,p,i)=>{const q=P[(i+1)%P.length];return s+Math.hypot(q[0]-p[0],q[1]-p[1]);},0);
 // длина реза детали: контур + окружности отверстий, мм
 const partCut=p=>perim(p.pts)+p.holes.reduce((s,h)=>s+Math.PI*h[2],0);
+
+/* ---------- ручка: 10 профилей (A/B × 1–5) × 3 длины = 30 вариантов ----------
+   Построение — как handle_local в plate.py: ось в (0, 0), участок с лезвием вдоль +X, кромка лезвия со стороны +Y.
+   A — излом к лезвию, B — от лезвия: контур B — зеркало A по оси участка с лезвием (y → −y), лезвие у обеих со стороны +Y.
+   Миттер на изломе, фаска 45° на плече хвостовика, вокруг оси — полукруг R20 */
+const HANDLE={W:40,BLADE:340,CAP:20,TANG_W:22,PIVOT_D:13,TANG_HOLE_D:6.5,TANG_HOLE_IN:25,BLADE_FROM:40,BLADE_END:10};
+const HANDLE_PROFILES={1:{angle:160,stub:40},2:{angle:165,stub:30},3:{angle:170,stub:20},4:{angle:175,stub:10},5:{angle:178,stub:10}};
+const HANDLE_LENS=[60,70,80];
+const handleName=(type,prof,len)=>`${type}${prof}-${len}`;
+// хвостовик: длина ручки по оси (len см) минус полукруг за осью, участок с лезвием и переход
+const tangLen=(prof,len)=>len*10-HANDLE.CAP-HANDLE.BLADE-HANDLE_PROFILES[prof].stub;
+function handlePart(type,prof,len){const H=HANDLE,pf=HANDLE_PROFILES[prof],s=type==='A'?1:-1,b=deg(180-pf.angle)*s,stub=pf.stub,tang=tangLen(prof,len),L2=stub+tang;
+  const d2=[Math.cos(b),Math.sin(b)],n1=[0,1],n2=[-Math.sin(b),Math.cos(b)],add=(p,v,k)=>[p[0]+v[0]*k,p[1]+v[1]*k];
+  const P1=[H.BLADE,0],P2=add(P1,d2,L2),Q=add(P1,d2,stub),h=H.W/2,ht=H.TANG_W/2,dot=n1[0]*n2[0]+n1[1]*n2[1];
+  const side=[1,-1].map(sg=>{const m=[(n1[0]+n2[0])*sg*h/(1+dot),(n1[1]+n2[1])*sg*h/(1+dot)];
+    return [add([0,0],n1,sg*h),[P1[0]+m[0],P1[1]+m[1]],add(Q,n2,sg*h),add(add(Q,d2,h-ht),n2,sg*ht),add(P2,n2,sg*ht)];});
+  const [left,right]=side,cap=arcPts(0,0,H.CAP,90,270);
+  const pts=dedupe([...right,...left.slice().reverse(),...cap.slice(1,-1)]);
+  // отверстия хвостовика Ø6.5: 25 от конца, 25 от плеча (начала хвостовика) и посередине
+  const holes=[[0,0,H.PIVOT_D],...[H.TANG_HOLE_IN,tang/2,tang-H.TANG_HOLE_IN].map(k=>[...add(P2,d2,-k),H.TANG_HOLE_D])];
+  const part={name:handleName(type,prof,len),kind:'handle',type,prof,len,pts,holes,flip:false,tangLen:tang,
+    bladeEdge:[[H.BLADE_FROM,h],[H.BLADE-H.BLADE_END,h]],axis:[[-H.CAP,0],P1,P2]};
+  part.engr=bladeMark(part);return part;}

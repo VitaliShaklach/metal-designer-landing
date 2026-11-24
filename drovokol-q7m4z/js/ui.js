@@ -12,7 +12,7 @@ TABS.forEach((b,i)=>{b.addEventListener('click',()=>showTab(b.dataset.tab));
 /* ---------- панель заказа ---------- */
 const val=id=>$(id)?$(id).value:undefined;
 function readOrder(){return normOrder({t:val('oT'),sheet:val('oSheet'),sw:val('oSW'),sl:val('oSL'),gap:val('oGap'),margin:val('oMargin'),
-  plates:val('oPlates'),ears:val('oEars')??ORDER.ears,handles:ORDER.handles},ORDER);}
+  plates:val('oPlates'),ears:val('oEars')??ORDER.ears,handles:readHandles()},ORDER);}
 // поля — по заказу: пустое и отрицательное после ввода показывается тем, чем считается (0 или прошлое значение)
 function writeOrder(){const o=ORDER,set=(id,v)=>{const e=$(id);if(e&&e.value!==String(v))e.value=v;};
   set('oT',o.t);set('oSheet',o.sheet);set('oSW',o.sw);set('oSL',o.sl);set('oGap',o.gap);set('oMargin',o.margin);set('oPlates',o.plates);set('oEars',o.ears);
@@ -22,6 +22,29 @@ function onOrderChange(){ORDER=readOrder();$('ownSheet').hidden=ORDER.sheet!=='o
 const orderViews=()=>{};   // картинки и «Что купить» — по мере тикетов (#166, #167)
 $('panel').addEventListener('input',onOrderChange);
 $('panel').addEventListener('change',()=>{onOrderChange();writeOrder();});
+
+/* ---------- ручки: картинки сборки, миниатюры A1–B5, строки заказа ---------- */
+const SEL={A:1,B:1};   // профиль на картинке сборки своего типа; по умолчанию A1 и B1 — как ручки заказа по умолчанию
+function showAsm(type,prof){SEL[type]=prof;$('asm'+type).innerHTML=asmSVG(type,prof);
+  document.querySelectorAll(`#thumbs [data-thumb^="${type}"]`).forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.thumb===type+prof)));}
+$('thumbs').innerHTML=['A','B'].map(t=>`<div class="trow"><span class="tlab">${t}</span>${[1,2,3,4,5].map(p=>
+  `<button type="button" class="thumbbtn" data-thumb="${t}${p}" aria-pressed="false" title="${t}${p}: угол ${HANDLE_PROFILES[p].angle}°, переход ${HANDLE_PROFILES[p].stub}">${thumbSVG(t,p)}<span>${t}${p} · ${HANDLE_PROFILES[p].angle}°</span></button>`).join('')}</div>`).join('');
+$('thumbs').addEventListener('click',e=>{const b=e.target.closest('[data-thumb]');if(b)showAsm(b.dataset.thumb[0],+b.dataset.thumb[1]);});
+const opts=(L,v,f=x=>x)=>L.map(x=>`<option value="${x}"${String(x)===String(v)?' selected':''}>${f(x)}</option>`).join('');
+function hrowHtml(h){return `<div class="hrow"><select class="hType" aria-label="Тип ручки">${opts(['A','B'],h.type)}</select>`
+  +`<select class="hProf" aria-label="Профиль">${opts([1,2,3,4,5],h.prof)}</select>`
+  +`<select class="hLen" aria-label="Длина, см">${opts(HANDLE_LENS,h.len,x=>x+' см')}</select>`
+  +`<span class="hx">×</span><input class="inp hN" type="number" min="0" step="1" value="${h.n}" aria-label="Штук">`
+  +`<button type="button" class="hDel" aria-label="Удалить строку">✕</button></div>`;}
+// строки ручек как в панели (одинаковые складывает normOrder)
+const readHandles=()=>[...document.querySelectorAll('#hrows .hrow')].map(r=>({type:r.querySelector('.hType').value,prof:+r.querySelector('.hProf').value,len:+r.querySelector('.hLen').value,n:r.querySelector('.hN').value}));
+const rowAsm=r=>showAsm(r.querySelector('.hType').value,+r.querySelector('.hProf').value);
+$('hrows').innerHTML=ORDER.handles.map(hrowHtml).join('');
+// клик и фокус по строке, смена типа или профиля — картинка своего типа показывает эту ручку
+$('hrows').addEventListener('focusin',e=>{const r=e.target.closest('.hrow');if(r)rowAsm(r);});
+$('hrows').addEventListener('click',e=>{const r=e.target.closest('.hrow');if(!r)return;if(e.target.closest('.hDel')){r.remove();onOrderChange();return;}rowAsm(r);});
+$('hrows').addEventListener('change',e=>{const r=e.target.closest('.hrow');if(r&&e.target.matches('.hType,.hProf'))rowAsm(r);if(e.target.matches('.hN')){const n=cnt(e.target.value);if(e.target.value!==String(n))e.target.value=n;}});
+$('hAdd').addEventListener('click',()=>{$('hrows').insertAdjacentHTML('beforeend',hrowHtml({type:'A',prof:SEL.A,len:60,n:1}));onOrderChange();});
 
 /* ---------- «Лазер · DXF»: «Рассчитать» — общий makeCalc (editor/common/calc.js) ---------- */
 let RESULT=null;   // {res, o} — показанный результат
@@ -46,5 +69,5 @@ function saveText(name,text,type){const a=document.createElement('a');a.href=URL
 $('bDxf').addEventListener('click',()=>{CALC.check();if(!CALC.ready()||!RESULT||!RESULT.res.sheets.length)return;saveText(dxfName(RESULT.o),orderDxf(RESULT.res,RESULT.o),'application/dxf');});
 
 /* ---------- старт ---------- */
-$('plateSvg').innerHTML=partSVG(platePart(),{dims:true,title:'Пластина 100 × 420'});
+showAsm('A',SEL.A);showAsm('B',SEL.B);
 writeOrder();orderViews();

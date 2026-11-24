@@ -54,6 +54,36 @@ h1{font-family:var(--f-display);font-weight:600;text-transform:uppercase;letter-
 .inp:focus,.panel select:focus{outline:2px solid var(--accent);outline-offset:-1px}
 .note{margin:0;font-size:12px;color:var(--muted)}
 
+/* ручки: две картинки сборки, миниатюры A1–B5, строки заказа */
+.asms{display:grid;grid-template-columns:1fr 1fr;gap:14px;min-width:0}
+.asmbox svg{display:block;width:100%;height:auto;max-height:560px}
+.thumbs{display:flex;flex-direction:column;gap:8px}
+.trow{display:grid;grid-template-columns:22px repeat(5,minmax(0,1fr));gap:6px;align-items:stretch}
+.tlab{font:700 18px var(--f-display);align-self:center}
+.thumbbtn{display:flex;flex-direction:column;gap:2px;align-items:stretch;padding:4px 4px 3px;background:var(--panel);border:1px solid var(--line);cursor:pointer;color:var(--ink);font:12px var(--f-mono);min-width:0}
+.thumbbtn:hover{border-color:var(--ink)}
+.thumbbtn[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}
+.thumbbtn svg{display:block;width:100%;height:34px}
+.thumbbtn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hlist{display:flex;flex-direction:column;gap:6px}
+.hhead{font-size:13px;color:var(--muted)}
+.hhead small{font-size:12px;opacity:.8}
+.hrow{display:grid;grid-template-columns:52px 52px minmax(0,1fr) 12px 64px 36px;gap:6px;align-items:center}
+.hrow select,.hrow .inp{padding:6px 4px}
+.hx{color:var(--muted);text-align:center}
+.hDel,.addbtn{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer;min-height:34px}
+.hDel:hover,.addbtn:hover{border-color:var(--ink)}
+.addbtn{align-self:flex-start;padding:6px 14px}
+svg .wall{stroke:#8a6;stroke-width:6}
+svg .floor{stroke:#999;stroke-width:1;stroke-dasharray:4 4}
+svg .wtxt{font:13px var(--f-body);fill:#6a8a46}
+svg .ftxt{font:12px var(--f-body);fill:#888}
+svg .hdl{fill:#7d8790}
+svg .tube{stroke:#222;stroke-linecap:round;opacity:.85}
+svg .blade{stroke:#e00;stroke-width:4;stroke-linecap:round;vector-effect:non-scaling-stroke}
+svg .atxt{font:600 15px var(--f-mono);fill:#c00}
+svg .ttl{font:700 22px var(--f-display);fill:#1B2124}
+
 /* SVG деталей */
 svg .metal{fill:var(--metal);stroke:#111;stroke-width:1.2;vector-effect:non-scaling-stroke}
 svg .hole{fill:#fff;stroke:#111;stroke-width:1;vector-effect:non-scaling-stroke}
@@ -99,6 +129,8 @@ svg .lab{font-family:var(--f-mono);font-weight:600;fill:#1B2124}
   .order{grid-template-columns:minmax(0,1fr)}
 }
 @media (max-width:600px){
+  .asms{grid-template-columns:minmax(0,1fr)}
+  .thumbbtn span{font-size:11px}
   body{padding-top:18px}
   .tabbar{flex-direction:column;gap:6px;border-bottom:0;overflow:visible}
   .tabbar button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:10px 14px;margin:0;text-align:left;white-space:normal;font-size:17px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--ink)}
