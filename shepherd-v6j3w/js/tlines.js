@@ -26,16 +26,17 @@ function tlClosest(p,a,b,c){const ab=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],ac=[c[0]-a[
   const dn=1/(va+vb+vc),v=vb*dn,w=vc*dn;return [a[0]+ab[0]*v+ac[0]*w,a[1]+ab[1]*v+ac[1]*w,a[2]+ab[2]*v+ac[2]*w];}
 /* линии на нашей фигуре: точки ломаных (через TL_STEP мм) → кадр фигуры (map.inv) → ближайшая точка наших граней ≤ maxD мм (дальше — плита отошла от эталона,
    точку не рисуем, а не вешаем в воздухе) → подъём TL_LIFT мм по нормали грани наружу. → Float32Array отрезков (пары точек);
-   .drawn — доля нарисованных точек, .pts — всего точек; .pp — точки на фигуре по ломаным (null — не легла), для магнита (tlinesSnap) */
+   .drawn — доля нарисованных точек, .pts — всего точек; .pp — точки на фигуре по ломаным (null — не легла), для магнита (tlinesSnap);
+   .nrm (#169) — нормаль грани под каждой точкой отрезков (тот же порядок, что у отрезков): калька рисуется поверх фигуры без проверки глубины, а по нормали отсекается обратная сторона */
 function tlinesOnFigure(L,map,V,P,maxD=12,FT){const tr=tlTris(V,P,FT),cs=Math.max(maxD*2,16),G=tlGrid(tr,t=>[[0,1,2].map(k=>Math.min(t.a[k],t.b[k],t.c[k])),[0,1,2].map(k=>Math.max(t.a[k],t.b[k],t.c[k]))],cs,maxD);
-  const seg=[],pp=[];let tot=0,hit=0;
+  const seg=[],nrm=[],pp=[];let tot=0,hit=0;
   const onFig=q=>{const p=map.inv(q);let best=null,bd=maxD*maxD,bn=null;for(const k of G.at(p)){const t=tr[k],c=tlClosest(p,t.a,t.b,t.c),d=(c[0]-p[0])**2+(c[1]-p[1])**2+(c[2]-p[2])**2;if(d<bd){bd=d;best=c;bn=t.n;}}
-    return best?[best[0]+bn[0]*TL_LIFT,best[1]+bn[1]*TL_LIFT,best[2]+bn[2]*TL_LIFT]:null;};
+    if(!best)return null;const r=[best[0]+bn[0]*TL_LIFT,best[1]+bn[1]*TL_LIFT,best[2]+bn[2]*TL_LIFT];r.n=bn;return r;};
   for(let i=0;i<L.n;i++){const a0=L.S[i],a1=L.S[i+1],line=[];
     for(let j=a0;j<a1;j++){const A=[L.P[j*3],L.P[j*3+1],L.P[j*3+2]];if(j===a1-1){line.push(A);break;}const B=[L.P[j*3+3],L.P[j*3+4],L.P[j*3+5]],m=Math.max(1,Math.ceil(Math.hypot(B[0]-A[0],B[1]-A[1],B[2]-A[2])/TL_STEP));
       for(let s=0;s<m;s++)line.push([A[0]+(B[0]-A[0])*s/m,A[1]+(B[1]-A[1])*s/m,A[2]+(B[2]-A[2])*s/m]);}
-    const q=line.map(onFig);tot+=q.length;q.forEach((x,k)=>{if(!x)return;hit++;if(k&&q[k-1])seg.push(...q[k-1],...x);});pp.push(q);}
-  const out=new Float32Array(seg);out.drawn=tot?hit/tot:0;out.pts=tot;out.pp=pp;return out;}
+    const q=line.map(onFig);tot+=q.length;q.forEach((x,k)=>{if(!x)return;hit++;if(k&&q[k-1]){seg.push(...q[k-1],...x);nrm.push(...q[k-1].n,...x.n);}});pp.push(q);}
+  const out=new Float32Array(seg);out.drawn=tot?hit/tot:0;out.pts=tot;out.pp=pp;out.nrm=new Float32Array(nrm);return out;}
 // ближайшая точка линий кальки к p (кадр фигуры) в радиусе r мм → [x,y,z] (кадр фигуры) или null; сетка отрезков строится один раз на L
 function tlinesNear(L,map,p,r=5){if(!L._g){const sg=[];for(let i=0;i<L.n;i++)for(let j=L.S[i];j+1<L.S[i+1];j++)sg.push(j);
     L._g=tlGrid(sg,j=>[[0,1,2].map(k=>Math.min(L.P[j*3+k],L.P[j*3+3+k])),[0,1,2].map(k=>Math.max(L.P[j*3+k],L.P[j*3+3+k]))],8,0);L._sg=sg;}

@@ -529,6 +529,12 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
   ok(!!T&&T.drawn>=.9,'Овчарка 5, калька «форма оригинала» на фигуре: '+(T?`нарисовано ${(T.drawn*100).toFixed(1)} % из ${T.pts} точек`:'нет TRACE_L'));
   ok(UI.includes('TRC.t=window.TRACE&&TRACE[cid]?traceLoad(TRACE[cid]):null')&&UI.includes('r&&r[2]||rid')&&UI.includes('TRC.diff=TRC.t?traceDiff(')&&UI.includes("$('cDiff').disabled=!trOn()||traceNoCloud()")&&UI.includes('(TRC.t||TRC.L)&&CUR&&isPoly()')&&UI.includes('traceOn()&&TRC.t?seamOnEdge(')&&HT.includes('id="diffNo"')&&HT.includes('У этой кальки нет сверки'),
     'калька без облака: грузится по линиям, сверка неактивна с пояснением «У этой кальки нет сверки», атлас/сверка/магнит старого шва без облака не считаются');}
+// #169 калька поверх фигуры: первый проход — как раньше (LineBasicMaterial, пишет глубину); второй — те же линии с нормалями (.nrm из tlinesOnFigure), TL_MAT: запас по глубине TL_OVER мм,
+// глубину не пишет, в прозрачном проходе (после линий граней и сгибов), обратная сторона отброшена; разметка — в прозрачном проходе после него (renderOrder 3–5), поверх кальки
+{const V3S=fs.readFileSync(P+'view3d.js','utf8'),TLS=fs.readFileSync(P+'tlines.js','utf8'),ov=/const TL_OVER=([0-9.]+);/.exec(V3S);
+  ok(!!ov&&+ov[1]>0&&+ov[1]<=12&&TLS.includes('out.nrm=new Float32Array(nrm)')&&V3S.includes("tg2.setAttribute('nrm',")&&V3S.includes('t2=new THREE.LineSegments(tg2,TL_MAT())')&&/depthWrite:false,transparent:true/.test(V3S)&&V3S.includes('if(vis<0.5)discard')
+    &&V3S.includes("new THREE.LineSegments(tg,new THREE.LineBasicMaterial({color:0xffffff}));tl.renderOrder=2")&&V3S.includes('color:0xe07a35,transparent:true,opacity:op')&&V3S.includes('color:0xd01f1f,transparent:true')&&V3S.includes('mp.renderOrder=5'),
+    `калька поверх фигуры (#169): второй проход линий с запасом по глубине ${ov&&ov[1]} мм, без обратной стороны, после линий граней; разметка поверх кальки`);}
 // #172, #173 Овчарка 6: у обеих фигур один набор из 6 калек (S6REFS, кадр shepherd6): «с модели» и «с 3 фото», у каждой без мусора (у «с модели» — первой, по умолчанию), сырая, выпрямленная;
 // у вариантов облако — от сырой своего источника (refs[2]); файлы грузятся по выбору; на каждой фигуре нарисовано ≥ 90 % точек линий; варианты: без мусора ≤ сырой, выпрямленная — меньше точек, обрывков < 20 мм нет
 {const HT=fs.readFileSync(__dirname+'/../index.html','utf8'),{tvRead,tvLen}=require('./trace-variants.js'),SRC=[['m','с модели'],['p','с 3 фото']],

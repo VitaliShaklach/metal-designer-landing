@@ -18,6 +18,15 @@ const COL={steel:[0x6b737b,0x8a929a],inox:[0x9aa3ab,0xc2c9cf],corten:[0x8a4a2a,0
 const PLASTER=[0x9a9c98,0x9a9c98],PLASTER_LINE=[0x5a6066,.55];
 let LBL=[];
 // R — результат buildParts, M3 — сетка в мм; o: {sel, small:Set, nums, mat, warn/blue/pierce — треугольники неплоских / самопересечённых / протыкающих граней}
+/* #169 материал кальки линиями: белые, поверх своих плит. Точка подтянута к камере на TL_OVER мм (отдельный проход с запасом по глубине) — линия не ныряет под плиту,
+   на которой лежит, а за другими частями фигуры (дальняя лапа за ближней) прячется. TL_OVER=Infinity — совсем без проверки глубины (Q2 буквально; тогда сквозь ближние
+   лапы видны линии внутренних сторон дальних — снимки .superpowers/night-25-s6b/t169after_*). Точка, у которой грань смотрит от камеры, отброшена (тонкие уши не просвечивают). */
+const TL_OVER=6;
+let TL_M=null;
+// transparent — рисуется в прозрачном проходе после линий граней и сгибов (иначе они затирают кальку там, где шов эталона идёт по ребру плиты), до разметки (renderOrder 3–5)
+function TL_MAT(){const free=!isFinite(TL_OVER);return TL_M||(TL_M=new THREE.ShaderMaterial({uniforms:{color:{value:new THREE.Color(0xffffff)},over:{value:free?0:TL_OVER}},depthTest:!free,depthWrite:false,transparent:true,
+  vertexShader:'attribute vec3 nrm;uniform float over;varying float vis;void main(){vec4 wp=modelMatrix*vec4(position,1.0);vec3 n=normalize(mat3(modelMatrix)*nrm),c=cameraPosition-wp.xyz;vis=dot(n,c)>0.0?1.0:0.0;wp.xyz+=normalize(c)*over;gl_Position=projectionMatrix*viewMatrix*wp;}',
+  fragmentShader:'uniform vec3 color;varying float vis;void main(){if(vis<0.5)discard;gl_FragColor=vec4(color,1.0);}'}));}
 function build3D(M3,R,o){if(!ok)return;req3D();while(root.children.length){const c=root.children.pop();c.geometry&&c.geometry.dispose();if(c.element)c.element.remove();}LBL=[];
   const {V,F}=M3,pos=new Float32Array(F.length*9),col=new Float32Array(F.length*9),[c0,c1]=(o.plaster?PLASTER:COL[o.mat]||COL.steel).map(x=>new THREE.Color(x)),sel=new THREE.Color(0xd0561f),red=new THREE.Color(0xd01f1f),amb=new THREE.Color(0xe0a020),blu=new THREE.Color(0x3a6fe0),vio=new THREE.Color(0x9b3fd6),nearC=new THREE.Color(0x9fd49a),tmp=new THREE.Color();
   // калька (o.tex): грани белые — цвет даёт текстура; выделения — подкраска поверх рисунка
@@ -41,13 +50,18 @@ function build3D(M3,R,o){if(!ok)return;req3D();while(root.children.length){const
   if(o.plaster)seg(L,...PLASTER_LINE);else seg(L,0x15191b,.8);seg(Lo,0xd0561f,.9);seg(Lr,0xe01818,1);
   if(Lb.length){const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.Float32BufferAttribute(Lb,3));const ln=new THREE.LineSegments(bg,new THREE.LineDashedMaterial({color:0x2a6fd0,dashSize:4,gapSize:3,transparent:true,opacity:.9}));ln.computeLineDistances();root.add(ln);}
   // калька линиями (#147): швы эталона — тонкие белые линии, уже поднятые над гранями на 0,6 мм (tlinesOnFigure); резкие при любом зуме
-  if(o.tlines&&o.tlines.length){const tg=new THREE.BufferGeometry();tg.setAttribute('position',new THREE.BufferAttribute(o.tlines,3));const tl=new THREE.LineSegments(tg,new THREE.LineBasicMaterial({color:0xffffff}));tl.renderOrder=2;root.add(tl);}
+  // #169 (план Овчарки 6, Q2): калька поверх своих плит сплошными линиями — второй проход тех же линий (TL_MAT: запас по глубине TL_OVER мм, глубину не пишет,
+  // обратная сторона по нормали .nrm из tlinesOnFigure отброшена) дорисовывает куски, которые ушли под плиты. Первый проход — как раньше (пишет глубину: калька поверх
+  // линий граней, разметка — поверх кальки); разметка, линии граней и сгибов не менялись
+  if(o.tlines&&o.tlines.length){const tg=new THREE.BufferGeometry();tg.setAttribute('position',new THREE.BufferAttribute(o.tlines,3));const tl=new THREE.LineSegments(tg,new THREE.LineBasicMaterial({color:0xffffff}));tl.renderOrder=2;root.add(tl);
+    if(o.tlines.nrm&&o.tlines.nrm.length===o.tlines.length){const tg2=new THREE.BufferGeometry();tg2.setAttribute('position',new THREE.BufferAttribute(o.tlines,3));tg2.setAttribute('nrm',new THREE.BufferAttribute(o.tlines.nrm,3));
+      const t2=new THREE.LineSegments(tg2,TL_MAT());t2.renderOrder=2;root.add(t2);}}
   // разметка (#150): свои штрихи оранжевые, зеркальные (симметрия) — бледные; точки текущей линии
-  if(o.markup){const ml=(arr,op)=>{if(!arr.length)return;const g2=new THREE.BufferGeometry();g2.setAttribute('position',new THREE.BufferAttribute(arr,3));const l=new THREE.LineSegments(g2,new THREE.LineBasicMaterial({color:0xe07a35,transparent:op<1,opacity:op}));l.renderOrder=3;root.add(l);};
+  if(o.markup){const ml=(arr,op)=>{if(!arr.length)return;const g2=new THREE.BufferGeometry();g2.setAttribute('position',new THREE.BufferAttribute(arr,3));const l=new THREE.LineSegments(g2,new THREE.LineBasicMaterial({color:0xe07a35,transparent:true,opacity:op}));l.renderOrder=3;root.add(l);};   // transparent — в проходе после добивки кальки (#169): разметка поверх неё
     ml(o.markup.own,1);ml(o.markup.mirror,.35);
     // отказы «Нарезать» (#152): красные, причина подписью у середины штриха
-    if(o.markup.bad&&o.markup.bad.length){const g3=new THREE.BufferGeometry();g3.setAttribute('position',new THREE.BufferAttribute(o.markup.bad,3));const l3=new THREE.LineSegments(g3,new THREE.LineBasicMaterial({color:0xd01f1f}));l3.renderOrder=4;root.add(l3);}
-    (o.markup.why||[]).forEach(w=>{const el=document.createElement('span');el.className='mkwhy';el.textContent=w.t;const lb=new THREE.CSS2DObject(el);lb.position.set(...w.p);root.add(lb);if(w.n){lb.userData.n=w.n;LBL.push(lb);}});if(o.markup.pts&&o.markup.pts.length){const pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(o.markup.pts,3));root.add(new THREE.Points(pg,new THREE.PointsMaterial({color:0xe07a35,size:8,sizeAttenuation:false,depthTest:false})));}}
+    if(o.markup.bad&&o.markup.bad.length){const g3=new THREE.BufferGeometry();g3.setAttribute('position',new THREE.BufferAttribute(o.markup.bad,3));const l3=new THREE.LineSegments(g3,new THREE.LineBasicMaterial({color:0xd01f1f,transparent:true}));l3.renderOrder=4;root.add(l3);}
+    (o.markup.why||[]).forEach(w=>{const el=document.createElement('span');el.className='mkwhy';el.textContent=w.t;const lb=new THREE.CSS2DObject(el);lb.position.set(...w.p);root.add(lb);if(w.n){lb.userData.n=w.n;LBL.push(lb);}});if(o.markup.pts&&o.markup.pts.length){const pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(o.markup.pts,3));const mp=new THREE.Points(pg,new THREE.PointsMaterial({color:0xe07a35,size:8,sizeAttenuation:false,depthTest:false,transparent:true}));mp.renderOrder=5;root.add(mp);}}
   if(o.diff&&o.diff.yel.length){const yg=new THREE.BufferGeometry();yg.setAttribute('position',new THREE.BufferAttribute(o.diff.yel,3));root.add(new THREE.Points(yg,new THREE.PointsMaterial({color:0xffc400,size:5,sizeAttenuation:false})));}
   // редактор: точки; выбранная — крупная оранжевая
   if(o.verts){const pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.Float32BufferAttribute(V.flat(),3));root.add(new THREE.Points(pg,new THREE.PointsMaterial({color:0x1f8fe0,size:7,sizeAttenuation:false})));

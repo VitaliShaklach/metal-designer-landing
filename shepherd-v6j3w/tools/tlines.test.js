@@ -21,3 +21,7 @@ test('tlinesNear: ближайшая точка линии в радиусе, д
   assert.strictEqual(run('tlinesNear(L1,ID,[30,100,58])'),null);assert.ok(run('tlinesNear(L1,ID,[30,100,58],10)'),'r=10 находит');});
 test('tlinesNear: с растяжением кадра (map) — точка возвращается в кадр фигуры',()=>{c.B=enc([[[0,202,50],[200,202,50]]]);run('M2=p=>[p[0]*2,p[1]*2,p[2]];M2.inv=p=>[p[0]/2,p[1]/2,p[2]];L2=tlinesLoad(B)');
   const p=run('tlinesNear(L2,M2,[30,100.5,51])');assert.ok(p&&Math.abs(p[0]-30)<1e-4&&Math.abs(p[1]-101)<1e-4&&Math.abs(p[2]-50)<1e-4,JSON.stringify(p));});
+test('#169 tlinesOnFigure: .nrm — нормаль грани под каждой точкой отрезков (верх куба — +Y, через ребро — +Y и +Z)',()=>{c.B=enc([[[20,101,50],[80,101,50]]]);const S=run('S=tlinesOnFigure(tlinesLoad(B),ID,CV,CP)'),N=run('S.nrm');
+  assert.strictEqual(N.length,S.length);for(let i=0;i<N.length;i+=3)assert.deepStrictEqual([N[i],N[i+1],N[i+2]].map(x=>Math.round(x)),[0,1,0]);
+  c.B=enc([[[50,101,80],[50,80,101]]]);const S2=run('S2=tlinesOnFigure(tlinesLoad(B),ID,CV,CP)'),N2=run('S2.nrm');assert.strictEqual(N2.length,S2.length);
+  for(let i=0;i<N2.length;i+=3){const n=[N2[i],N2[i+1],N2[i+2]].map(x=>Math.round(x)).join();assert.ok(n==='0,1,0'&&Math.abs(S2[i+1]-100.6)<1e-4||n==='0,0,1'&&Math.abs(S2[i+2]-100.6)<1e-4,n+' @ '+S2[i+1]+','+S2[i+2]);}});
