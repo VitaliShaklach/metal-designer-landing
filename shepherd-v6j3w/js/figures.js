@@ -59,6 +59,7 @@ LAZY['plates-shepherd6']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY
 /* ---------- Оригинал (вид) (тикет #146): модель Meshy как есть, только смотреть; view — рабочая фигура (там расчёт), orig — ключ в ORIG ----------
    Для другой фигуры из Meshy — такая же строка + файл js/orig-<id>.js (from-dev/art/tools/plates/orig.js) + <option> в index.html */
 FIGURES.shepherd5_orig={name:'Овчарка 5 — оригинал (вид)',view:'shepherd5',orig:'shepherd5',need:'orig-shepherd5'};
-// Овчарка 7 — оригинал (#174, план docs/superpowers/plans/2026-11-25-shepherd7.md): та же модель Meshy 1 в 1 «в гипсе» (серый вид оригинала), основа под кальки и обводку руками; данные — общие с видом Овчарки 5
-FIGURES.shepherd7_orig={name:'Овчарка 7 — оригинал',plaster:true,view:'shepherd5',orig:'shepherd5',need:'orig-shepherd5'};
+/* ---------- Оригинал для обводки (#175, план docs/superpowers/plans/2026-11-25-shepherd7-workshop.md): ow — ключ в ORIG; рабочая фигура без расчёта, в гипсе (js/owork.js) ----------
+   Овчарка 7 — модель Meshy 1 в 1 (158 336 треугольников), данные общие с видом Овчарки 5. Для другой модели — такая же строка + js/orig-<id>.js + <option> в index.html */
+FIGURES.shepherd7_orig={name:'Овчарка 7 — оригинал',ow:'shepherd5',need:'orig-shepherd5'};
 LAZY['orig-shepherd5']={ok:()=>typeof ORIG!=='undefined'&&!!ORIG.shepherd5,wait:null};

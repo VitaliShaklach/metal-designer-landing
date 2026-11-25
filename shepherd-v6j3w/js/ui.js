@@ -77,12 +77,12 @@ function compute0(){const b=ST.base;let S=b;
 function mergeFlat(M3){const G=dissolve(M3,ST.diss,Math.max(ST.dims.W,ST.dims.H,ST.dims.D)*.01),open=openVerts(G);
   const V=planarize(G.V,G.P,(i,q)=>{if(open.has(i)&&Math.abs(G.V[i][2])<.5)q[2]=0;return q;},400);return fitMesh(polyMesh(V,G.P),ST.dims);}
 
-function renderAll(fit){if(!CUR||ST.orig)return;   // под оригиналом (вид) рабочая фигура стоит как была, сцену не трогаем
+function renderAll(fit){if(OW.on){owRender();return;}if(!CUR||ST.orig)return;   // оригинал для обводки (#175) — своя сцена, без расчёта   // под оригиналом (вид) рабочая фигура стоит как была, сцену не трогаем
   if(pierceOn()&&!CUR.pierce)CUR.pierce=pierceOf(ST.base);const ed=ST.edit&&isPoly(),T=ST.base.T,tri=set=>{const o=new Set();if(T)T.forEach((pi,fi)=>{if(set.has(pi))o.add(fi);});return o;};
   build3D(CUR.M3,CUR.R,{...(typeof angBuildOpts==='function'?angBuildOpts():{}),sel:ST.sel,bent:CUR.bentKey&&CUR.bentKey.size?e=>e.p.length===2&&CUR.bentKey.has(bendKey(e.p[0],e.p[1])):null,grp:selBlank()>=0?new Set(CUR.BL[selBlank()].parts):null,small:ST.small?CUR.small:null,nums:ST.nums&&!ed,mat:ST.mat,edges:!ed||ST.layers.edges,verts:ed&&vertsShown(),sv:ST.sv,hi:ed&&ST.sp>=0?tri(new Set([ST.sp,ST.sp2])):null,warn:isPoly()?tri(CUR.bad):null,blue:ed&&CUR.selfx?tri(CUR.selfx):null,pierce:pierceOn()&&CUR.pierce?tri(CUR.pierce):null,mark:ed&&ST.seam?ST.seam:null,tex:traceTex(),tlines:traceSeg(),markup:ed?mkDraw():null,plaster:!!(FIGURES[ST.verBase]||{}).plaster,diff:ed&&traceOn()&&ST.layers.diff?TRC.diff:null,backs:CUR.R.parts.filter(p=>p.back).map(p=>p.full.map(i=>V3.sub(CUR.M3.V[i],V3.mul(p.n,BACK_DEPTH))))});edUI();mkUI();layersUI();traceUI();if(fit)fitBox(meshBox(CUR.M3.V),fit==='instant');
   stats();sizeUI();facesUI();selUI();partsTable();sumTable();sheetsUI();$('ttl').textContent=ST.name||'Фигура';label3D();if(typeof angAfter==='function')angAfter();}
 // 3D-окно для читалок экрана: название, детали, габарит — меняется вместе с фигурой и названием
-function label3D(){if(!ok||!CUR)return;const n=CUR.R.parts.length,b=meshBox(CUR.M3.V).size,pc=CUR.BL&&CUR.BL.length?CUR.PC.length:0;
+function label3D(){if(!ok||!CUR||OW.on)return;const n=CUR.R.parts.length,b=meshBox(CUR.M3.V).size,pc=CUR.BL&&CUR.BL.length?CUR.PC.length:0;
   renderer.domElement.setAttribute('aria-label',`3D-модель «${ST.name||'Фигура'}»: ${n} ${plural(n,'деталь','детали','деталей')}${pc?`, ${pc} ${plural(pc,'позиция','позиции','позиций')} на резку`:''}, ${Math.round(b[0])} × ${Math.round(b[1])} × ${Math.round(b[2])} мм (Ш × В × Г)`);}
 function stats(){const T=CUR.T,b=meshBox(CUR.M3.V).size;
   $('stats').innerHTML=[[`${Math.round(b[0])} × ${Math.round(b[1])} × ${Math.round(b[2])}`,'Ш × В × Г, мм'],CUR.BL&&CUR.BL.length?[`${T.n} → ${CUR.PC.length}`,`${plural(T.n,'деталь','детали','деталей')} → ${plural(CUR.PC.length,'позиция','позиции','позиций')} на резку (${CUR.BL.length} ${plural(CUR.BL.length,'гнутая','гнутые','гнутых')})`]:[`${T.n}`,plural(T.n,'деталь','детали','деталей')],[`≈ ${fmt(T.mass,1)} кг`,`${ST.t} мм, ${MATN[ST.mat]}`],[`${fmt(weldLen()/1000,1)} м`,'швов']]
@@ -188,11 +188,11 @@ function sumTable(){const T=CUR.T,[sl,sw]=sheetWL(),warn=[];
   $('sum').innerHTML='<tbody>'+rows.map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td></tr>`).join('')+'</tbody>';}
 
 /* ---------- загрузка фигур и файлов ---------- */
-function setBase(m,o={}){origLeave();ST.base=m;SIMP={key:'',m:null};ST.sel=-1;ST.selB=-1;ST.name=o.name||ST.name;$('mName').value=ST.name;
+function setBase(m,o={}){origLeave();owLeave();ST.base=m;SIMP={key:'',m:null};ST.sel=-1;ST.selB=-1;ST.name=o.name||ST.name;$('mName').value=ST.name;
   ST.faces=o.faces||(isDense()?250:m.F.length);if(o.dims)ST.dims=o.dims;else dimsFromH(o.H||600);ST.sv=ST.sp=-1;UNDO.length=REDO.length=0;ST.edit=false;$('cEdit').checked=false;if(m.P)setPolyDims();}
 // Доберманам 4–6 сначала нужен models.js (figureReady); выбрали другую фигуру, пока грузился, — его onload ничего не строит
 let FIG_WANT='';
-function loadFigure(id,after){FIG_WANT=id;if(FIGURES[id].view){loadOrig(id);return;}if(!figureReady(id,()=>{if(FIG_WANT===id)loadFigure(id,after);},()=>{if(FIG_WANT===id){loading(false);$('figSel').value=ST.fig||'';msg('Фигура не загрузилась — проверьте интернет и выберите её ещё раз');}})){loading(true,'Загружаю фигуру…');return;}
+function loadFigure(id,after){FIG_WANT=id;if(FIGURES[id].view){loadOrig(id);return;}if(FIGURES[id].ow){owLoad(id,after);return;}if(!figureReady(id,()=>{if(FIG_WANT===id)loadFigure(id,after);},()=>{if(FIG_WANT===id){loading(false);$('figSel').value=ST.fig||'';msg('Фигура не загрузилась — проверьте интернет и выберите её ещё раз');}})){loading(true,'Загружаю фигуру…');return;}
   later(()=>{const f=FIGURES[id];ST.fig=id;ST.verBase=id;ST.ver=0;ST.refId=f.ref||'';const htr=/trace=([a-z0-9_]+)/.exec(location.hash);ST.tref=htr?htr[1]:'';ST.frame=f.frame?{min:f.frame[0],max:f.frame[1]}:null;setBase(figureMesh(id,12),{name:f.name,faces:f.faces,H:f.H});const hn=/faces=(\d+)/.exec(location.hash),hd=/diss=(\d+)/.exec(location.hash);if(hn)ST.faces=+hn[1];if(hd)ST.diss=+hd[1];if(/edit/.test(location.hash)){ST.edit=true;$('cEdit').checked=true;}if(/trace/.test(location.hash)&&ST.refId)ST.traceUrl=true;if(ST.refId&&trOn())traceLoadFor(traceId());compute();renderAll('instant');store('shepherd-fig',id);msg('');const hv=/v=([a-z]+)/.exec(location.hash);if(hv)viewDir(hv[1],meshBox(CUR.M3.V),/og/.test(location.hash));if(after)after();},'Строю фигуру…');}
 // файл фигуры .json (и версия из браузера — тот же JSON) → сетка и настройки
 function figFromJSON(j,name){if(j.type!=='md-art')throw new Error('это не файл фигуры');ST.weld='mig';/* старые файлы без weld — полуавтомат, зазор из файла */const m=j.P?polyBase(j.V,j.P,j.S,Array.isArray(j.H)?j.H:[]):{V:j.V,F:j.F},o={name:j.name||name,dims:j.dims,faces:j.F.length,ref:j.ref,frame:j.frame};
@@ -221,13 +221,12 @@ function loadOrig(id){FIG_WANT=id;const f=FIGURES[id],run=()=>{if(CUR&&ST.verBas
   run();}
 function origEnter(id){const f=FIGURES[id],box=meshBox(CUR.M3.V),k=camKeep(box),back=ST.ver?'ver:'+ST.verBase+':'+ST.ver:ST.verBase,w=FIGURES[f.view].name;
   if('tool' in ST)ST.tool='';if(typeof mkCtl==='function')mkCtl();   // инструмент разметки выключается, сама разметка не трогается
-  if(f.plaster)$('cOrigTex').checked=false;   // plaster (#174) — открывается «в гипсе», без текстуры; галочкой можно включить
   ST.orig={id,tex:$('cOrigTex').checked,back};document.body.classList.add('origview');$('origBox').hidden=false;$('bSave').disabled=true;
   origShow(f.orig,ST.orig.tex);camRestore(k,box);$('figSel').value=id;$('ttl').textContent=f.name;
   $('origNote').textContent='Это вид оригинала. Для расчёта выберите «'+w+'»';$('hint').textContent='Оригинал (вид): левая кнопка — крутить, колесо — масштаб, правая — сдвиг · галочка «Текстура» — швы или серый';msg('Это вид оригинала. Для расчёта выберите «'+w+'»');}
 function origLeave(){if(!ST.orig)return;origDispose();ST.orig=null;document.body.classList.remove('origview');$('origBox').hidden=true;$('bSave').disabled=false;}
 function origReturn(){const box=meshBox(CUR.M3.V),k=camKeep(box);$('figSel').value=ST.orig.back;origLeave();later(()=>{renderAll();camRestore(k,box);msg('');},'Возвращаю фигуру…');}
-$('cOrigTex').addEventListener('change',e=>{if(!ST.orig)return;ST.orig.tex=e.target.checked;origTex(ST.orig.tex);});
+$('cOrigTex').addEventListener('change',e=>{if(OW.on){owRender();return;}if(!ST.orig)return;ST.orig.tex=e.target.checked;origTex(ST.orig.tex);});
 /* ---------- версии фигуры в браузере (#148): «Сохранить» кладёт версию в память браузера и скачивает .json ---------- */
 const VSTO={get:k=>localStorage.getItem(k),set:(k,v)=>localStorage.setItem(k,v)},verName=(b,n)=>((FIGURES[b]||{}).name||b)+'.'+n;   // нет памяти — бросает, verPut/verList это ловят
 function verOptions(){const sel=$('figSel');sel.querySelectorAll('option[data-ver]').forEach(o=>o.remove());
@@ -298,8 +297,10 @@ $('parts').addEventListener('click',e=>{const tb=e.target.closest('tr[data-b]'),
   else{ST.sel=+tr.dataset.p;ST.selB=-1;renderAll();focusPart(CUR.R.parts[ST.sel],meshBox(CUR.M3.V));showSel();return;}
   $('controls').querySelector('[data-g="view"]').classList.remove('shut');});
 $('partsVw').addEventListener('click',e=>{const b=e.target.closest('[data-vw]');if(!b)return;ST.allParts=b.dataset.vw==='parts';partsTable();});
-document.querySelectorAll('.vbar [data-v]').forEach(b=>b.addEventListener('click',()=>CUR&&viewDir(b.dataset.v,meshBox(CUR.M3.V))));
-$('bFit').addEventListener('click',()=>CUR&&fitBox(meshBox(CUR.M3.V)));
+// габарит того, что на сцене: оригинал для обводки (#175) или рабочая фигура
+const figBox=()=>OW.on?OW.box:CUR?meshBox(CUR.M3.V):null;
+document.querySelectorAll('.vbar [data-v]').forEach(b=>b.addEventListener('click',()=>{const bx=figBox();if(bx)viewDir(b.dataset.v,bx);}));
+$('bFit').addEventListener('click',()=>{const bx=figBox();if(bx)fitBox(bx);});
 // вкладки и группы панели
 const TABS=[...document.querySelectorAll('.tabbar button')];
 function showTab(k){TABS.forEach(b=>{const on=b.dataset.tab===k;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;$('tab-'+b.dataset.tab).hidden=!on;});store('art-tab',k);if(k==='sum'&&CUR)sumTable();}
@@ -402,7 +403,7 @@ function edUI(){const on=ST.edit&&isPoly();$('hint').textContent=on?(ST.seam?'П
   $('edOps').querySelector('[data-op=merge]').classList.toggle('off',!(ST.sp>=0&&ST.sp2>=0&&polysAdjacent(B,ST.sp,ST.sp2)));$('edOps').querySelector('[data-op=cut]').classList.toggle('on',!!ST.seam);
   const n=CUR&&CUR.bad?CUR.bad.size:0,nx=CUR&&CUR.selfx?CUR.selfx.size:0,nw=CUR&&CUR.small?CUR.small.size:0,np=CUR&&CUR.pierce?CUR.pierce.size:0;$('edPlan').className='note'+(n||nx||nw||np?' warn':'');$('edPlan').textContent=(np?`${np} ${plural(np,'грань протыкает','грани протыкают','граней протыкают')} другие — фиолетовые: детали прошли бы друг сквозь друга, отодвиньте точки. `:'')+(nx?`Самопересекающихся граней: ${nx} — синие, разрежьте их «Провести шов». `:'')+(nw?`Узких деталей: ${nw} — красные. `:'')+(n?`Неплоских граней: ${n} — подсвечены жёлтым. Плоский лист так не согнёшь: выровняйте (точки сдвинутся на миллиметры) или разбейте на треугольники`:'Все грани плоские — каждая режется одним куском');
   ['bFlat','bTri'].forEach(id=>$(id).classList.toggle('off',!n));$('bUndo').classList.toggle('off',!UNDO.length);$('bRedo').classList.toggle('off',!REDO.length);}
-$('cEdit').addEventListener('change',e=>{ST.edit=e.target.checked;if(ST.edit&&CUR){toPoly();compute();}if(ST.edit&&ST.refId&&trOn())traceLoadFor(traceId());renderAll();});
+$('cEdit').addEventListener('change',e=>{ST.edit=e.target.checked;if(OW.on){renderAll();return;}if(ST.edit&&CUR){toPoly();compute();}if(ST.edit&&ST.refId&&trOn())traceLoadFor(traceId());renderAll();});
 $('cSym').addEventListener('change',e=>{ST.sym=e.target.checked;if(ST.mk.length||ST.mkCur)renderAll();});   // зеркальная разметка видна сразу
 $('edSel').addEventListener('change',e=>{if(ST.sv<0||!['vX','vY','vZ'].includes(e.target.id))return;pushUndo();const e2={V:ST.base.V.map(p=>p.slice()),P:ST.base.P};
   moveVert(e2,ST.sv,[+$('vX').value,+$('vY').value,+$('vZ').value],ST.sym);applyE(e2,true);});
@@ -417,7 +418,7 @@ $('bUndo').addEventListener('click',undo);$('bRedo').addEventListener('click',re
 $('bBlank').addEventListener('click',()=>{const k=$('blank').value,b=k==='box'?blankBox():blankSphere();ST.fig='';$('figSel').value='';
   ST.verBase='';ST.ver=0;const m=polyBase(b.V,b.P),s=meshBox(m.V).size;setBase(m,{name:k==='box'?'Заготовка — куб':'Заготовка — шар',dims:{W:Math.round(s[0]),H:Math.round(s[1]),D:Math.round(s[2])}});
   ST.edit=true;$('cEdit').checked=true;compute();renderAll('instant');});
-addEventListener('keydown',e=>{if(!ST.edit||ST.orig||/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;const k=e.key.toLowerCase();
+addEventListener('keydown',e=>{if(!ST.edit||ST.orig||OW.on||/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;const k=e.key.toLowerCase();
   if((e.ctrlKey||e.metaKey)&&(k==='z'||k==='я')&&!e.shiftKey){e.preventDefault();undo();}else if((e.ctrlKey||e.metaKey)&&(k==='y'||k==='н'||k==='z'&&e.shiftKey)){e.preventDefault();redo();}
   else if(k==='delete'&&ST.sp>=0){pushUndo();applyE(delPoly(E(),ST.sp,ST.sym));}
   else if(k==='escape'&&ST.seam){ST.seam=null;renderAll();}});
@@ -504,17 +505,18 @@ $('traceSel').addEventListener('change',e=>{ST.tref=e.target.value;if(trOn()&&ST
 
 // клик по грани — выбрать деталь; в редакторе — точку или грань, точку можно тянуть
 (()=>{if(!ok)return;const cv=renderer.domElement,tag=$('hovTag');let down=null,drag=null,raf=0,pen=null;
-  cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};
+  cv.addEventListener('pointerdown',e=>{if(OW.on){down=null;return;}   // оригинал для обводки (#175): деталей и точек нет — клик ничего не выбирает
+    down={x:e.clientX,y:e.clientY};
     if(ST.tool==='pen'&&e.button===0&&ST.edit&&!ST.orig&&isPoly()&&CUR){down=null;const h=pickHit(e);if(h){pen={raw:[h]};cv.setPointerCapture(e.pointerId);}return;}   // карандаш (#151)if(e.button!==0||!ST.edit||ST.orig||!isPoly()||!CUR||ST.tool)return;
     const v=vertsShown()?pickVert(e,ST.base.V):-1;if(v<0)return;if(ST.seam){if(ST.sp>=0&&ST.base.P[ST.sp].includes(v)){down=null;addCut(v);}return;}ST.sv=v;ST.sp=-1;ST.sel=-1;drag={v,snap:snapE(),moved:false};ST.drag=true;controls.enabled=false;cv.setPointerCapture(e.pointerId);renderAll();});
   cv.addEventListener('pointermove',e=>{if(pen){const h=pickHit(e),q=pen.raw[pen.raw.length-1];if(h&&Math.hypot(h[0]-q[0],h[1]-q[1],h[2]-q[2])>=.3){pen.raw.push(h);mkPreview(pen.raw);}return;}
     if(drag){const p=dragPoint(e,ST.base.V[drag.v]);if(!p)return;drag.moved=true;tag.hidden=true;if(raf)return;
       raf=requestAnimationFrame(()=>{raf=0;if(!drag)return;const e2={V:ST.base.V.map(q=>q.slice()),P:ST.base.P,S:ST.base.S||[]};moveVert(e2,drag.v,dragPoint(e,ST.base.V[drag.v])||p,ST.sym);applyE(e2,true);});return;}
-    if(!CUR||e.buttons){tag.hidden=true;return;}const t=pickTri(e);if(t<0){tag.hidden=true;return;}const p=CUR.R.parts[CUR.R.partOf[t]],r=stage.getBoundingClientRect();
+    if(!CUR||e.buttons||OW.on){tag.hidden=true;return;}const t=pickTri(e);if(t<0){tag.hidden=true;return;}const p=CUR.R.parts[CUR.R.partOf[t]],r=stage.getBoundingClientRect();
     tag.textContent=`№ ${p.no} · ${Math.round(p.L)} × ${Math.round(p.W)} мм`;tag.style.left=(e.clientX-r.left)+'px';tag.style.top=(e.clientY-r.top)+'px';tag.hidden=false;});
   cv.addEventListener('pointerup',e=>{if(pen){const raw=pen.raw;pen=null;mkPreview([]);if(raw.length>=3){ST.mk.push(mkPen(raw,traceOn()?TRC.seg:null,ST.magnet));mkStore();}renderAll();return;}
     if(drag){const d=drag;drag=null;ST.drag=false;controls.enabled=true;if(d.moved){UNDO.push(d.snap);REDO.length=0;renderAll();}down=null;return;}
-    if(!down||!CUR||ST.orig)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>5||e.button!==0)return;
+    if(!down||!CUR||ST.orig||OW.on)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>5||e.button!==0)return;
     if(ST.tool&&ST.edit&&isPoly()){mkClick(e);return;}   // разметка (#150)
     const t=pickTri(e),pi=t>=0?CUR.R.partOf[t]:-1;
     if(ST.edit&&isPoly()){const fp=t>=0?ST.base.T[t]:-1;
