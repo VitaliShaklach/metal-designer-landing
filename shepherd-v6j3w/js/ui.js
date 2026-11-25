@@ -221,6 +221,7 @@ function loadOrig(id){FIG_WANT=id;const f=FIGURES[id],run=()=>{if(CUR&&ST.verBas
   run();}
 function origEnter(id){const f=FIGURES[id],box=meshBox(CUR.M3.V),k=camKeep(box),back=ST.ver?'ver:'+ST.verBase+':'+ST.ver:ST.verBase,w=FIGURES[f.view].name;
   if('tool' in ST)ST.tool='';if(typeof mkCtl==='function')mkCtl();   // инструмент разметки выключается, сама разметка не трогается
+  if(f.plaster)$('cOrigTex').checked=false;   // plaster (#174) — открывается «в гипсе», без текстуры; галочкой можно включить
   ST.orig={id,tex:$('cOrigTex').checked,back};document.body.classList.add('origview');$('origBox').hidden=false;$('bSave').disabled=true;
   origShow(f.orig,ST.orig.tex);camRestore(k,box);$('figSel').value=id;$('ttl').textContent=f.name;
   $('origNote').textContent='Это вид оригинала. Для расчёта выберите «'+w+'»';$('hint').textContent='Оригинал (вид): левая кнопка — крутить, колесо — масштаб, правая — сдвиг · галочка «Текстура» — швы или серый';msg('Это вид оригинала. Для расчёта выберите «'+w+'»');}
