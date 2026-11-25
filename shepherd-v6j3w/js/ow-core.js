@@ -35,3 +35,61 @@ function owRay(G,o,d){const {V,F,min,max,n,cs,start,list,stamp}=G;let t0=0,t1=In
     const k=tm[0]<tm[1]?(tm[0]<tm[2]?0:2):(tm[1]<tm[2]?1:2);
     if(best&&best.t<=tm[k])return best;   // ближе выхода из клетки — дальше клетки ничего ближе не дадут
     if(tm[k]>t1)return best;i[k]+=st[k];if(i[k]<0||i[k]>=n[k])return best;tm[k]+=td[k];}}
+/* ---------- #176 разметка на оригинале: перо, свободные концы ---------- */
+// перо соскочило за край силуэта (луч ушёл в ухо за мордой): соседние точки дальше gap мм — штрих рвётся на куски, а не тянется хордой через воздух
+const OW_GAP=20;   // мм: дальше — перо соскочило (спека, Review Focus 2)
+function owSplit(raw,gap=OW_GAP){const out=[];let cur=[];
+  for(const p of raw){const q=cur[cur.length-1];if(q&&Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2])>gap){out.push(cur);cur=[];}cur.push(p);}
+  if(cur.length)out.push(cur);return out;}
+/* свободные концы (красные точки): концы открытых линий (line, pen), у которых ни один отрезок другой линии не ближе eps мм (порог — как у замкнутости пера, mkClosed);
+   своя линия прицепляет, только если подошла к концу дальней частью (дальше 3·eps по линии) — петля «6», а не соседние точки. Зачёркивания (cross) не считаются ни концами, ни целью.
+   Концы — в хеш по клеткам C мм; каждый отрезок смотрит только клетки своего габарита (+eps) — 1000 линий × 500 точек без перебора всех пар. → [[x,y,z],…] */
+function owFreeEnds(mk,eps=6){const L=mk.filter(s=>(s.k==='line'||s.k==='pen')&&s.pts.length),far=3*eps,e2=eps*eps,C=Math.max(4*eps,24),iC=1/C;
+  // все точки — в один Float64Array (X), длина по линии до каждой точки — в A: дальше циклы по числам, без массивов-точек
+  let np=0;const S=new Int32Array(L.length+1);L.forEach((s,i)=>{S[i]=np;np+=s.pts.length;});S[L.length]=np;
+  const X=new Float64Array(np*3),A=new Float64Array(np);
+  L.forEach((s,i)=>s.pts.forEach((p,j)=>{const o=(S[i]+j)*3;X[o]=p[0];X[o+1]=p[1];X[o+2]=p[2];if(j){const u=X[o]-X[o-3],v=X[o+1]-X[o-2],w=X[o+2]-X[o-1];A[S[i]+j]=A[S[i]+j-1]+Math.sqrt(u*u+v*v+w*w);}}));
+  // концы: точка (индекс в X), линия, первый ли, длина линии
+  const EP=[],ES=[],EF=[],EL=[];L.forEach((s,i)=>{if(s.closed)return;const a=S[i],b=S[i+1]-1;EP.push(a,b);ES.push(i,i);EF.push(1,0);EL.push(A[b],A[b]);});
+  const ne=EP.length;if(!ne)return [];const on=new Uint8Array(ne);
+  const H=new Map(),key=(x,y,z)=>((x&1023)*1024+(y&1023))*1024+(z&1023);   // ключ — малое целое (быстрый Map); клетки дальше 1024 по оси сливаются — лишний кандидат, расстояние всё равно проверяется
+  const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
+  for(let k=0;k<ne;k++){const o=EP[k]*3;for(let d=0;d<3;d++){lo[d]=Math.min(lo[d],X[o+d]-eps);hi[d]=Math.max(hi[d],X[o+d]+eps);}
+    const q=key(Math.floor(X[o]*iC),Math.floor(X[o+1]*iC),Math.floor(X[o+2]*iC));let b=H.get(q);if(!b)H.set(q,b=[]);b.push(k);}
+  // отрезок ia–ib линии i (длина по линии a0…a1) прицепляет конец k, если ближе eps; своя линия — только дальней частью
+  const test=(k,ia,ib,i,a0,a1)=>{if(on[k]||ES[k]===i&&(EF[k]?a0<=far:EL[k]-a1<=far))return;const o=EP[k]*3,px=X[o],py=X[o+1],pz=X[o+2],ax=X[ia],ay=X[ia+1],az=X[ia+2],
+      ux=X[ib]-ax,uy=X[ib+1]-ay,uz=X[ib+2]-az,l2=ux*ux+uy*uy+uz*uz,t=l2?Math.max(0,Math.min(1,((px-ax)*ux+(py-ay)*uy+(pz-az)*uz)/l2)):0,dx=ax+ux*t-px,dy=ay+uy*t-py,dz=az+uz*t-pz;
+    if(dx*dx+dy*dy+dz*dz<=e2)on[k]=1;};
+  for(let i=0;i<L.length;i++){const s0=S[i],n=S[i+1]-s0,m=L[i].closed?n:Math.max(1,n-1);
+    for(let j=0;j<m;j++){const ia=(s0+j)*3,ib=(s0+(j+1)%n)*3,a0=A[s0+j],a1=j+1<n?A[s0+j+1]:a0+Math.sqrt((X[ib]-X[ia])**2+(X[ib+1]-X[ia+1])**2+(X[ib+2]-X[ia+2])**2);
+      const x0=Math.min(X[ia],X[ib])-eps,x1=Math.max(X[ia],X[ib])+eps,y0=Math.min(X[ia+1],X[ib+1])-eps,y1=Math.max(X[ia+1],X[ib+1])+eps,z0=Math.min(X[ia+2],X[ib+2])-eps,z1=Math.max(X[ia+2],X[ib+2])+eps;
+      if(x0>hi[0]||y0>hi[1]||z0>hi[2]||x1<lo[0]||y1<lo[1]||z1<lo[2])continue;   // рядом ни одного конца
+      const cx0=Math.floor(x0*iC),cx1=Math.floor(x1*iC),cy0=Math.floor(y0*iC),cy1=Math.floor(y1*iC),cz0=Math.floor(z0*iC),cz1=Math.floor(z1*iC);
+      if((cx1-cx0+1)*(cy1-cy0+1)*(cz1-cz0+1)>ne){for(let k=0;k<ne;k++)test(k,ia,ib,i,a0,a1);continue;}   // длинный отрезок через много клеток — проще все концы
+      for(let x=cx0;x<=cx1;x++)for(let y=cy0;y<=cy1;y++)for(let z=cz0;z<=cz1;z++){const B=H.get(key(x,y,z));if(B)for(let q=0;q<B.length;q++)test(B[q],ia,ib,i,a0,a1);}}}
+  const out=[];for(let k=0;k<ne;k++)if(!on[k]){const o=EP[k]*3;out.push([X[o],X[o+1],X[o+2]]);}return out;}
+/* ближайшая точка модели к p в радиусе r мм — по той же сетке клеток, что луч (owGrid), ближайшая точка треугольника — tlClosest (tlines.js).
+   → {p:[x,y,z], n — нормаль грани (по обходу треугольника: у модели Meshy наружу — она замкнута, обход согласован), d — расстояние, tri} или null */
+function owNear(G,p,r){const {V,F,min,n,cs,start,list,stamp}=G,lo=[0,0,0],hi=[0,0,0];
+  for(let k=0;k<3;k++){lo[k]=Math.max(0,Math.floor((p[k]-r-min[k])/cs[k]));hi[k]=Math.min(n[k]-1,Math.floor((p[k]+r-min[k])/cs[k]));if(lo[k]>hi[k])return null;}
+  if(++G.mark>=0xffffffff){stamp.fill(0);G.mark=1;}const mark=G.mark;let best=null,bt=-1,bd=r*r;
+  for(let z=lo[2];z<=hi[2];z++)for(let y=lo[1];y<=hi[1];y++)for(let x=lo[0];x<=hi[0];x++){const ci=(z*n[1]+y)*n[0]+x;
+    for(let j=start[ci];j<start[ci+1];j++){const t=list[j];if(stamp[t]===mark)continue;stamp[t]=mark;const a=F[t*3]*3,b=F[t*3+1]*3,c=F[t*3+2]*3,R=Math.sqrt(bd);
+      if(Math.min(V[a],V[b],V[c])>p[0]+R||Math.max(V[a],V[b],V[c])<p[0]-R||Math.min(V[a+1],V[b+1],V[c+1])>p[1]+R||Math.max(V[a+1],V[b+1],V[c+1])<p[1]-R||Math.min(V[a+2],V[b+2],V[c+2])>p[2]+R||Math.max(V[a+2],V[b+2],V[c+2])<p[2]-R)continue;
+      const q=tlClosest(p,[V[a],V[a+1],V[a+2]],[V[b],V[b+1],V[b+2]],[V[c],V[c+1],V[c+2]]),d=(q[0]-p[0])**2+(q[1]-p[1])**2+(q[2]-p[2])**2;if(d<bd){bd=d;best=q;bt=t;}}}
+  if(!best)return null;const a=F[bt*3]*3,b=F[bt*3+1]*3,c=F[bt*3+2]*3,u=[V[b]-V[a],V[b+1]-V[a+1],V[b+2]-V[a+2]],w=[V[c]-V[a],V[c+1]-V[a+1],V[c+2]-V[a+2]],
+    nn=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]],l=Math.hypot(nn[0],nn[1],nn[2])||1;
+  return {p:[best[0],best[1],best[2]],n:[nn[0]/l,nn[1]/l,nn[2]/l],d:Math.sqrt(bd),tri:bt};}
+/* штрихи → отрезки по поверхности модели (как mkDrape у плит, но по сетке owGrid — на 158 тыс. треугольников без перебора): между точками штриха — через TL_STEP мм,
+   каждая — на ближайшую точку модели (сначала в 8 мм, хорда линии по кликам может уйти глубже — до 40), подъём TL_LIFT мм по нормали наружу; не легла — разрыв.
+   Соседние точки на модели дальше 4·TL_STEP — легли на разные поверхности (хорда через ухо, щель): отрезок между ними не рисуем, а не тянем через воздух.
+   → Float32Array отрезков (пары точек) и .nrm — нормаль под каждой точкой (для отсечения обратной стороны, как калька #169) */
+function owDrape(G,list){const seg=[],nrm=[];
+  const on=q=>{const h=owNear(G,q,8)||owNear(G,q,40);if(!h)return null;const r=h.p.map((x,k)=>x+h.n[k]*TL_LIFT);r.n=h.n;return r;};
+  for(const s of list){const P=s.closed?[...s.pts,s.pts[0]]:s.pts;if(P.length<2)continue;let prev=null;
+    for(let j=0;j+1<P.length;j++){const A=P[j],B=P[j+1],m=Math.max(1,Math.ceil(Math.hypot(B[0]-A[0],B[1]-A[1],B[2]-A[2])/TL_STEP));
+      for(let k=j?1:0;k<=m;k++){const q=on([A[0]+(B[0]-A[0])*k/m,A[1]+(B[1]-A[1])*k/m,A[2]+(B[2]-A[2])*k/m]);if(q&&prev&&Math.hypot(q[0]-prev[0],q[1]-prev[1],q[2]-prev[2])<=4*TL_STEP){seg.push(...prev,...q);nrm.push(...prev.n,...q.n);}prev=q;}}}
+  const out=new Float32Array(seg);out.nrm=new Float32Array(nrm);return out;}
+/* путь пера на оригинале: точки руки (owPick, уже на модели) → куски по скачкам (owSplit) → каждый кусок из ≥ 3 точек — mkPen (сглаживание, магнит к seg, замкнутость),
+   сглаженные точки — обратно на поверхность (хорды сглаживания срезают выпуклость). → штрихи {k:'pen', pts, closed?} */
+function owStrokes(raw,G,seg,magnet){return owSplit(raw).filter(q=>q.length>=3).map(q=>{const s=mkPen(q,seg,magnet);s.pts=s.pts.map(p=>{const h=owNear(G,p,20);return h?h.p:p;});return s;});}

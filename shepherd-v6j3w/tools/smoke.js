@@ -638,7 +638,13 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
       'Овчарка 7 (#175): в режиме renderAll рисует только owRender (без compute, цифр и таблиц), выбор фигуры с ow открывает режим, любая другая фигура выходит из него (setBase → owLeave)');
     ok(at('orig')>0&&at('ow-core')>at('orig')&&at('owork')>at('ow-core')&&at('ui')>at('owork'),'Овчарка 7 (#175): ow-core.js и owork.js подключены после orig.js и до ui.js');
     ok(['#stats','.angbtn','section.tabs','[data-g="size"]','[data-g="faces"]','[data-g="metal"]','[data-g="perf"]','[data-g="view"]'].every(s=>owRule.includes(s))&&!/body\.owview[^{,]*\[data-g="edit"\]/.test(owRule)&&OWJ.includes('OW_PLASTER=0xb8b0a4')&&OWJ.includes('owRay(OW.G,'),
-      'Овчарка 7 (#175): body.owview прячет цифры, «Углы», вкладки, панели размера, граней, металла, перфорации и вида (не «Редактор»); гипс 0xb8b0a4; точка под курсором — луч по сетке');}
+      'Овчарка 7 (#175): body.owview прячет цифры, «Углы», вкладки, панели размера, граней, металла, перфорации и вида (не «Редактор»); гипс 0xb8b0a4; точка под курсором — луч по сетке');
+    // #176: разметка в режиме — перо, линия, зачёркивание через owPick; зелёные штрихи, красные концы; «Нарезать» скрыта; «Сохранить» — только разметка; файл режима открывается обратно
+    ok(UI.includes('const on=ST.edit&&(OW.on||isPoly()&&!ST.orig)')&&/body\.owview #bMkApply/.test(owRule)&&UI.includes('owStrokes(raw,OW.G,owSnapSeg(),ST.magnet)')&&UI.includes('owSurf(mkSnap(h,owSnapSeg(),ST.magnet))')
+      &&OWJ.includes('OW_PEN=0x22d65a')&&OWJ.includes('OW_FREE=0xd01f1f')&&OWJ.includes('owFreeEnds(')&&OWJ.includes('owDrape(OW.G,')&&!/bSave'\)\.disabled=true/.test(OWJ),
+      'Овчарка 7 (#176): разметка в режиме — инструменты при «Править фигуру», перо по owPick с разрывом и магнитом к своим линиям, штрихи 0x22d65a, свободные концы 0xd01f1f, «Нарезать» скрыта, «Сохранить» включено');
+    ok(OWJ.includes("{type:'md-art',v:1,ow:{src:OW.src,id:OW.id,name:OW.name},name:ST.name,mk:")&&UI.includes('if(OW.on)return owJSON();')&&UI.includes('if(j.ow){setTimeout(()=>owFromJSON(j));return;}')&&UI.includes('if(j.ow){owVersion(j,base,+n);return;}'),
+      'Овчарка 7 (#176): «Сохранить» в режиме — файл только с разметкой (ow, name, mk — без V/F/P); .json и версия с ow открываются обратно в режим');}
   ok(fs.existsSync(OF)&&fs.statSync(OF).size<=10*1048576&&fs.existsSync(IM)&&fs.statSync(IM).size<=10*1048576&&!HT.includes('orig-shepherd5'),'оригинал: файл данных и текстура есть, каждый ≤ 10 МБ ('+(fs.statSync(OF).size/1048576).toFixed(1)+' и '+(fs.statSync(IM).size/1048576).toFixed(1)+'), на странице не подключены до выбора');
   const oc={console,Math,Buffer,atob:globalThis.atob,window:null};oc.window=oc;vm.createContext(oc);vm.runInContext(fs.readFileSync(P+'orig.js','utf8')+'\n;\n'+fs.readFileSync(P+'mesh.js','utf8')+'\n;\n'+fs.readFileSync(OF,'utf8'),oc);
   const O=vm.runInContext(`(()=>{const r=ORIG.shepherd5,D=origDecode(r),n=D.V.length/3;let mx=0;for(const i of D.F)if(i>mx)mx=i;const pts=[];for(let i=0;i<D.V.length;i+=3)pts.push([D.V[i],D.V[i+1],D.V[i+2]]);
@@ -650,6 +656,16 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
   {vm.runInContext(fs.readFileSync(P+'ow-core.js','utf8'),oc);const R=vm.runInContext(`(()=>{const D=origDecode(ORIG.shepherd5);let t=Date.now();const G=owGrid(D.V,D.F),tg=Date.now()-t;let s=1,hit=0,front=0;const rnd=()=>(s=(s*16807)%2147483647)/2147483647,O=[600,860,2500];
       t=Date.now();for(let i=0;i<100;i++){const q=[(rnd()-.5)*200,1018*(.7+rnd()*.25),1177*.8],d=q.map((x,k)=>x-O[k]),l=Math.hypot(...d),h=owRay(G,O,d.map(x=>x/l));if(h){hit++;if(O[2]+d[2]/l*h.t>700)front++;}}return {tg,ms:(Date.now()-t)/100,hit,front};})()`,oc);
     ok(R.hit>=70&&R.front===R.hit&&R.ms<=4,`Овчарка 7 (#175): луч по сетке — ${R.hit} из 100 в морду (все спереди, z > 700), ${R.ms.toFixed(2)} мс на луч (≤ 4), сетка — ${R.tg} мс`);}
+  // #176: перо по морде Овчарки 7 — точки руки (лучи по сетке, как owPick) → owStrokes → каждая точка штриха ≤ 1 мм от модели; расстояние — перебором треугольников (не той же сеткой)
+  {['tlines','markup'].forEach(f=>vm.runInContext(fs.readFileSync(P+f+'.js','utf8'),oc));   // ow-core.js уже в oc (блок #175 выше)
+    const R=vm.runInContext(`(()=>{const D=origDecode(ORIG.shepherd5),G=owGrid(D.V,D.F),O=[600,860,2500],raw=[];
+      for(let i=0;i<=120;i++){const q=[-60+i,1018*.83+Math.sin(i/7)*25,1177*.8],d=q.map((x,k)=>x-O[k]),l=Math.hypot(...d),h=owRay(G,O,d.map(x=>x/l));if(h)raw.push(O.map((x,k)=>x+d[k]/l*h.t));}
+      const t=Date.now(),S=owStrokes(raw,G,null,true);return {raw:raw.length,S,ms:Date.now()-t,V:D.V,F:D.F};})()`,oc);
+    // перебор — здесь, а не в песочнице vm (там Math.* медленный): габарит треугольника ±2 мм, ближайшая точка — tlClosest
+    const {V,F}=R;let worst=0;R.n=0;R.strokes=R.S.length;R.S.forEach(s=>s.pts.forEach(p=>{R.n++;let bd=Infinity;for(let f=0;f<F.length;f+=3){const a=F[f]*3,b=F[f+1]*3,q=F[f+2]*3;
+      if(Math.min(V[a],V[b],V[q])>p[0]+2||Math.max(V[a],V[b],V[q])<p[0]-2||Math.min(V[a+1],V[b+1],V[q+1])>p[1]+2||Math.max(V[a+1],V[b+1],V[q+1])<p[1]-2||Math.min(V[a+2],V[b+2],V[q+2])>p[2]+2||Math.max(V[a+2],V[b+2],V[q+2])<p[2]-2)continue;
+      const c=oc.tlClosest(p,[V[a],V[a+1],V[a+2]],[V[b],V[b+1],V[b+2]],[V[q],V[q+1],V[q+2]]);bd=Math.min(bd,Math.hypot(c[0]-p[0],c[1]-p[1],c[2]-p[2]));}worst=Math.max(worst,bd);}));R.worst=worst;
+    ok(R.raw>=100&&R.strokes>=1&&R.n>=10&&R.worst<=1,`Овчарка 7 (#176): перо по морде — ${R.raw} точек руки → ${R.strokes} ${R.strokes===1?'штрих':'штриха'}, ${R.n} точек, дальше всех от модели ${R.worst.toFixed(3)} мм (≤ 1), ${R.ms} мс`);}
   // кадр один с фигурой (xf, как у кальки): по X и Z каждая сторона ±3 мм; по высоте оригинал выше — плиты срезали кончики ушей (Y: низ ≤ 5 мм, верх ≤ 20 мм)
   ok(dd[0].every(x=>x<=3)&&dd[2].every(x=>x<=3)&&dd[1][0]<=5&&dd[1][1]<=20,'оригинал: в кадре рабочей фигуры — по X и Z ±3 мм, по высоте верх выше на '+dd[1][1].toFixed(1)+' мм (кончики ушей)');
   // ракурс: направление и цель в долях высоты габарита; тот же кадр — та же камера, другой кадр — тот же угол, масштаб по высоте

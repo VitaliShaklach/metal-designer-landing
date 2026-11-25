@@ -24,9 +24,11 @@ let LBL=[];
 const TL_OVER=6;
 let TL_M=null;
 // transparent — рисуется в прозрачном проходе после линий граней и сгибов (иначе они затирают кальку там, где шов эталона идёт по ребру плиты), до разметки (renderOrder 3–5)
-function TL_MAT(){const free=!isFinite(TL_OVER);return TL_M||(TL_M=new THREE.ShaderMaterial({uniforms:{color:{value:new THREE.Color(0xffffff)},over:{value:free?0:TL_OVER}},depthTest:!free,depthWrite:false,transparent:true,
-  vertexShader:'attribute vec3 nrm;uniform float over;varying float vis;void main(){vec4 wp=modelMatrix*vec4(position,1.0);vec3 n=normalize(mat3(modelMatrix)*nrm),c=cameraPosition-wp.xyz;vis=dot(n,c)>0.0?1.0:0.0;wp.xyz+=normalize(c)*over;gl_Position=projectionMatrix*viewMatrix*wp;}',
-  fragmentShader:'uniform vec3 color;varying float vis;void main(){if(vis<0.5)discard;gl_FragColor=vec4(color,1.0);}'}));}
+function TL_MAT(){return TL_M||(TL_M=tlMat(0xffffff));}
+// тот же материал другого цвета (#176: разметка на оригинале — зелёные штрихи, красные концы); size — размер точки в пикселях экрана (для THREE.Points; у линий не действует)
+function tlMat(color,size=1){const free=!isFinite(TL_OVER);return new THREE.ShaderMaterial({uniforms:{color:{value:new THREE.Color(color)},over:{value:free?0:TL_OVER},size:{value:size*(renderer?renderer.getPixelRatio():1)}},depthTest:!free,depthWrite:false,transparent:true,
+  vertexShader:'attribute vec3 nrm;uniform float over;uniform float size;varying float vis;void main(){vec4 wp=modelMatrix*vec4(position,1.0);vec3 n=normalize(mat3(modelMatrix)*nrm),c=cameraPosition-wp.xyz;vis=dot(n,c)>0.0?1.0:0.0;wp.xyz+=normalize(c)*over;gl_Position=projectionMatrix*viewMatrix*wp;gl_PointSize=size;}',
+  fragmentShader:'uniform vec3 color;varying float vis;void main(){if(vis<0.5)discard;gl_FragColor=vec4(color,1.0);}'});}
 function build3D(M3,R,o){if(!ok)return;req3D();while(root.children.length){const c=root.children.pop();c.geometry&&c.geometry.dispose();if(c.element)c.element.remove();}LBL=[];
   const {V,F}=M3,pos=new Float32Array(F.length*9),col=new Float32Array(F.length*9),[c0,c1]=(o.plaster?PLASTER:COL[o.mat]||COL.steel).map(x=>new THREE.Color(x)),sel=new THREE.Color(0xd0561f),red=new THREE.Color(0xd01f1f),amb=new THREE.Color(0xe0a020),blu=new THREE.Color(0x3a6fe0),vio=new THREE.Color(0x9b3fd6),nearC=new THREE.Color(0x9fd49a),tmp=new THREE.Color();
   // калька (o.tex): грани белые — цвет даёт текстура; выделения — подкраска поверх рисунка

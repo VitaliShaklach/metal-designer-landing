@@ -205,12 +205,14 @@ function finishOpen(m,o,ver,edit){if(!m.F.length)throw new Error('в файле 
 function openFile(file){const ext=file.name.split('.').pop().toLowerCase(),name=file.name.replace(/\.[^.]+$/,'');
   file.arrayBuffer().then(buf=>later(()=>{let m,o={name};
     if(ext==='obj')m=parseOBJ(new TextDecoder().decode(buf));else if(ext==='stl')m=parseSTL(buf);else if(ext==='glb')m=parseGLB(buf);
-    else if(ext==='json'){({m,o}=figFromJSON(JSON.parse(new TextDecoder().decode(buf)),name));}
+    else if(ext==='json'){const j=JSON.parse(new TextDecoder().decode(buf));if(j.ow){setTimeout(()=>owFromJSON(j));return;}({m,o}=figFromJSON(j,name));}   // ow — разметка оригинала для обводки (#176); после later — иначе он спрячет «Загружаю оригинал…»
     else throw new Error('нужен файл OBJ, STL, GLB или JSON');
     finishOpen(m,o);
     msg(`Открыто: ${m.F.length} ${plural(m.F.length,'треугольник','треугольника','треугольников')}${isDense()?' — упрощаю до '+ST.faces:''}`);},'Читаю модель…'));}
-function figJSON(){const j={type:'md-art',v:1,name:ST.name,dims:ST.dims,t:ST.t,mat:ST.mat,sheet:ST.sheet,sw:ST.sw,sl:ST.sl,cut:ST.cut,minW:ST.minW,weld:ST.weld,gap:ST.gap,useT:ST.useT,ngap:ST.ngap,engrave:ST.engrave,tpl:ST.tpl,bend:ST.bend,perf:ST.perf,...Object.fromEntries(Object.keys(SLOT_KEYS).filter(k=>k in ST).map(k=>[k,ST[k]])),diss:0,
-    V:CUR.M3.V.map(p=>p.map(x=>Math.round(x*100)/100)),F:CUR.M3.F};if(isPoly()){j.P=ST.base.P;j.S=ST.base.S||[];if(ST.base.H&&ST.base.H.length)j.H=ST.base.H;}   // H — отверстия (#154)if(ST.refId){j.ref=ST.refId;const fb=traceFrame();j.frame=[fb.min,fb.max].map(p=>p.map(x=>Math.round(x*100)/100));}
+function figJSON(){if(OW.on)return owJSON();   // оригинал для обводки (#176): только разметка, без сетки
+  const j={type:'md-art',v:1,name:ST.name,dims:ST.dims,t:ST.t,mat:ST.mat,sheet:ST.sheet,sw:ST.sw,sl:ST.sl,cut:ST.cut,minW:ST.minW,weld:ST.weld,gap:ST.gap,useT:ST.useT,ngap:ST.ngap,engrave:ST.engrave,tpl:ST.tpl,bend:ST.bend,perf:ST.perf,...Object.fromEntries(Object.keys(SLOT_KEYS).filter(k=>k in ST).map(k=>[k,ST[k]])),diss:0,
+    V:CUR.M3.V.map(p=>p.map(x=>Math.round(x*100)/100)),F:CUR.M3.F};if(isPoly()){j.P=ST.base.P;j.S=ST.base.S||[];if(ST.base.H&&ST.base.H.length)j.H=ST.base.H;}   // H — отверстия (#154)
+  if(ST.refId){j.ref=ST.refId;const fb=traceFrame();j.frame=[fb.min,fb.max].map(p=>p.map(x=>Math.round(x*100)/100));}
   if(typeof ST.mk!=='undefined')j.mk=ST.mk;   // разметка (если есть) — вместе с версией
   return j;}
 /* ---------- оригинал (вид) (#146): фигура с view — только 3D модели Meshy, расчёта нет ----------
@@ -231,12 +233,14 @@ $('cOrigTex').addEventListener('change',e=>{if(OW.on){owRender();return;}if(!ST.
 const VSTO={get:k=>localStorage.getItem(k),set:(k,v)=>localStorage.setItem(k,v)},verName=(b,n)=>((FIGURES[b]||{}).name||b)+'.'+n;   // нет памяти — бросает, verPut/verList это ловят
 function verOptions(){const sel=$('figSel');sel.querySelectorAll('option[data-ver]').forEach(o=>o.remove());
   Object.keys(FIGURES).forEach(b=>{let at=[...sel.options].find(o=>o.value===b);if(!at)return;verList(VSTO,b).forEach(v=>{const o=document.createElement('option');o.value='ver:'+b+':'+v.n;o.dataset.ver=v.key;o.textContent=verName(b,v.n);at.after(o);at=o;});});}
-function save(){const j=figJSON(),b=ST.verBase,r=b?verPut(VSTO,b,j):null,file=(ST.name||'figura')+(r&&r.n?'.'+r.n:'')+'.json';
+function save(){if(ST.mkCur)mkFinish();const j=figJSON(),b=ST.verBase,r=b?verPut(VSTO,b,j):null,file=(ST.name||'figura')+(r&&r.n?'.'+r.n:'')+'.json';
   saveBlob(file,new Blob([JSON.stringify(j)],{type:'application/json'}));
   if(!r)return;if(r.err){msg('Версию в браузере сохранить не удалось — сохранён только файл');return;}
-  ST.ver=r.n;verOptions();$('figSel').value='ver:'+b+':'+r.n;msg(`Сохранено: «${verName(b,r.n)}» — в браузере и файлом ${file}`);}
+  ST.ver=r.n;if(Array.isArray(j.mk))store(mkKey(mkFig()),mkSave(j.mk));   // разметка едет в новую версию (ключ разметки — по версии), а не пропадает
+  verOptions();$('figSel').value='ver:'+b+':'+r.n;msg(`Сохранено: «${verName(b,r.n)}» — в браузере и файлом ${file}`);}
 function loadVersion(val){FIG_WANT=val;const [,base,n]=val.split(':'),back=()=>{$('figSel').value=ST.ver?'ver:'+ST.verBase+':'+ST.ver:ST.fig||'';},j=verGet(VSTO,verKey(base,+n));
   if(!j){msg('Эту версию не прочитать: в памяти браузера её нет');back();return;}
+  if(j.ow){owVersion(j,base,+n);return;}   // версия оригинала для обводки (#176): фигура та же, разметка своя
   const go=()=>later(()=>{const {m,o}=figFromJSON(j,FIGURES[base]?FIGURES[base].name:base);const edit=ST.edit;finishOpen(m,o,{base,n:+n},edit);msg(`Открыта версия «${verName(base,+n)}»`);},'Открываю версию…'),
     rid=j.ref&&FIGURES[j.ref]?j.ref:base;
   if(!figureReady(rid,()=>{if(FIG_WANT===val)go();},()=>{if(FIG_WANT===val){loading(false);back();msg('Фигура не загрузилась — проверьте интернет и выберите версию ещё раз');}})){loading(true,'Загружаю фигуру…');return;}
@@ -479,14 +483,15 @@ function mkCtl(){if(!ok)return;if(!MK.mb0)MK.mb0={...controls.mouseButtons};if(!
 function mkDraw(){mkSync();const bad=ST.mk.filter(s=>s.why);const k=MK.ver+'|'+ST.sym+'|'+ST.base.V.length+'|'+ST.base.P.length+'|'+(ST.base.V[0]||[]).join();if(MK.dkey===k&&MK.draw&&MK.draw.base===ST.base)return MK.draw;
   const own=ST.mk.filter(s=>!s.why),cur=ST.mkCur?[ST.mkCur]:[],mir=ST.sym?[...own,...cur].map(mkMirror).filter(Boolean):[];
   MK.draw={base:ST.base,own:mkDrape([...own,...cur],ST.base.V,ST.base.P,ST.base),mirror:mkDrape(mir,ST.base.V,ST.base.P,ST.base),bad:mkDrape(bad,ST.base.V,ST.base.P,ST.base),why:(()=>{const at=bad.length?apIndex(ST.base):null;return bad.map(s=>{const p=s.pts[Math.floor(s.pts.length/2)],f=at(p);return {p,t:s.why,n:f>=0?polyNorm(ST.base.V,ST.base.P[f]):null};});})(),pts:new Float32Array(cur.flatMap(s=>s.pts.flat()))};MK.dkey=k;return MK.draw;}
-function mkUI(){const on=ST.edit&&isPoly()&&!ST.orig;if(!on&&ST.tool){ST.tool='';mkCtl();}$('mkBox').hidden=!(on&&MK.fine);if(!on)return;mkSync();
+// оригинал для обводки (#176): разметка по модели, плит нет — инструменты и без isPoly
+function mkUI(){const on=ST.edit&&(OW.on||isPoly()&&!ST.orig);if(!on&&ST.tool){ST.tool='';mkCtl();}$('mkBox').hidden=!(on&&MK.fine);if(!on)return;mkSync();
   $('mkTools').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.tool===ST.tool));$('cMagnet').checked=ST.magnet;
-  const nl=ST.mk.filter(s=>s.k!=='cross').length,nc=ST.mk.length-nl,nz=ST.mk.filter(s=>s.closed).length;$('bMkClear').classList.toggle('off',!ST.mk.length&&!ST.mkCur);
-  $('mkNote').textContent=(ST.mk.length?`Разметка: ${nl} ${plural(nl,'линия','линии','линий')}, ${nc} ${plural(nc,'зачёркивание','зачёркивания','зачёркиваний')}${nz?`, замкнутых ${nz}`:''}. `:'Разметки нет. ')+(ST.tool==='pen'?'Карандаш: ведите мышкой с зажатой левой кнопкой — линия сгладится сама; концы ближе 6 мм — замкнутая — после «Нарезать» станет отверстием. Крутить — правой кнопкой':ST.tool==='line'?'Линия: кликайте по фигуре — точки; двойной клик или Enter — конец, Esc — отменить линию. Крутить — правой кнопкой':ST.tool==='cross'?'Зачеркнуть: два клика поперёк шва. Esc — отменить. Крутить — правой кнопкой':'');}
+  const nl=ST.mk.filter(s=>s.k!=='cross').length,nc=ST.mk.length-nl,nz=ST.mk.filter(s=>s.closed).length,nf=OW.on?OW.free.length:0;$('bMkClear').classList.toggle('off',!ST.mk.length&&!ST.mkCur);
+  $('mkNote').textContent=(ST.mk.length?`Разметка: ${nl} ${plural(nl,'линия','линии','линий')}, ${nc} ${plural(nc,'зачёркивание','зачёркивания','зачёркиваний')}${nz?`, замкнутых ${nz}`:''}. `+(OW.on&&nl?(nf?`Свободных концов: ${nf}${ST.sym?' (с зеркальными)':''} — красные точки. `:'Все концы прицеплены. '):''):'Разметки нет. ')+(ST.tool==='pen'?'Карандаш: ведите мышкой с зажатой левой кнопкой — линия сгладится сама; концы ближе 6 мм — замкнутая'+(OW.on?'':' — после «Нарезать» станет отверстием')+'. Крутить — правой кнопкой':ST.tool==='line'?'Линия: кликайте по фигуре — точки; двойной клик или Enter — конец, Esc — отменить линию. Крутить — правой кнопкой':ST.tool==='cross'?'Зачеркнуть: два клика поперёк шва. Esc — отменить. Крутить — правой кнопкой':'');}
 // «Карандаш» (#151): пока ведут — лёгкое превью (одна линия поверх, без пересборки сцены); отпустили — сгладить, магнит, замкнутость
 function mkPreview(pts){if(!ok)return;if(!MK.pv){MK.pv=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0xe07a35,depthTest:false}));MK.pv.renderOrder=5;scene.add(MK.pv);}
-  MK.pv.geometry.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts.flat(),3));MK.pv.geometry=g;MK.pv.visible=pts.length>1;req3D();}
-function mkClick(e){const h=pickHit(e);if(!h)return;const p=mkSnap(h,traceOn()?TRC.seg:null,ST.magnet),c=ST.mkCur;
+  MK.pv.material.color.set(OW.on?OW_PEN:0xe07a35);MK.pv.geometry.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts.flat(),3));MK.pv.geometry=g;MK.pv.visible=pts.length>1;req3D();}
+function mkClick(e){const h=OW.on?owHit(e):pickHit(e);if(!h)return;const p=OW.on?owSurf(mkSnap(h,owSnapSeg(),ST.magnet)):mkSnap(h,traceOn()?TRC.seg:null,ST.magnet),c=ST.mkCur;   // на оригинале (#176) — магнит к своим линиям, точка — на модель
   if(c){const q=c.pts[c.pts.length-1];if(Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2])<1.5)return;}   // второй клик двойного — не новая точка
   if(!c)ST.mkCur={k:ST.tool,pts:[p]};else c.pts.push(p);MK.ver++;if(ST.tool==='cross'&&ST.mkCur.pts.length===2)mkFinish();renderAll();}
 $('mkTools').addEventListener('click',e=>{const b=e.target.closest('button[data-tool]');if(!b)return;const t=b.dataset.tool;b.blur();mkFinish();ST.seam=null;ST.tool=ST.tool===t?'':t;mkCtl();renderAll();});
@@ -505,18 +510,27 @@ $('traceSel').addEventListener('change',e=>{ST.tref=e.target.value;if(trOn()&&ST
 
 // клик по грани — выбрать деталь; в редакторе — точку или грань, точку можно тянуть
 (()=>{if(!ok)return;const cv=renderer.domElement,tag=$('hovTag');let down=null,drag=null,raf=0,pen=null;
-  cv.addEventListener('pointerdown',e=>{if(OW.on){down=null;return;}   // оригинал для обводки (#175): деталей и точек нет — клик ничего не выбирает
+  cv.addEventListener('pointerdown',e=>{if(OW.on){down=null;if(!ST.tool||!ST.edit||e.button!==0)return;   // оригинал для обводки (#175): деталей и точек нет — клик только для разметки (#176)
+      if(ST.tool==='pen'){const h=owHit(e);pen={raw:h?[h]:[]};cv.setPointerCapture(e.pointerId);return;}down={x:e.clientX,y:e.clientY};return;}   // перо можно начать и мимо модели — точки пойдут, когда зайдёт на неё
     down={x:e.clientX,y:e.clientY};
-    if(ST.tool==='pen'&&e.button===0&&ST.edit&&!ST.orig&&isPoly()&&CUR){down=null;const h=pickHit(e);if(h){pen={raw:[h]};cv.setPointerCapture(e.pointerId);}return;}   // карандаш (#151)if(e.button!==0||!ST.edit||ST.orig||!isPoly()||!CUR||ST.tool)return;
+    if(ST.tool==='pen'&&e.button===0&&ST.edit&&!ST.orig&&isPoly()&&CUR){down=null;const h=pickHit(e);if(h){pen={raw:[h]};cv.setPointerCapture(e.pointerId);}return;}   // карандаш (#151)
+    if(e.button!==0||!ST.edit||ST.orig||!isPoly()||!CUR||ST.tool)return;
     const v=vertsShown()?pickVert(e,ST.base.V):-1;if(v<0)return;if(ST.seam){if(ST.sp>=0&&ST.base.P[ST.sp].includes(v)){down=null;addCut(v);}return;}ST.sv=v;ST.sp=-1;ST.sel=-1;drag={v,snap:snapE(),moved:false};ST.drag=true;controls.enabled=false;cv.setPointerCapture(e.pointerId);renderAll();});
-  cv.addEventListener('pointermove',e=>{if(pen){const h=pickHit(e),q=pen.raw[pen.raw.length-1];if(h&&Math.hypot(h[0]-q[0],h[1]-q[1],h[2]-q[2])>=.3){pen.raw.push(h);mkPreview(pen.raw);}return;}
+  // на оригинале (#176) промах пера (мимо модели) — точка пропущена; рывок мыши дальше половины порога разрыва (OW_GAP) — берём и промежуточные точки мыши
+  // (getCoalescedEvents: браузер копит их с частотой мыши), чтобы быстрый росчерк по модели не рвался, а рвался только настоящий соскок с края
+  cv.addEventListener('pointermove',e=>{if(pen){const at=x=>OW.on?owHit(x):pickHit(x),n=pen.raw.length,h=at(e),q=pen.raw[n-1],
+      put=p=>{const l=pen.raw[pen.raw.length-1];if(p&&(!l||Math.hypot(p[0]-l[0],p[1]-l[1],p[2]-l[2])>=.3))pen.raw.push(p);};
+    if(OW.on&&h&&q&&e.getCoalescedEvents&&Math.hypot(h[0]-q[0],h[1]-q[1],h[2]-q[2])>OW_GAP/2)e.getCoalescedEvents().forEach(c=>put(at(c)));else put(h);if(pen.raw.length>n)mkPreview(pen.raw);return;}
     if(drag){const p=dragPoint(e,ST.base.V[drag.v]);if(!p)return;drag.moved=true;tag.hidden=true;if(raf)return;
       raf=requestAnimationFrame(()=>{raf=0;if(!drag)return;const e2={V:ST.base.V.map(q=>q.slice()),P:ST.base.P,S:ST.base.S||[]};moveVert(e2,drag.v,dragPoint(e,ST.base.V[drag.v])||p,ST.sym);applyE(e2,true);});return;}
     if(!CUR||e.buttons||OW.on){tag.hidden=true;return;}const t=pickTri(e);if(t<0){tag.hidden=true;return;}const p=CUR.R.parts[CUR.R.partOf[t]],r=stage.getBoundingClientRect();
     tag.textContent=`№ ${p.no} · ${Math.round(p.L)} × ${Math.round(p.W)} мм`;tag.style.left=(e.clientX-r.left)+'px';tag.style.top=(e.clientY-r.top)+'px';tag.hidden=false;});
-  cv.addEventListener('pointerup',e=>{if(pen){const raw=pen.raw;pen=null;mkPreview([]);if(raw.length>=3){ST.mk.push(mkPen(raw,traceOn()?TRC.seg:null,ST.magnet));mkStore();}renderAll();return;}
+  cv.addEventListener('pointerup',e=>{if(pen){const raw=pen.raw;pen=null;mkPreview([]);
+      if(OW.on){const a=owStrokes(raw,OW.G,owSnapSeg(),ST.magnet);if(a.length){ST.mk.push(...a);mkStore();}}   // оригинал (#176): скачок > 20 мм рвёт штрих, точки — на модели
+      else if(raw.length>=3){ST.mk.push(mkPen(raw,traceOn()?TRC.seg:null,ST.magnet));mkStore();}renderAll();return;}
     if(drag){const d=drag;drag=null;ST.drag=false;controls.enabled=true;if(d.moved){UNDO.push(d.snap);REDO.length=0;renderAll();}down=null;return;}
-    if(!down||!CUR||ST.orig||OW.on)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>5||e.button!==0)return;
+    if(OW.on){if(!down)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv<=5&&e.button===0&&ST.tool&&ST.edit)mkClick(e);return;}   // оригинал (#176): «Линия», «Зачеркнуть»
+    if(!down||!CUR||ST.orig)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>5||e.button!==0)return;
     if(ST.tool&&ST.edit&&isPoly()){mkClick(e);return;}   // разметка (#150)
     const t=pickTri(e),pi=t>=0?CUR.R.partOf[t]:-1;
     if(ST.edit&&isPoly()){const fp=t>=0?ST.base.T[t]:-1;
