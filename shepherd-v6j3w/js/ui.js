@@ -450,9 +450,13 @@ function traceUI(){$('traceRow').hidden=!ST.refId;$('cTrace').checked=trOn();$('
   el.innerHTML=`Сверка с калькой: на шве эталона ${Math.round(d.on*100)}% длины наших швов, рядом (до ${TR_FAR} мм) — ${Math.round(d.near*100)}%. `+(d.red.length?`<b style="color:#d01f1f">Красные линии</b> — ${d.red.length} ${plural(d.red.length,'шов, которого','шва, которых','швов, которых')} у эталона нет: «Убрать шов». `:'')+(d.parts?`<b style="color:#c08a00">Жёлтые точки</b> — ${d.parts} ${plural(d.parts,'участок','участка','участков')} швов эталона, ${plural(d.parts,'которого','которых','которых')} нет у нас: «Провести шов».`:'')+(!d.red.length&&!d.parts?'Лишних и недостающих швов нет.':'');}
 // калька: облако TRACE.<id> (для сверки) и/или линии TRACE_L.<id>; у «формы оригинала» (#149) только линии
 const traceHas=rid=>!!(window.TRACE&&TRACE[rid]||window.TRACE_L&&TRACE_L[rid]);
-function traceLoadFor(rid){if(TRC.id===rid&&(TRC.t||TRC.L)||TRC.loading)return;const done=()=>{TRC.loading=false;if(!traceHas(rid)){msg('Калька не загрузилась');return;}
-    TRC.t=window.TRACE&&TRACE[rid]?traceLoad(TRACE[rid]):null;TRC.L=window.TRACE_L&&TRACE_L[rid]?tlinesLoad(TRACE_L[rid]):null;TRC.seg=null;TRC.id=rid;TRC.b0=meshBox(modelPoly(ST.refId).V);TRC.key='';msg('');renderAll();};
-  if(traceHas(rid)){done();return;}TRC.loading=true;const s=document.createElement('script');s.src='js/trace-'+rid+'.js?v=2026-11-23l';s.onload=done;s.onerror=()=>{TRC.loading=false;msg('Калька не загрузилась');};document.head.appendChild(s);msg('Загружаю кальку…');}
+// #172 облако для сверки: у варианта кальки (только линии) — облако исходной, третий элемент FIGURES[ref].refs; иначе своё
+const traceCloudId=rid=>{const r=((FIGURES[ST.refId]||{}).refs||[]).find(r=>r[0]===rid);return r&&r[2]||rid;};
+function traceLoadFor(rid){if(TRC.id===rid&&(TRC.t||TRC.L)||TRC.loading)return;const cid=traceCloudId(rid),done=()=>{TRC.loading=false;if(!traceHas(rid)){msg('Калька не загрузилась');return;}
+    TRC.t=window.TRACE&&TRACE[cid]?traceLoad(TRACE[cid]):null;TRC.L=window.TRACE_L&&TRACE_L[rid]?tlinesLoad(TRACE_L[rid]):null;TRC.seg=null;TRC.id=rid;TRC.b0=meshBox(modelPoly(ST.refId).V);TRC.key='';msg('');renderAll();};
+  // файлы по очереди: сама калька, затем облако исходной (если его ещё нет); облако не загрузилось — калька без сверки
+  const need=[rid,cid].filter((x,i,a)=>a.indexOf(x)===i&&!(i?window.TRACE&&TRACE[x]:traceHas(x)));if(!need.length){done();return;}TRC.loading=true;msg('Загружаю кальку…');
+  const next=()=>{const x=need.shift();if(x===undefined){done();return;}const s=document.createElement('script');s.src='js/trace-'+x+'.js?v=2026-11-23l';s.onload=next;s.onerror=x===rid?()=>{TRC.loading=false;msg('Калька не загрузилась');}:next;document.head.appendChild(s);};next();}
 const layerSet=(k,v)=>{ST.layers[k]=v;store('shepherd-layers',layersSave(ST.layers));};   // нет доступа к памяти браузера — слои живут до перезагрузки
 $('cLEdges').addEventListener('change',e=>{layerSet('edges',e.target.checked);renderAll();});
 $('cLVerts').addEventListener('change',e=>{layerSet('verts',e.target.checked);if(!e.target.checked)ST.sv=-1;renderAll();});

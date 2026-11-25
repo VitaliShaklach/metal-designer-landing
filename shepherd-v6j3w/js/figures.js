@@ -45,10 +45,14 @@ FIGURES.shepherd5={name:'Овчарка 5',H:1000,poly:true,need:'plates-shepher
 LAZY['plates-shepherd5']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY.shepherd5,wait:null};
 /* ---------- Овчарка 6 (тикеты #170, #171; план docs/superpowers/plans/2026-11-25-shepherd6.md): модель Овчарки 5, плиты конвейера настройками Добермана 7 (4° / 3 мм), пороги площади Овчарки 5 ----------
    «оригинал» (shepherd6r) — как вышла из конвейера, без чистки; собирает tools/make-shepherd.js shepherd6r. plaster — вид «в гипсе» (Q5): все грани одним светло-серым, линии граней тонкие */
-FIGURES.shepherd6r={name:'Овчарка 6 — оригинал',H:1000,poly:true,plaster:true,need:'plates-shepherd6r',build:()=>modelPoly('shepherd6r')};
+/* кальки Овчарки 6 (#172, Q7, Q9) — одни файлы на обе фигуры, в кадре shepherd6 (кадр оригинала отличается ≤ 1 мм, линии всё равно ложатся на ближайшую грань):
+   «с модели» — швы текстуры модели (tracing.js … xf=out/shepherd6/xf.json): сырая (с облаком для сверки) и варианты tools/trace-variants.js — без мусора (по умолчанию), выпрямленная;
+   третий элемент — облако для сверки у кальки без своего облака */
+const S6REFS=[['shepherd6m2','с модели, без мусора','shepherd6m'],['shepherd6m','с модели, сырая'],['shepherd6m3','с модели, выпрямленная','shepherd6m']];
+FIGURES.shepherd6r={name:'Овчарка 6 — оригинал',H:1000,poly:true,plaster:true,need:'plates-shepherd6r',build:()=>modelPoly('shepherd6r'),ref:'shepherd6r',refs:S6REFS};
 LAZY['plates-shepherd6r']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY.shepherd6r,wait:null};
 // «как доберман» (shepherd6, #171): плиты с clean=13 (короткие рёбра < 13 мм в точку) + слиты швы с изломом < 1°; собирает tools/make-shepherd.js shepherd6
-FIGURES.shepherd6={name:'Овчарка 6 (как доберман)',H:1000,poly:true,plaster:true,need:'plates-shepherd6',build:()=>modelPoly('shepherd6')};
+FIGURES.shepherd6={name:'Овчарка 6 (как доберман)',H:1000,poly:true,plaster:true,need:'plates-shepherd6',build:()=>modelPoly('shepherd6'),ref:'shepherd6',refs:S6REFS};
 LAZY['plates-shepherd6']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY.shepherd6,wait:null};
 /* ---------- Оригинал (вид) (тикет #146): модель Meshy как есть, только смотреть; view — рабочая фигура (там расчёт), orig — ключ в ORIG ----------
    Для другой фигуры из Meshy — такая же строка + файл js/orig-<id>.js (from-dev/art/tools/plates/orig.js) + <option> в index.html */

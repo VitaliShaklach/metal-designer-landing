@@ -488,7 +488,7 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
 // #142 Овчарка 3: плиты конвейера (tools/make-shepherd.js shepherd3) — ленивый файл, обязательные правила (строится, симметрия, замкнута, без самопересечений и протыканий), раскрой и DXF;
 // калька js/trace-shepherd3.js — ленивая, в кадре фигуры: атлас находит облако на ≥ 95 % граней и на голове (кадр 600 мм вместо 1000 или поиск вдоль нормали ±6 мм дают ~25 % серого)
 // #142 Овчарка 5 — те же проверки (плиты конвейера по гранёной модели Meshy 7.1, калька js/trace-shepherd5.js)
-// #170 Овчарка 6 — оригинал: те же проверки; кальки у неё пока нет (план 2026-11-25-shepherd6, раздел 3 — отдельной задачей)
+// #170 Овчарка 6 — оригинал: те же проверки; кальки Овчарки 6 — набор S6REFS (#172), их проверка ниже
 ['shepherd3','shepherd5','shepherd6r','shepherd6'].forEach(id=>{const NM=run(`FIGURES.${id}.name`);{const {checkFigure,broken}=require('./check.js')(run),MUST=['selfX','pierce','sym','flipped','degenerate','open'],HT3=fs.readFileSync(__dirname+'/../index.html','utf8');
   ok(run(`FIGURES.${id}.need`)==='plates-'+id&&fs.existsSync(P+'plates-'+id+'.js')&&!HT3.includes('plates-'+id+'.js')&&run(`LAZY[FIGURES.${id}.need].ok()&&figureReady('${id}')`)===true,NM+': файл фигуры есть, на странице не подключён — грузится по выбору; после загрузки строится сразу');
   const m=run(`modelPoly('${id}')`),R=checkFigure({V:m.V,P:m.P,S:m.S},{sym:true}),B=run(`meshBox(modelPoly('${id}').V).size`),hb=MUST.filter(k=>R[k].length);
@@ -499,12 +499,12 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
     return {parts:C.R.parts.length,blanks:C.BL.length,pieces:PC.length,items,too:N.too.length,sheets:N.sheets.length,cut:lay('CUT'),perf:lay('PERF')};})()`);
   ok(h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items,NM+`: деталей ${h.parts}, заготовок со сгибами ${h.blanks}, позиций ${h.pieces} — все на листах 1250 × 2500 (${h.sheets} л.), у каждой контур CUT в DXF, PERF ${h.perf}`);
   const TF=P+'trace-'+id+'.js',UI3=fs.readFileSync(P+'ui.js','utf8');
-  if(run(`FIGURES.${id}.plaster`)&&!run(`FIGURES.${id}.ref`))console.log('     '+NM+': калька — отдельной задачей (план Овчарки 6, раздел 3)');
+  if(run(`FIGURES.${id}.plaster`)&&run(`FIGURES.${id}.ref`)===id&&run(`(FIGURES.${id}.refs||[]).length`)>0&&!fs.existsSync(TF))console.log('     '+NM+': калька — свой набор (S6REFS), проверка #172 ниже');
   else if(!fs.existsSync(TF)||run(`FIGURES.${id}.ref`)!==id)ok(false,NM+': калька js/trace-'+id+'.js есть, FIGURES.'+id+'.ref = '+id);
   else{const tc={console,Math,Buffer};tc.window=tc;vm.createContext(tc);vm.runInContext(['mesh','edit','models-poly','figures','trace','plates-'+id].map(f=>fs.readFileSync(P+f+'.js','utf8')).join('\n;\n')+'\n;\n'+fs.readFileSync(TF,'utf8'),tc);
     const T=vm.runInContext(`(()=>{const t=traceLoad(TRACE.${id}),b=modelPoly('${id}'),bx=meshBox(b.V),mp=traceMap(bx,bx),tp=b.V.reduce((a,p)=>p[2]>a[2]?p:a),HP=b.P.filter(Q=>{const c=polyC(b.V,Q);return c[2]>tp[2]-330&&c[1]>560;});
       return {n:t.n,seams:t.seams,all:traceAtlas(b.V,b.P,b.F,b.T,mp,t).cover,head:traceAtlas(b.V,HP,[],[],mp,t).cover,hp:HP.length};})()`,tc);
-    ok(!HT3.includes('trace-'+id)&&UI3.includes("s.src='js/trace-'+rid+'.js")&&T.seams>1000&&T.all>=.95&&T.head>=.95,NM+`: калька грузится по галочке, точек ${T.n}, швов ${T.seams}; атлас находит облако на ${(T.all*100).toFixed(1)} % граней, на голове (${T.hp} граней) — ${(T.head*100).toFixed(1)} %`);}}});
+    ok(!HT3.includes('trace-'+id)&&UI3.includes("s.src='js/trace-'+x+'.js")&&T.seams>1000&&T.all>=.95&&T.head>=.95,NM+`: калька грузится по галочке, точек ${T.n}, швов ${T.seams}; атлас находит облако на ${(T.all*100).toFixed(1)} % граней, на голове (${T.hp} граней) — ${(T.head*100).toFixed(1)} %`);}}});
 // #142 Овчарка 5: вторая калька js/trace-shepherd5p.js (швы картинок, project.js) — в выборе у галочки «Калька», в том же кадре фигуры, атлас находит облако на ≥ 95 % граней
 {const id='shepherd5',R=run(`FIGURES.${id}.refs`),UI5=fs.readFileSync(P+'ui.js','utf8'),HT5=fs.readFileSync(__dirname+'/../index.html','utf8'),TF=P+'trace-shepherd5p.js';
   // #149: три кальки по порядку спеки (первая — «с картинок», она и по умолчанию), файлы грузятся по выбору
@@ -527,8 +527,22 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
   const T=vm.runInContext(`(()=>{if(!window.TRACE_L||!TRACE_L.shepherd5f)return null;const L=tlinesLoad(TRACE_L.shepherd5f),b=modelPoly('shepherd5'),bx=meshBox(b.V),S=tlinesOnFigure(L,traceMap(bx,bx),b.V,b.P,12,{F:b.F,T:b.T});return {cloud:!!(window.TRACE&&TRACE.shepherd5f),n:L.n,pts:S.pts,drawn:S.drawn};})()`,tc);
   ok(!!T&&!T.cloud&&T.n>300,'Овчарка 5, калька «форма оригинала»: только линии, без облака'+(T?`, ломаных ${T.n}`:' — нет TRACE_L'));
   ok(!!T&&T.drawn>=.9,'Овчарка 5, калька «форма оригинала» на фигуре: '+(T?`нарисовано ${(T.drawn*100).toFixed(1)} % из ${T.pts} точек`:'нет TRACE_L'));
-  ok(UI.includes('TRC.t=window.TRACE&&TRACE[rid]?traceLoad(TRACE[rid]):null')&&UI.includes('TRC.diff=TRC.t?traceDiff(')&&UI.includes("$('cDiff').disabled=!trOn()||traceNoCloud()")&&UI.includes('(TRC.t||TRC.L)&&CUR&&isPoly()')&&UI.includes('traceOn()&&TRC.t?seamOnEdge(')&&HT.includes('id="diffNo"')&&HT.includes('У этой кальки нет сверки'),
+  ok(UI.includes('TRC.t=window.TRACE&&TRACE[cid]?traceLoad(TRACE[cid]):null')&&UI.includes('r&&r[2]||rid')&&UI.includes('TRC.diff=TRC.t?traceDiff(')&&UI.includes("$('cDiff').disabled=!trOn()||traceNoCloud()")&&UI.includes('(TRC.t||TRC.L)&&CUR&&isPoly()')&&UI.includes('traceOn()&&TRC.t?seamOnEdge(')&&HT.includes('id="diffNo"')&&HT.includes('У этой кальки нет сверки'),
     'калька без облака: грузится по линиям, сверка неактивна с пояснением «У этой кальки нет сверки», атлас/сверка/магнит старого шва без облака не считаются');}
+// #172 Овчарка 6: у обеих фигур один набор калек «с модели» (S6REFS, кадр shepherd6): без мусора (по умолчанию, первой), сырая, выпрямленная; у вариантов облако — от сырой (refs[2]);
+// файлы грузятся по выбору; на каждой фигуре нарисовано ≥ 90 % точек линий; варианты: без мусора ≤ сырой, выпрямленная — меньше точек, обрывков < 20 мм нет
+{const HT=fs.readFileSync(__dirname+'/../index.html','utf8'),{tvRead,tvLen}=require('./trace-variants.js'),W=[['shepherd6m2','с модели, без мусора','shepherd6m'],['shepherd6m','с модели, сырая',undefined],['shepherd6m3','с модели, выпрямленная','shepherd6m']];
+  for(const id of ['shepherd6r','shepherd6']){const R=run(`FIGURES.${id}.refs`);
+    ok(run(`FIGURES.${id}.ref`)===id&&Array.isArray(R)&&JSON.stringify(R.slice(0,3).map(r=>[r[0],r[1],r[2]]))===JSON.stringify(W)&&W.every(w=>fs.existsSync(P+'trace-'+w[0]+'.js')&&!HT.includes('trace-'+w[0]+'.js')),
+      run(`FIGURES.${id}.name`)+': кальки «с модели» — без мусора (по умолчанию), сырая, выпрямленная; облако сверки — сырой; файлы грузятся по выбору');}
+  const L=Object.fromEntries(W.map(w=>[w[0],tvRead(P+'trace-'+w[0]+'.js',w[0])])),np=l=>l.reduce((a,x)=>a+x.length,0),len=l=>l.reduce((a,x)=>a+tvLen(x),0);
+  ok(L.shepherd6m2.length<L.shepherd6m.length&&len(L.shepherd6m2)<=len(L.shepherd6m)&&np(L.shepherd6m3)<np(L.shepherd6m2)/2&&L.shepherd6m3.every(x=>tvLen(x)>=20)&&L.shepherd6m2.length>300,
+    `Овчарка 6, кальки с модели: сырая ${L.shepherd6m.length} линий / ${(len(L.shepherd6m)/1000).toFixed(1)} м, без мусора ${L.shepherd6m2.length} / ${(len(L.shepherd6m2)/1000).toFixed(1)} м, выпрямленная ${L.shepherd6m3.length} / ${(len(L.shepherd6m3)/1000).toFixed(1)} м, точек ${np(L.shepherd6m)} → ${np(L.shepherd6m3)}`);
+  {const tc={console,Math,Buffer};tc.window=tc;vm.createContext(tc);vm.runInContext(['mesh','edit','models-poly','figures','trace','tlines','plates-shepherd6r','plates-shepherd6'].map(f=>fs.readFileSync(P+f+'.js','utf8')).join('\n;\n')+'\n;\n'+W.map(w=>fs.readFileSync(P+'trace-'+w[0]+'.js','utf8')).join('\n;\n'),tc);
+    for(const fid of ['shepherd6r','shepherd6'])for(const w of W){const T=vm.runInContext(`(()=>{const L=tlinesLoad(TRACE_L.${w[0]}),b=modelPoly('${fid}'),bx=meshBox(b.V),S=tlinesOnFigure(L,traceMap(bx,bx),b.V,b.P,12,{F:b.F,T:b.T});return {n:L.n,pts:S.pts,drawn:S.drawn};})()`,tc);
+      ok(T.drawn>=.9,`${fid}, калька ${w[1]}: ломаных ${T.n}, на фигуре нарисовано ${(T.drawn*100).toFixed(1)} % из ${T.pts} точек`);}
+    const C=vm.runInContext(`(()=>{const t=traceLoad(TRACE.shepherd6m),b=modelPoly('shepherd6'),bx=meshBox(b.V);return {seams:t.seams,all:traceAtlas(b.V,b.P,b.F,b.T,traceMap(bx,bx),t).cover};})()`,tc);
+    ok(C.seams>1000&&C.all>=.95,`Овчарка 6, облако кальки с модели (сверка): швов ${C.seams}, атлас находит облако на ${(C.all*100).toFixed(1)} % граней`);}}
 // #150 разметка: кнопки «Линия», «Зачеркнуть», «Очистить разметку», галочка «Магнит» (вкл.); по умолчанию инструмент выключен; хранение по id фигуры; левая кнопка рисует, крутит правая;
 // на телефоне (нет точного указателя) блок скрыт; разметка рисуется только в правке и фигуру не трогает (в build3D отдельной опцией)
 {const HT=fs.readFileSync(__dirname+'/../index.html','utf8'),UI=fs.readFileSync(P+'ui.js','utf8'),V3S=fs.readFileSync(P+'view3d.js','utf8'),mc={console,Math};vm.createContext(mc);
