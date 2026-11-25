@@ -47,6 +47,9 @@ LAZY['plates-shepherd5']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY
    «оригинал» (shepherd6r) — как вышла из конвейера, без чистки; собирает tools/make-shepherd.js shepherd6r. plaster — вид «в гипсе» (Q5): все грани одним светло-серым, линии граней тонкие */
 FIGURES.shepherd6r={name:'Овчарка 6 — оригинал',H:1000,poly:true,plaster:true,need:'plates-shepherd6r',build:()=>modelPoly('shepherd6r')};
 LAZY['plates-shepherd6r']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY.shepherd6r,wait:null};
+// «как доберман» (shepherd6, #171): плиты с clean=13 (короткие рёбра < 13 мм в точку) + слиты швы с изломом < 1°; собирает tools/make-shepherd.js shepherd6
+FIGURES.shepherd6={name:'Овчарка 6 (как доберман)',H:1000,poly:true,plaster:true,need:'plates-shepherd6',build:()=>modelPoly('shepherd6')};
+LAZY['plates-shepherd6']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY.shepherd6,wait:null};
 /* ---------- Оригинал (вид) (тикет #146): модель Meshy как есть, только смотреть; view — рабочая фигура (там расчёт), orig — ключ в ORIG ----------
    Для другой фигуры из Meshy — такая же строка + файл js/orig-<id>.js (from-dev/art/tools/plates/orig.js) + <option> в index.html */
 FIGURES.shepherd5_orig={name:'Овчарка 5 — оригинал (вид)',view:'shepherd5',orig:'shepherd5',need:'orig-shepherd5'};

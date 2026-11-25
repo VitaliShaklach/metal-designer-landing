@@ -27,6 +27,11 @@ VARIANTS.shepherd3.head='Швы головы — с густого профил�
 VARIANTS.shepherd6r={src:'from-dev/art/tools/plates/out/plates_s6r.json',plates:true,clean:false,nose:false,ticket:170,xf:'from-dev/art/tools/plates/out/shepherd6r/xf.json',
   head:'Швы — с исходной текстуры модели Meshy (`src/shepherd5/model/*.png`), без прорезей глаз.',
   about:'плиты конвейера `plates.js round=1 ang=4 mm=3 seed=2e-4 mina=1.5e-4 clean=0 tag=_s6r` по модели Meshy 7.1 `Meshy_AI_welded_adult_shepherd_final_20261122` (158 336 треугольников, гранёная, швы на текстуре), как вышли из конвейера — без чистки, высота 1000 мм, морда на +Z, симметричная'};
+// «как доберман» (#171, план Q4/Q10): основа — plates_s6.json (тот же конвейер, но clean=13: короткие рёбра < 13 мм сведены в точку, как Д9) + слить только швы с изломом < flat° (как №31+30 у Д11, marks/round4.js); остальные лишние швы не трогаем — список в отчёте
+VARIANTS.shepherd6={src:'from-dev/art/tools/plates/out/plates_s6.json',plates:true,clean:false,flat:1,nose:false,ticket:171,xf:'from-dev/art/tools/plates/out/shepherd6/xf.json',
+  head:VARIANTS.shepherd6r.head,
+  post:'Обработка «как доберман»: конвейер (`plates.js … tag=_s6`, `clean=13`) свёл в точку короткие рёбра < 13 мм — схлопнуто 30, пропущено 25 (самопересечение 19, узкая плита 4, один конец на середине 2); затем этот скрипт слил швы с изломом < 1° (`clean.js` mergeSeam, зеркальная пара — вместе; правка с новым жёстким нарушением откатывается) — список ниже. Остальные лишние швы не трогали.',
+  about:'плиты конвейера `plates.js round=1 ang=4 mm=3 seed=2e-4 mina=1.5e-4 tag=_s6` (`clean=13`) по модели Meshy 7.1 `Meshy_AI_welded_adult_shepherd_final_20261122` (158 336 треугольников, гранёная, швы на текстуре) + слияние швов с изломом < 1°, высота 1000 мм, морда на +Z, симметричная'};
 const ARG_ID=require.main===module&&args.find(a=>VARIANTS[a]||a==='all'),ARG_SRC=require.main===module&&args.find(a=>/\.obj$/i.test(a));
 let ID=ARG_ID&&ARG_ID!=='all'?ARG_ID:'shepherd',SRC=ARG_SRC||path.join(ROOT,VARIANTS[ID].src);
 const H=1000;
@@ -96,6 +101,21 @@ function mergePts(E,a,b){const mm=mirrorMap(E.V),T=copyE(E);let pairs=[[b,a]],p=
   if(T.P.some(Q=>new Set(Q).size!==Q.length))return {why:'грань перехлестнулась'};
   const own=new Set(pairs.flat()),R=C.solve(T,new Map(),{it:600,sym:true,anchor:T.V.map((v,i)=>own.has(i)?v:E.V[i])});return {E:compact(R)};}
 const mm1=v=>v.map(Math.round);
+/* ---------- слить почти плоские швы (#171): шов между деталями с изломом < lim° → две граней у общего ребра (и зеркальные) — одна, выравнивание; повторять, пока такие есть ----------
+   пара граней — у самого длинного общего ребра двух деталей (у детали может быть несколько граней); правка с новым жёстким нарушением — откат */
+// проверка — как прочтёт страница: точки, округлённые до 0,01 мм (как fileText); иначе точка у порога 2 мм (уход от эталона) проходит здесь и ломается в файле
+const rounded=E=>({V:E.V.map(p=>p.map(v=>{const r=Math.sign(v)*Math.round(Math.abs(v)*100)/100;return Object.is(r,-0)?0:r;})),P:E.P,S:E.S});
+function mergeFlat(E0,lim,log){let E=copyE(E0),R=checkFigure(rounded(E),{sym:true,ref:E0});const tried=new Set(),polyBase=g('polyBase'),buildParts=g('buildParts');
+  for(let guard=0;guard<200;guard++){const M=polyBase(E.V,E.P,E.S),B=buildParts(M,1.5,1.5),polysOf=pt=>new Set(B.parts[pt].tris.map(t=>M.T[t]));
+    const pairOf=x=>{const A=polysOf(x.p1),Bs=polysOf(x.p2),em=new Map();let best=null;E.P.forEach((Q,pi)=>{if(!A.has(pi)&&!Bs.has(pi))return;Q.forEach((v,k)=>{const w=Q[(k+1)%Q.length],kk=Math.min(v,w)+'_'+Math.max(v,w),o=em.get(kk);
+      if(o!==undefined&&o!==pi&&(A.has(o)&&Bs.has(pi)||Bs.has(o)&&A.has(pi))){const L=V3.len(V3.sub(E.V[v],E.V[w]));if(!best||L>best.L)best={f1:o,f2:pi,L};}else em.set(kk,pi);});});return best;};
+    let did=false;for(const x of R.extra.filter(x=>x.dih<lim).sort((a,b)=>a.dih-b.dih)){const pr=pairOf(x);if(!pr)continue;const at=mm1(V3.mul(V3.add(polyC(E.V,E.P[pr.f1]),polyC(E.V,E.P[pr.f2])),.5)),key=at.map(Math.abs).join();
+      if(tried.has(key+'|'+x.dih))continue;tried.add(key+'|'+x.dih);const r=C.mergeSeam(E,pr.f1,pr.f2,{sym:true}),what=`шов с изломом ${x.dih.toFixed(2)}° у ${at}`;
+      if(take2(what,r))break;}
+    function take2(what,r){if(r.why){log.push(what+' — нет: '+r.why);return false;}const R2=checkFigure(rounded(r.E),{sym:true,ref:E0}),w=worse(R,R2);if(w){log.push(what+' — откат: '+w+' (после округления до 0,01 мм, как в файле)');return false;}
+      E=r.E;R=R2;log.push(what+` — слит${r.n>1?' (с зеркальным)':''}, сдвиг точек до ${r.moved.toFixed(2)} мм — да`);did=true;return true;}
+    if(!did)break;}
+  return E;}
 function cleanFig(E0,ref,log){let E=copyE(E0),R=checkFigure(E,{sym:true,ref});const tried=new Set();
   const take=(what,res)=>{if(!res||res.why){log.push(what+' — нет: '+(res?res.why:'не вышло'));return false;}const R2=checkFigure(res.E,{sym:true,ref}),w=worse(R,R2);
     if(w){log.push(what+' — откат: '+w);return false;}E=res.E;R=R2;log.push(what+' — да');return true;};
@@ -215,7 +235,7 @@ function report(r){const f=(v,d=1)=>v.toFixed(d).replace('.',','),L=[],row=(t,v)
 /* ---------- запуск ---------- */
 module.exports={loadTris,loadRef,noseRound,cleanFig,mergePts,fileText,NOSE,VARIANTS};
 function make(){const E=loadRef(),IMG=path.join(__dirname,'img'),site=run(SITE),polyDev=g('polyDev');fs.mkdirSync(IMG,{recursive:true});
-  const R1=checkFigure(E,{sym:true,ref:E}),log=[],K=VARIANTS[ID].clean===false?{E:copyE(E)}:cleanFig(E,E,log),txt=fileText(K.E);fs.writeFileSync(path.join(JS,`plates-${ID}.js`),txt);
+  const R1=checkFigure(E,{sym:true,ref:E}),log=[],EM=VARIANTS[ID].flat?mergeFlat(E,VARIANTS[ID].flat,log):E,K=VARIANTS[ID].clean===false?{E:copyE(EM)}:cleanFig(EM,E,log),txt=fileText(K.E);fs.writeFileSync(path.join(JS,`plates-${ID}.js`),txt);
   // проверка — по записанному файлу (после округления), как его прочтёт страница
   run(txt);const m=run(`modelPoly('${ID}')`),EF={V:m.V,P:m.P,S:m.S},R2=checkFigure(EF,{sym:true,ref:E}),S=site(ID,TH.extra);
   const front=EF.V.reduce((a,p)=>p[2]>a[2]?p:a),top=EF.V.reduce((a,p)=>p[1]>a[1]?p:a),maxDev=Math.max(...EF.P.map(Q=>polyDev(EF.V,Q))),lost=(R1.parts-R2.parts)/R1.parts;

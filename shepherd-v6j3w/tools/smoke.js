@@ -3,7 +3,7 @@ const fs=require('fs'),vm=require('vm'),P=__dirname+'/../js/';const c={console,T
 vm.runInContext(['mesh','edit','models-poly','figures','plates-shepherd','prod','slots','sheets','bend','bend3d','angles-core'].map(f=>fs.readFileSync(P+f+'.js','utf8')).join('\n;\n'),c);
 // #142: файлы Овчарки 2 на странице грузятся лениво (по выбору); здесь — сразу, чтобы общие проверки шли по всем фигурам
 vm.runInContext(['1000','700','500','350'].map(n=>fs.readFileSync(P+'plates-shepherd2_'+n+'.js','utf8')).join('\n;\n'),c);
-['plates-shepherd3','plates-shepherd5','plates-shepherd6r'].forEach(f=>vm.runInContext(fs.readFileSync(P+f+'.js','utf8'),c));   // #142 Овчарка 3 и 5, #170 Овчарка 6 — на странице тоже ленивые
+['plates-shepherd3','plates-shepherd5','plates-shepherd6r','plates-shepherd6'].forEach(f=>vm.runInContext(fs.readFileSync(P+f+'.js','utf8'),c));   // #142 Овчарка 3 и 5, #170 Овчарка 6 — на странице тоже ленивые
 const run=s=>vm.runInContext(s,c);let bad=0;// Известные расхождения на овчарке (реальные, названы в tools/report.md): печатаются как ПРЕДУПР и не валят проверку
 // Крайние случаи движка, которые вылезли на овчарке (острый шов 17° у уха, мелкие детали кончика уха 8–12 мм, один сгиб с перепутанным V/m в окне,
 // подписи одной зеркальной пары) — движок общий с конём и собакой, чинить отдельными тикетами; список и цифры — tools/report.md, «Известные расхождения»
@@ -380,10 +380,10 @@ ok(run("nestGap('laser')===5&&nestGap('plasma')===7&&ngapAfterCut(5,false,'plasm
     "телефон/iPad: поля 16 px, галочки 24, «?» 32×32, «Перейти к листу/карте» 44 px, вкладки — столбцом, как в мангале");}
 {const sel=/<select id="figSel">([\s\S]*?)<\/select>/.exec(HT)[1],O=[...sel.matchAll(/<option value="([^"]*)"[^>]*>([^<]*)</g)].map(m=>({v:m[1],t:m[2]}));
   const SELD=/<option value="([^"]*)"[^>]*\sselected[\s>]/.exec(sel);
-  const S2=['shepherd2_1000','shepherd2_700','shepherd2_500','shepherd2_350'],IDS=['shepherd',...S2,'shepherd3','shepherd5','shepherd6r'];
-  ok(O.map(o=>o.v).join()===[...IDS.slice(0,-1),'shepherd5_orig','shepherd6r'].join()&&O[0].t==='Овчарка'&&O.every(o=>o.t===run(`FIGURES.${o.v}.name`))&&S2.every(id=>/^Овчарка 2 \(\d+\)$/.test(run(`FIGURES.${id}.name`)))&&run('FIGURES.shepherd3.name')==='Овчарка 3'&&run('FIGURES.shepherd5.name')==='Овчарка 5'&&run('FIGURES.shepherd6r.name')==='Овчарка 6 — оригинал'&&SELD&&SELD[1]==='shepherd'
+  const S2=['shepherd2_1000','shepherd2_700','shepherd2_500','shepherd2_350'],IDS=['shepherd',...S2,'shepherd3','shepherd5','shepherd6r','shepherd6'];
+  ok(O.map(o=>o.v).join()===[...IDS.slice(0,-2),'shepherd5_orig','shepherd6r','shepherd6'].join()&&O[0].t==='Овчарка'&&O.every(o=>o.t===run(`FIGURES.${o.v}.name`))&&S2.every(id=>/^Овчарка 2 \(\d+\)$/.test(run(`FIGURES.${id}.name`)))&&run('FIGURES.shepherd3.name')==='Овчарка 3'&&run('FIGURES.shepherd5.name')==='Овчарка 5'&&run('FIGURES.shepherd6r.name')==='Овчарка 6 — оригинал'&&run('FIGURES.shepherd6.name')==='Овчарка 6 (как доберман)'&&SELD&&SELD[1]==='shepherd'
      &&run("Object.keys(FIGURES).filter(k=>!FIGURES[k].view).sort().join()")===IDS.slice().sort().join()&&IDS.every(id=>run(`FIGURES.${id}.H===1000`)),
-     "список «Фигура»: Овчарка (выбрана), Овчарка 2 (N) ×4, Овчарка 3, Овчарка 5, «Овчарка 5 — оригинал (вид)», «Овчарка 6 — оригинал» (#170), подписи как в FIGURES; других фигур в коде нет; высота по умолчанию 1000 мм");}
+     "список «Фигура»: Овчарка (выбрана), Овчарка 2 (N) ×4, Овчарка 3, Овчарка 5, «Овчарка 5 — оригинал (вид)», «Овчарка 6 — оригинал» (#170), «Овчарка 6 (как доберман)» (#171), подписи как в FIGURES; других фигур в коде нет; высота по умолчанию 1000 мм");}
 // стартовая фигура: #f= из адреса, иначе запомненная (свой ключ shepherd-fig), иначе Овчарка; неизвестный id, запомненные собака и конь — тоже Овчарка
 {const src=/\nfunction startFig\([^\n]*/.exec(UI),sb={FIGURES:run('FIGURES')};if(src)vm.createContext(sb),vm.runInContext(src[0],sb);const SF=(h,s)=>vm.runInContext(`startFig(${JSON.stringify(h)},${JSON.stringify(s)})`,sb);
   ok(!!src&&SF('','')==='shepherd'&&SF('#f=shepherd',null)==='shepherd'&&SF('#f=shepherd2_700',null)==='shepherd2_700'&&SF('#f=shepherd3&edit&trace',null)==='shepherd3'&&SF('','shepherd2_350')==='shepherd2_350'&&SF('#f=horse100',null)==='shepherd'&&SF('#f=doberman11',null)==='shepherd'&&SF('#f=zzz','doberman11')==='shepherd'&&SF('','shepherd')==='shepherd'&&SF('','horse100')==='shepherd'
@@ -489,7 +489,7 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
 // калька js/trace-shepherd3.js — ленивая, в кадре фигуры: атлас находит облако на ≥ 95 % граней и на голове (кадр 600 мм вместо 1000 или поиск вдоль нормали ±6 мм дают ~25 % серого)
 // #142 Овчарка 5 — те же проверки (плиты конвейера по гранёной модели Meshy 7.1, калька js/trace-shepherd5.js)
 // #170 Овчарка 6 — оригинал: те же проверки; кальки у неё пока нет (план 2026-11-25-shepherd6, раздел 3 — отдельной задачей)
-['shepherd3','shepherd5','shepherd6r'].forEach(id=>{const NM=run(`FIGURES.${id}.name`);{const {checkFigure,broken}=require('./check.js')(run),MUST=['selfX','pierce','sym','flipped','degenerate','open'],HT3=fs.readFileSync(__dirname+'/../index.html','utf8');
+['shepherd3','shepherd5','shepherd6r','shepherd6'].forEach(id=>{const NM=run(`FIGURES.${id}.name`);{const {checkFigure,broken}=require('./check.js')(run),MUST=['selfX','pierce','sym','flipped','degenerate','open'],HT3=fs.readFileSync(__dirname+'/../index.html','utf8');
   ok(run(`FIGURES.${id}.need`)==='plates-'+id&&fs.existsSync(P+'plates-'+id+'.js')&&!HT3.includes('plates-'+id+'.js')&&run(`LAZY[FIGURES.${id}.need].ok()&&figureReady('${id}')`)===true,NM+': файл фигуры есть, на странице не подключён — грузится по выбору; после загрузки строится сразу');
   const m=run(`modelPoly('${id}')`),R=checkFigure({V:m.V,P:m.P,S:m.S},{sym:true}),B=run(`meshBox(modelPoly('${id}').V).size`),hb=MUST.filter(k=>R[k].length);
   ok(hb.length===0&&Math.abs(B[1]-1000)<.01&&R.parts>=200,NM+`: симметрична, замкнута, без самопересечений и протыканий, грани наружу, вырожденных нет; высота 1000, граней ${m.P.length}, деталей ${R.parts}`+(hb.length?' — нарушено '+hb.map(k=>k+' '+R[k].length):''));
@@ -602,9 +602,9 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
   ok(['shepherd','shepherd2_1000','shepherd3','shepherd5'].every(id=>HT.includes('value="'+id+'"')),'версии: у каждой фигуры списка есть option, под него встают её версии');}
 // #170 «в гипсе» (план Овчарки 6, Q5): у Овчарки 6 флаг plaster — build3D красит все грани одним светло-серым и рисует линии граней светлее; галочка «Линии граней» (мастерская) их выключает; у Овчарок 1–5 флага нет — вид как раньше
 {const V3D=fs.readFileSync(P+'view3d.js','utf8'),UI=fs.readFileSync(P+'ui.js','utf8'),cm=/const PLASTER=\[(0x[0-9a-f]+),(0x[0-9a-f]+)\]/.exec(V3D);
-  ok(run('FIGURES.shepherd6r.plaster')===true&&['shepherd','shepherd2_1000','shepherd2_700','shepherd2_500','shepherd2_350','shepherd3','shepherd5'].every(id=>!run(`FIGURES.${id}.plaster`))&&!!cm&&cm[1]===cm[2]&&parseInt(cm[1],16)>0x8a929a
+  ok(run('FIGURES.shepherd6r.plaster')===true&&run('FIGURES.shepherd6.plaster')===true&&['shepherd','shepherd2_1000','shepherd2_700','shepherd2_500','shepherd2_350','shepherd3','shepherd5'].every(id=>!run(`FIGURES.${id}.plaster`))&&!!cm&&cm[1]===cm[2]&&parseInt(cm[1],16)>0x8a929a
     &&V3D.includes('(o.plaster?PLASTER:COL[o.mat]||COL.steel)')&&V3D.includes('if(o.plaster)seg(L,...PLASTER_LINE)')&&V3D.includes('if(o.edges===false)return')&&UI.includes('plaster:!!(FIGURES[ST.verBase]||{}).plaster')&&UI.includes('edges:!ed||ST.layers.edges'),
-    'гипс: Овчарка 6 — один светло-серый цвет граней ('+(cm?cm[1]:'?')+'), линии граней тоньше и выключаются галочкой «Линии граней»; у Овчарок 1–5 флага нет');}
+    'гипс: обе Овчарки 6 — один светло-серый цвет граней ('+(cm?cm[1]:'?')+'), линии граней тоньше и выключаются галочкой «Линии граней»; у Овчарок 1–5 флага нет');}
 // #146 оригинал (вид): строка в списке фигур, файл данных ленивый и не больше 10 МБ, в кадре рабочей фигуры; ракурс при переключении сохраняется
 {const HT=fs.readFileSync(__dirname+'/../index.html','utf8'),UI=fs.readFileSync(P+'ui.js','utf8'),OF=P+'orig-shepherd5.js',IM=__dirname+'/../img/orig-shepherd5.png';
   ok(run("FIGURES.shepherd5_orig.view")==='shepherd5'&&run("FIGURES.shepherd5_orig.orig")==='shepherd5'&&run("FIGURES.shepherd5_orig.need")==='orig-shepherd5'&&HT.includes('value="shepherd5_orig"'),'оригинал: строка в списке фигур — view=shepherd5, файл orig-shepherd5, есть пункт выпадашки');
