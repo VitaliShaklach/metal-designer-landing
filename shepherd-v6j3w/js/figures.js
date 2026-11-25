@@ -47,8 +47,10 @@ LAZY['plates-shepherd5']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY
    «оригинал» (shepherd6r) — как вышла из конвейера, без чистки; собирает tools/make-shepherd.js shepherd6r. plaster — вид «в гипсе» (Q5): все грани одним светло-серым, линии граней тонкие */
 /* кальки Овчарки 6 (#172, Q7, Q9) — одни файлы на обе фигуры, в кадре shepherd6 (кадр оригинала отличается ≤ 1 мм, линии всё равно ложатся на ближайшую грань):
    «с модели» — швы текстуры модели (tracing.js … xf=out/shepherd6/xf.json): сырая (с облаком для сверки) и варианты tools/trace-variants.js — без мусора (по умолчанию), выпрямленная;
+   «с 3 фото» (#173) — швы трёх фото Meshy (спереди, сбоку, сзади; project.js → out/shepherd6/tex-p3.png, потом tracing.js png=), те же три варианта;
    третий элемент — облако для сверки у кальки без своего облака */
-const S6REFS=[['shepherd6m2','с модели, без мусора','shepherd6m'],['shepherd6m','с модели, сырая'],['shepherd6m3','с модели, выпрямленная','shepherd6m']];
+const S6REFS=[['shepherd6m2','с модели, без мусора','shepherd6m'],['shepherd6m','с модели, сырая'],['shepherd6m3','с модели, выпрямленная','shepherd6m'],
+  ['shepherd6p2','с 3 фото, без мусора','shepherd6p'],['shepherd6p','с 3 фото, сырая'],['shepherd6p3','с 3 фото, выпрямленная','shepherd6p']];
 FIGURES.shepherd6r={name:'Овчарка 6 — оригинал',H:1000,poly:true,plaster:true,need:'plates-shepherd6r',build:()=>modelPoly('shepherd6r'),ref:'shepherd6r',refs:S6REFS};
 LAZY['plates-shepherd6r']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY.shepherd6r,wait:null};
 // «как доберман» (shepherd6, #171): плиты с clean=13 (короткие рёбра < 13 мм в точку) + слиты швы с изломом < 1°; собирает tools/make-shepherd.js shepherd6
