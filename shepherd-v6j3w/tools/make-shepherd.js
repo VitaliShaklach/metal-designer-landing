@@ -22,6 +22,11 @@ VARIANTS.shepherd5={src:'from-dev/art/tools/plates/out/plates_s5b.json',plates:t
   head:'Швы головы — с исходной текстуры модели Meshy (`src/shepherd5/model/*.png`).',
   about:'плиты конвейера `plates.js round=1 seed=2e-4 mina=1.5e-4 pen=1 ang=8 mm=6` по модели Meshy 7.1 `Meshy_AI_welded_adult_shepherd_final_20261122` (158 тыс. треугольников, гранёная, швы на текстуре), высота 1000 мм, морда на +Z, симметричная'};
 VARIANTS.shepherd3.head='Швы головы — с густого профиля головы (`head-profile-dense-v3.png`, текстура `tex-h3.png`).';
+// Овчарка 6 (тикеты #170, #171; план 2026-11-25-shepherd6): та же модель, что у Овчарки 5, плиты настройками Добермана 7 (ang=4 mm=3), пороги площади Овчарки 5.
+// clean:false — без чистки этого скрипта (грани не нарезаем, форму не правим): плиты конвейера как есть, только перевод в кадр фигуры и грани наружу
+VARIANTS.shepherd6r={src:'from-dev/art/tools/plates/out/plates_s6r.json',plates:true,clean:false,nose:false,ticket:170,xf:'from-dev/art/tools/plates/out/shepherd6r/xf.json',
+  head:'Швы — с исходной текстуры модели Meshy (`src/shepherd5/model/*.png`), без прорезей глаз.',
+  about:'плиты конвейера `plates.js round=1 ang=4 mm=3 seed=2e-4 mina=1.5e-4 clean=0 tag=_s6r` по модели Meshy 7.1 `Meshy_AI_welded_adult_shepherd_final_20261122` (158 336 треугольников, гранёная, швы на текстуре), как вышли из конвейера — без чистки, высота 1000 мм, морда на +Z, симметричная'};
 const ARG_ID=require.main===module&&args.find(a=>VARIANTS[a]||a==='all'),ARG_SRC=require.main===module&&args.find(a=>/\.obj$/i.test(a));
 let ID=ARG_ID&&ARG_ID!=='all'?ARG_ID:'shepherd',SRC=ARG_SRC||path.join(ROOT,VARIANTS[ID].src);
 const H=1000;
@@ -134,7 +139,7 @@ function cleanFig(E0,ref,log){let E=copyE(E0),R=checkFigure(E,{sym:true,ref});co
 // мм×10 с точностью 0,01 мм; округление по модулю — зеркальные точки остаются точно зеркальными
 const rnd=v=>{const r=Math.sign(v)*Math.round(Math.abs(v)*100)/10;return Object.is(r,-0)?0:r;};
 function fileText(E){const V=[],P=[];E.V.forEach(p=>V.push(...p.map(rnd)));E.P.forEach(Q=>P.push(...Q,-1));
-  if(VARIANTS[ID].plates)return `/* ${run(`FIGURES.${ID}?FIGURES.${ID}.name:''`)||ID} — собрано tools/make-shepherd.js ${ID} (тикет #142) из ${VARIANTS[ID].about.replace(/`/g,'')}; чистка по правилам спеки 2026-11-20-horse-page-design.
+  if(VARIANTS[ID].plates)return `/* ${run(`FIGURES.${ID}?FIGURES.${ID}.name:''`)||ID} — собрано tools/make-shepherd.js ${ID} (тикет #${VARIANTS[ID].ticket}) из ${VARIANTS[ID].about.replace(/`/g,'')}; ${VARIANTS[ID].clean===false?'без чистки tools/make-shepherd.js':'чистка по правилам спеки 2026-11-20-horse-page-design'}.
    Руками не править — пересобрать скриптом. V — мм×10, P — углы граней, -1 — конец грани. Имя, ленивая загрузка и калька (js/trace-${ID}.js) — FIGURES.${ID} в js/figures.js */
 MODELS_POLY.${ID}={V:[${V.join(',')}],P:[${P.join(',')}]};
 `;
@@ -184,13 +189,14 @@ function report(r){const f=(v,d=1)=>v.toFixed(d).replace('.',','),L=[],row=(t,v)
   if(old){L.push('## Почему деталей ~500, а не ~400','',`Оценка «~396 деталей» считалась при угле 8° (соседние треугольники с изломом до 8° — одна деталь). Сайт делит на детали при 1,5° (\`buildParts(…, 1.5, 1.5)\`), а склейка берёт только почти плоские грани (0,5° / 0,3 мм), чтобы не искажать форму. Грани с изломом 1,5–8° остаются отдельными деталями; слить их — значит выровнять в плоскость, это отдельная задача.`,'');
   L.push('## Нос','','Квадратный нос эталона (лобовая грань ~44 × 48 мм) переделан «шапочкой», как у сварной овчарки на фото Виталия (21.11): кольцо шире, внутри пластина, выдвинутая вперёд, между ними скосы по кругу. Сбоку кончик носа тупой и закруглённый, спереди нос шире. Параметры — `NOSE` в скрипте; `loadRef({nose:false})` — эталон без правки.','');
   r.nose.forEach(x=>L.push('- '+x));}
-  else if(V.plates)L.push('## Голова','',`${V.head} Морду Виталий доводит до ~90 деталей в мастерской по кальке (\`js/trace-${ID}.js\`, кадр — \`xf.json\`), потом \`fromjson.js\`.`);
+  else if(V.plates)L.push('## Голова','',V.clean===false?V.head:`${V.head} Морду Виталий доводит до ~90 деталей в мастерской по кальке (\`js/trace-${ID}.js\`, кадр — \`xf.json\`), потом \`fromjson.js\`.`);
   else L.push('## Голова','','Нос как в эталоне, без «шапочки» (она подогнана под эталон старой Овчарки).');
   L.push('',`![голова спереди](img/${ID}_head_front.png) ![голова сбоку](img/${ID}_head_side.png) ![голова три четверти](img/${ID}_head_iso.png)`,'');
   L.push('## Форма','');
   L.push(`- Морда: самая передняя точка (${r.front.map(Math.round).join(', ')}), на высоте ${Math.round(r.front[1])} из ${H}. Самая высокая точка (кончик уха): (${r.top.map(Math.round).join(', ')}).`);
   if(old)L.push('- Глаз — щель под надбровьем в сетке эталона, чистка его не трогала (см. картинки). Глаз отдельной деталью — отдельный тикет.');
   L.push('','## Чистка','');
+  if(V.clean===false)L.push('Чистки этого скрипта нет (грани не нарезаем, форму не правим): плиты конвейера как есть — перевод в кадр фигуры (1000 мм, низ y = 0, зад z = 0) и грани наружу.'+(V.post?' '+V.post:''),'');
   const ok=r.log.filter(x=>/ — да$| — слито /.test(x));
   L.push(`Принято правок: ${ok.length}, отклонено (откат или нельзя): ${r.log.length-ok.length}. Правка, после которой появилось новое нарушение из жёстких (самопересечение, протыкание, уход от эталона, открытое ребро, развёрнутая или вырожденная грань, несимметрия), откатывается.`,'');
   L.push('Принято:','');ok.forEach(x=>L.push('- '+x));
@@ -209,7 +215,7 @@ function report(r){const f=(v,d=1)=>v.toFixed(d).replace('.',','),L=[],row=(t,v)
 /* ---------- запуск ---------- */
 module.exports={loadTris,loadRef,noseRound,cleanFig,mergePts,fileText,NOSE,VARIANTS};
 function make(){const E=loadRef(),IMG=path.join(__dirname,'img'),site=run(SITE),polyDev=g('polyDev');fs.mkdirSync(IMG,{recursive:true});
-  const R1=checkFigure(E,{sym:true,ref:E}),log=[],K=cleanFig(E,E,log),txt=fileText(K.E);fs.writeFileSync(path.join(JS,`plates-${ID}.js`),txt);
+  const R1=checkFigure(E,{sym:true,ref:E}),log=[],K=VARIANTS[ID].clean===false?{E:copyE(E)}:cleanFig(E,E,log),txt=fileText(K.E);fs.writeFileSync(path.join(JS,`plates-${ID}.js`),txt);
   // проверка — по записанному файлу (после округления), как его прочтёт страница
   run(txt);const m=run(`modelPoly('${ID}')`),EF={V:m.V,P:m.P,S:m.S},R2=checkFigure(EF,{sym:true,ref:E}),S=site(ID,TH.extra);
   const front=EF.V.reduce((a,p)=>p[2]>a[2]?p:a),top=EF.V.reduce((a,p)=>p[1]>a[1]?p:a),maxDev=Math.max(...EF.P.map(Q=>polyDev(EF.V,Q))),lost=(R1.parts-R2.parts)/R1.parts;

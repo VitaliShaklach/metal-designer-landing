@@ -43,6 +43,10 @@ FIGURES.shepherd5={name:'Овчарка 5',H:1000,poly:true,need:'plates-shepher
   // с текстуры модели, «форма оригинала» — изломы 3D-формы модели ≥ 4° (tracing.js edges=4, только линии, без облака — сверки у неё нет)
   refs:[['shepherd5p','с картинок'],['shepherd5','с модели'],['shepherd5f','форма оригинала']]};
 LAZY['plates-shepherd5']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY.shepherd5,wait:null};
+/* ---------- Овчарка 6 (тикеты #170, #171; план docs/superpowers/plans/2026-11-25-shepherd6.md): модель Овчарки 5, плиты конвейера настройками Добермана 7 (4° / 3 мм), пороги площади Овчарки 5 ----------
+   «оригинал» (shepherd6r) — как вышла из конвейера, без чистки; собирает tools/make-shepherd.js shepherd6r. plaster — вид «в гипсе» (Q5): все грани одним светло-серым, линии граней тонкие */
+FIGURES.shepherd6r={name:'Овчарка 6 — оригинал',H:1000,poly:true,plaster:true,need:'plates-shepherd6r',build:()=>modelPoly('shepherd6r')};
+LAZY['plates-shepherd6r']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY.shepherd6r,wait:null};
 /* ---------- Оригинал (вид) (тикет #146): модель Meshy как есть, только смотреть; view — рабочая фигура (там расчёт), orig — ключ в ORIG ----------
    Для другой фигуры из Meshy — такая же строка + файл js/orig-<id>.js (from-dev/art/tools/plates/orig.js) + <option> в index.html */
 FIGURES.shepherd5_orig={name:'Овчарка 5 — оригинал (вид)',view:'shepherd5',orig:'shepherd5',need:'orig-shepherd5'};

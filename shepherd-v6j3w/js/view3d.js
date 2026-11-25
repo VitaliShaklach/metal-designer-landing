@@ -14,10 +14,12 @@ if(ok){scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(35,1,5,30000);
   root=new THREE.Group();scene.add(root);
   const grid=new THREE.GridHelper(6000,60,0xb9c0bd,0xd5dad7);grid.material.transparent=true;grid.material.opacity=.5;scene.add(grid);}
 const COL={steel:[0x6b737b,0x8a929a],inox:[0x9aa3ab,0xc2c9cf],corten:[0x8a4a2a,0xa8623a],alu:[0xa9b0b6,0xd0d5d9]};
+// «в гипсе» (#170, план Овчарки 6 Q5): у фигуры FIGURES.<id>.plaster все грани одним светло-серым, без разных тонов деталей; линии граней тоньше на вид (светлее)
+const PLASTER=[0x9a9c98,0x9a9c98],PLASTER_LINE=[0x5a6066,.55];
 let LBL=[];
 // R — результат buildParts, M3 — сетка в мм; o: {sel, small:Set, nums, mat, warn/blue/pierce — треугольники неплоских / самопересечённых / протыкающих граней}
 function build3D(M3,R,o){if(!ok)return;req3D();while(root.children.length){const c=root.children.pop();c.geometry&&c.geometry.dispose();if(c.element)c.element.remove();}LBL=[];
-  const {V,F}=M3,pos=new Float32Array(F.length*9),col=new Float32Array(F.length*9),[c0,c1]=(COL[o.mat]||COL.steel).map(x=>new THREE.Color(x)),sel=new THREE.Color(0xd0561f),red=new THREE.Color(0xd01f1f),amb=new THREE.Color(0xe0a020),blu=new THREE.Color(0x3a6fe0),vio=new THREE.Color(0x9b3fd6),nearC=new THREE.Color(0x9fd49a),tmp=new THREE.Color();
+  const {V,F}=M3,pos=new Float32Array(F.length*9),col=new Float32Array(F.length*9),[c0,c1]=(o.plaster?PLASTER:COL[o.mat]||COL.steel).map(x=>new THREE.Color(x)),sel=new THREE.Color(0xd0561f),red=new THREE.Color(0xd01f1f),amb=new THREE.Color(0xe0a020),blu=new THREE.Color(0x3a6fe0),vio=new THREE.Color(0x9b3fd6),nearC=new THREE.Color(0x9fd49a),tmp=new THREE.Color();
   // калька (o.tex): грани белые — цвет даёт текстура; выделения — подкраска поверх рисунка
   const tx=o.tex,wh=new THREE.Color(1,1,1),tint=c=>tx?tmp.copy(wh).lerp(c,.6):tmp.copy(c);
   // o.multi — Map(деталь → '#rrggbb'): каждая выбранная своим цветом (режим «Углы»)
@@ -36,7 +38,7 @@ function build3D(M3,R,o){if(!ok)return;req3D();while(root.children.length){const
   // с гибкой: гнутые стыки — тонким пунктиром
   const L=[],Lo=[],Lr=[],Lb=[],RS=new Set(o.diff?o.diff.red:[]);R.edges.forEach((e,i)=>{if(RS.has(i)&&!e.open){Lr.push(...V[e.a],...V[e.b]);return;}if(o.edges===false)return;(e.open?Lo:o.bent&&o.bent(e)?Lb:L).push(...V[e.a],...V[e.b]);});
   const seg=(arr,c,op)=>{if(!arr.length)return;const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));root.add(new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:c,transparent:true,opacity:op})));};
-  seg(L,0x15191b,.8);seg(Lo,0xd0561f,.9);seg(Lr,0xe01818,1);
+  if(o.plaster)seg(L,...PLASTER_LINE);else seg(L,0x15191b,.8);seg(Lo,0xd0561f,.9);seg(Lr,0xe01818,1);
   if(Lb.length){const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.Float32BufferAttribute(Lb,3));const ln=new THREE.LineSegments(bg,new THREE.LineDashedMaterial({color:0x2a6fd0,dashSize:4,gapSize:3,transparent:true,opacity:.9}));ln.computeLineDistances();root.add(ln);}
   // калька линиями (#147): швы эталона — тонкие белые линии, уже поднятые над гранями на 0,6 мм (tlinesOnFigure); резкие при любом зуме
   if(o.tlines&&o.tlines.length){const tg=new THREE.BufferGeometry();tg.setAttribute('position',new THREE.BufferAttribute(o.tlines,3));const tl=new THREE.LineSegments(tg,new THREE.LineBasicMaterial({color:0xffffff}));tl.renderOrder=2;root.add(tl);}
