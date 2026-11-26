@@ -38,3 +38,18 @@ function mkPen(raw,seg,magnet){const closed=mkClosed(raw),p=mkSmooth(raw).map(q=
 // штрихи → отрезки на поверхности фигуры: прямая между точками штриха — по поверхности (через 2 мм на ближайшую грань, подъём 0,6 мм), как линии кальки
 function mkDrape(list,V,P,FT){if(!list.length)return new Float32Array(0);const pts=[],S=[];list.forEach(s=>{S.push(pts.length/3);const q=s.closed?[...s.pts,s.pts[0]]:s.pts;(q.length===1?[q[0],q[0]]:q).forEach(p=>pts.push(...p));});S.push(pts.length/3);
   const ID=p=>p;ID.inv=p=>p;return tlinesOnFigure({n:list.length,S:Uint32Array.from(S),P:Float32Array.from(pts)},ID,V,P,40,FT);}
+/* ---------- отмена в разметке (#180): свой стек, не UNDO/REDO правок формы. Состояние h = {mk, cur, und, red}: mk — законченные штрихи, cur — линия в процессе (ST.mkCur),
+   und/red — шаги «убрать»/«вернуть»: {add:n} — добавлено n штрихов (одно движение пера может дать несколько); {clear:mk} — «Очистить разметку» (вся разметка одним шагом).
+   Функции не меняют h и его массивы — возвращают новое состояние; нечего делать — тот же h (по нему ui.js понимает, что не сработало) */
+// положить законченные штрихи: новый штрих очищает «вернуть»
+function mkPush(h,list){if(!list||!list.length)return h;return {mk:h.mk.concat(list),cur:h.cur,und:h.und.concat([{add:list.length}]),red:[]};}
+// убрать: идёт линия — её последнюю точку (последняя — линия пропадает целиком; в «вернуть» точки не идут); иначе — последний законченный шаг, он уходит в «вернуть»
+function mkUndo(h){if(h.cur)return {mk:h.mk,cur:h.cur.pts.length>1?{...h.cur,pts:h.cur.pts.slice(0,-1)}:null,und:h.und,red:h.red};const u=h.und[h.und.length-1]||(h.mk.length?{add:1}:null);if(!u)return h;   // шагов нет, а штрихи есть (разметка из браузера) — по одному с конца
+  if(u.clear)return {mk:u.clear,cur:h.cur,und:h.und.slice(0,-1),red:h.red.concat([{clear:u.clear}])};const n=u.add;
+  return {mk:h.mk.slice(0,h.mk.length-n),cur:h.cur,und:h.und.slice(0,-1),red:h.red.concat([{add:h.mk.slice(h.mk.length-n)}])};}
+// «Очистить разметку»: вся разметка — один шаг отмены; линия в процессе просто пропадает (она ещё не штрих)
+function mkClearAll(h){if(!h.mk.length)return h.cur?{mk:h.mk,cur:null,und:h.und,red:h.red}:h;return {mk:[],cur:null,und:h.und.concat([{clear:h.mk}]),red:[]};}
+// вернуть убранное
+function mkRedo(h){const r=h.red[h.red.length-1];if(!r)return h;if(r.clear)return {mk:[],cur:h.cur,und:h.und.concat([{clear:h.mk}]),red:h.red.slice(0,-1)};return {mk:h.mk.concat(r.add),cur:h.cur,und:h.und.concat([{add:r.add.length}]),red:h.red.slice(0,-1)};}
+// клавиши отмены → 'undo' | 'redo' | ''; русская раскладка: Я = Z, Н = Y
+function mkUndoKey(e){if(!(e.ctrlKey||e.metaKey)||typeof e.key!=='string')return '';const k=e.key.toLowerCase(),z=k==='z'||k==='я';if(z&&!e.shiftKey)return 'undo';return z||k==='y'||k==='н'?'redo':'';}

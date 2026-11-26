@@ -564,7 +564,19 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
 // #151 «Карандаш»: кнопка есть; ведёшь — превью, отпустил — сглаживание (mkSmooth), магнит и замкнутость (mkPen); зигзаг ±1,5 мм → ≤ 0,5 мм
 {const HT=fs.readFileSync(__dirname+'/../index.html','utf8'),UI=fs.readFileSync(P+'ui.js','utf8'),mc={console,Math};vm.createContext(mc);['mesh','tlines','markup'].forEach(n=>vm.runInContext(fs.readFileSync(P+n+'.js','utf8'),mc));
   const z=vm.runInContext("(()=>{const Z=Array.from({length:201},(_,i)=>[i/2,i===0||i===200?0:(i%2?1.5:-1.5),0]),s=mkSmooth(Z),C=Array.from({length:121},(_,i)=>[30*Math.cos(i/120*2*Math.PI),30*Math.sin(i/120*2*Math.PI),0]);return {dev:Math.max(...s.map(p=>Math.abs(p[1]))),closed:mkPen(C,null,true).closed===true};})()",mc);
-  ok(HT.includes('data-tool="pen" id="mk_pen">Карандаш</button>')&&UI.includes("if(ST.tool==='pen'&&e.button===0")&&UI.includes('ST.mk.push(mkPen(raw,traceOn()?TRC.seg:null,ST.magnet))')&&z.dev<=.5&&z.closed,`карандаш: кнопка, сглаживание (зигзаг ±1,5 мм → ${z.dev.toFixed(2)} мм), магнит, окружность — замкнутая`);}
+  ok(HT.includes('data-tool="pen" id="mk_pen">Карандаш</button>')&&UI.includes("if(ST.tool==='pen'&&e.button===0")&&UI.includes('mkPen(raw,traceOn()?TRC.seg:null,ST.magnet)')&&z.dev<=.5&&z.closed,`карандаш: кнопка, сглаживание (зигзаг ±1,5 мм → ${z.dev.toFixed(2)} мм), магнит, окружность — замкнутая`);}
+// #180 отмена в разметке: свой стек (mkPush/mkUndo/mkRedo/mkClearAll из markup.js, тесты — tools/markup.test.js), клавиши — mkUndoKey; все штрихи ложатся через mkPush (одна логика);
+// в режиме обводки (при «Править фигуру») Ctrl+Z — по разметке, у обычной фигуры — пока выбран инструмент, иначе undo()/redo() формы как было; стек сбрасывают смена ключа (mkSync), «Нарезать», mkSet
+{const UI=fs.readFileSync(P+'ui.js','utf8'),tc={};vm.createContext(tc);const src=fs.readFileSync(P+'tips.js','utf8');vm.runInContext(src.slice(0,src.indexOf('\n(()=>'))+'\nthis.TIPS=TIPS;',tc);const TP=tc.TIPS,HINT='Ctrl+Z — убрать последнее, Ctrl+Y — вернуть';
+  const line=re=>(UI.split('\n').find(l=>re.test(l))||'');
+  ok(UI.includes('mkDo(mkPush,[c])')&&UI.includes('mkDo(mkPush,a)')&&UI.includes('mkDo(mkPush,[mkPen(raw,traceOn()?TRC.seg:null,ST.magnet)])')&&UI.includes('mkDo(mkClearAll)')&&!/ST\.mk\.push\(/.test(UI),
+    'разметка (#180): все штрихи — через mkPush, «Очистить разметку» — mkClearAll (отменяется одним шагом)');
+  ok(UI.includes('function mkUndoOn(){return OW.on?ST.edit:!!ST.tool;}')&&/addEventListener\('keydown',e=>\{const a=mkUndoKey\(e\);if\(!a\|\|!mkUndoOn\(\)\|\|typing\(\)\)return;/.test(UI)&&line(/^addEventListener\('keydown',e=>\{if\(!ST\.edit\|\|ST\.orig/).includes('if(mkUndoKey(e)&&mkUndoOn())return;')
+    &&UI.includes("if((e.ctrlKey||e.metaKey)&&(k==='z'||k==='я')&&!e.shiftKey){e.preventDefault();undo();}"),
+    'разметка (#180): Ctrl+Z/Ctrl+Y — по разметке в режиме обводки и при выбранном инструменте; без инструмента — правки формы, как было');
+  ok(/function mkSync\(\)\{[^\n]*mkReset\(\)/.test(UI)&&/function mkSet\([^\n]*mkReset\(\)/.test(UI)&&line(/^  ST\.mk\.forEach\(\(s,i\)=>\{if\(fail\.has/).includes('mkReset()'),
+    'разметка (#180): стек отмены сбрасывается при смене фигуры или версии, после «Нарезать» и при подмене разметки целиком (mkSet)');
+  ok(UI.includes(HINT)&&['mk_line','mk_pen','mk_cross','bMkClear'].every(k=>TP[k].includes('Ctrl+Z')),'разметка (#180): подсказка «'+HINT+'» в заметке и в «?» у «Линия», «Карандаш», «Зачеркнуть», «Очистить разметку»');}
 // #152 «Нарезать» в пределах одной детали на Овчарке 5: линия поперёк самой большой детали справа (концы за краем на 3 мм), с симметрией → граней на 2 больше,
 // фигура симметрична, замкнута, без самопересечений и протыканий (те же правила, что у самой фигуры); оборванная линия — отказ «линия не доходит до края детали», фигура та же
 {['tlines','markup','apply'].forEach(n=>vm.runInContext(fs.readFileSync(P+n+'.js','utf8'),c));const {checkFigure}=require('./check.js')(run),MUST=['selfX','pierce','sym','flipped','degenerate','open'],UI=fs.readFileSync(P+'ui.js','utf8'),HT=fs.readFileSync(__dirname+'/../index.html','utf8');
