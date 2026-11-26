@@ -137,3 +137,35 @@ test('owSeamSeg: точка облака — отрезок нулевой дл�
   c.CL=new Float32Array([1,2,3, 10,20,30, -5,0,7]);const s=run('SS=owSeamSeg(CL)');assert.deepStrictEqual(Array.from(s),[1,2,3,1,2,3, 10,20,30,10,20,30, -5,0,7,-5,0,7]);assert.ok(run('!!SS._g'),'сетка уже построена');
   for(const p of [[2,2,3],[9,18,31],[-4,1,5],[50,50,50]]){c.p=p;assert.deepStrictEqual(J(run('mkSnap(p,SS,true)')),J(run('mkSnap(p,new Float32Array(SS),true)')),'точка '+p);}
   assert.strictEqual(run('owSeamSeg(new Float32Array(0)).length'),0);});
+/* ---------- #178 фото-кальки: точка модели (кадр фигуры, мм) → пиксель фото; сторона, отвёрнутая от камеры фото, — гипс ---------- */
+// матрица «вид спереди, 1000 мм на всю картинку, центр в (0, 500)»: u = x/1000 + 0,5; v = 1 − y/1000 (v вниз, 0 — верх картинки); z не влияет
+const FRONT=[0.001,0,0,0.5, 0,-0.001,0,1];
+test('owPhotoUV: вид спереди — (0,500,0) → середина, (500,1000,0) → правый верх, z не меняет uv',()=>{c.M=FRONT;
+  const uv=p=>{c.p=p;return run('owPhotoUV(M,p)');},near=(a,b)=>assert.ok(Math.abs(a[0]-b[0])<1e-12&&Math.abs(a[1]-b[1])<1e-12,a+' ≠ '+b);
+  near(uv([0,500,0]),[0.5,0.5]);near(uv([500,1000,0]),[1,0]);near(uv([-500,0,0]),[0,1]);near(uv([120,340,-777]),uv([120,340,555]));});
+// фото спереди: камера смотрит по −Z (стоит спереди, морда на +Z). Точка с нормалью к камере — фото; от камеры (нормаль · dir ≥ 0) — гипс; uv вне картинки — гипс
+test('owPhotoPick: нормаль к камере — uv фото; отвёрнута или вбок (нормаль · dir ≥ 0) — null; вне картинки — null',()=>{
+  c.PH={m:FRONT,dir:[0,0,-1],mirror:false};const pick=(p,n)=>{c.p=p;c.n=n;return run('owPhotoPick(PH,p,n)');};
+  const a=pick([0,500,300],[0,0,1]);assert.ok(a&&Math.abs(a.uv[0]-.5)<1e-12&&Math.abs(a.uv[1]-.5)<1e-12&&a.mir===false,JSON.stringify(a));
+  assert.strictEqual(pick([0,500,-300],[0,0,-1]),null,'спина при фото спереди — гипс');assert.strictEqual(pick([0,500,0],[1,0,0]),null,'бок (нормаль поперёк) — гипс');
+  assert.strictEqual(pick([800,500,300],[0,0,1]),null,'за краем картинки — гипс');});
+// фото сбоку: камера слева (x = −3 м) смотрит по +X, mirror — та же картинка зеркально на правый бок (x → −x); берётся сторона, что смотрит на камеру
+const SIDE=[0,0,-0.001,0.5, 0,-0.001,0,1];   // u — по −z (морда +Z слева на картинке), v — вниз
+test('owPhotoPick: бок с зеркалом — левый бок по себе, правый — зеркально, тот же пиксель; без зеркала правый — гипс; спереди-сзади — гипс',()=>{
+  c.PH={m:SIDE,dir:[1,0,0],mirror:true};const pick=(p,n)=>{c.p=p;c.n=n;return run('owPhotoPick(PH,p,n)');};
+  const L=pick([-150,400,100],[-1,0,0]),R=pick([150,400,100],[1,0,0]);
+  assert.ok(L&&L.mir===false&&R&&R.mir===true,JSON.stringify([L,R]));assert.ok(Math.abs(L.uv[0]-R.uv[0])<1e-12&&Math.abs(L.uv[1]-R.uv[1])<1e-12,'зеркальные точки — один пиксель фото');
+  assert.ok(Math.abs(L.uv[0]-.4)<1e-12&&Math.abs(L.uv[1]-.6)<1e-12,'uv '+L.uv);
+  // наискось вперёд-вправо: прямо — от камеры, зеркально — к камере
+  const D=pick([150,400,100],[0.6,0,0.8]);assert.ok(D&&D.mir===true,'наискось вправо — зеркально');assert.strictEqual(pick([0,400,500],[0,0,1]),null,'грудь (нормаль по Z) — гипс');
+  c.PH={m:SIDE,dir:[1,0,0],mirror:false};assert.strictEqual(pick([150,400,100],[1,0,0]),null,'без зеркала правый бок — гипс');});
+// #178 голова: у фото может быть второй слой — снимок головы крупно со своей матрицей (как виды head-* в project.js: общий подгон кладёт глаза фото ~25 мм ниже глаз модели);
+// он светит только на точки в коробке головы (y ≥ y0 и z ≥ z0, кадр фигуры) — у бока для зеркальной стороны по зеркальной точке
+test('owPhotoPick: слой головы — uv головы только в коробке головы; у зеркальной стороны — по зеркальной точке; без слоя — head = null',()=>{
+  const HEAD={m:[0,0,-0.002,0.9, 0,-0.002,0,1.6],y0:600,z0:200};c.PH={m:SIDE,dir:[1,0,0],mirror:true,head:HEAD};const pick=(p,n)=>{c.p=p;c.n=n;return run('owPhotoPick(PH,p,n)');};
+  const L=pick([-60,700,300],[-1,0,0]),R=pick([60,700,300],[1,0,0]),body=pick([-60,500,300],[-1,0,0]),back=pick([-60,700,100],[-1,0,0]);
+  assert.ok(L.head&&Math.abs(L.head[0]-0.3)<1e-12&&Math.abs(L.head[1]-0.2)<1e-12,'голова (0,3; 0,2): '+JSON.stringify(L));
+  assert.ok(R.mir&&R.head&&Math.abs(R.head[0]-L.head[0])<1e-12&&Math.abs(R.head[1]-L.head[1])<1e-12,'правая сторона — зеркально, тот же пиксель головы');
+  assert.strictEqual(body.head,null,'ниже коробки — только общее фото');assert.strictEqual(back.head,null,'позади коробки (z < z0) — только общее фото');
+  c.PH={m:SIDE,dir:[1,0,0],mirror:true};assert.strictEqual(pick([-60,700,300],[-1,0,0]).head,null,'без слоя головы');
+  c.PH={m:SIDE,dir:[1,0,0],mirror:true,head:{...HEAD,m:[0,0,-0.002,2, 0,-0.002,0,1.6]}};assert.strictEqual(pick([-60,700,300],[-1,0,0]).head,null,'uv головы вне картинки — null');});

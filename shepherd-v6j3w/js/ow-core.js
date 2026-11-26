@@ -124,3 +124,17 @@ function owSeamMips(px,thr){const {W,H,data}=px,lo=thr[0]*255,k=1/(thr[1]*255-lo
   return out;}
 // облако швов (owSeamCloud, xyz) → отрезки нулевой длины для магнита (mkSnap) с готовой сеткой mkSnapGrid — один раз при входе, дальше склеивается со своими линиями (owSnapJoin) без пересборки
 function owSeamSeg(C){const seg=new Float32Array(C.length*2);for(let i=0;i<C.length;i+=3){seg[i*2]=seg[i*2+3]=C[i];seg[i*2+1]=seg[i*2+4]=C[i+1];seg[i*2+2]=seg[i*2+5]=C[i+2];}seg._g=mkSnapGrid(seg);return seg;}
+/* ---------- #178 фото-кальки «Фото спереди» / «Фото сбоку»: фото Meshy светится на модель, как проектор ----------
+   m — 8 чисел одной аффинной матрицы (камера ракурса ∘ подгон фото по силуэту ∘ кадр OBJ → кадр фигуры; считает tools/photo-fit.js у Claude): u = a0·x+a1·y+a2·z+a3, v = b0·x+b1·y+b2·z+b3,
+   точка — в кадре фигуры (мм), u, v — 0…1 по картинке, v вниз (0 — верхняя строка). Тот же расчёт — в шейдере кальки (owork.js, owPhotoMat) */
+function owPhotoUV(m,p){return [m[0]*p[0]+m[1]*p[1]+m[2]*p[2]+m[3],m[4]*p[0]+m[5]*p[1]+m[6]*p[2]+m[7]];}
+/* какой пиксель фото ph = {m, dir, mirror, head?} светит на точку p с нормалью n (наружу): от камеры фото (n · dir ≥ 0) или uv вне картинки — null (гипс).
+   mirror — фото ещё и зеркально по X (собака симметрична: профиль на обе стороны) — для точки (−x, y, z) с нормалью (−nx, ny, nz); из двух берётся та сторона, что смотрит на камеру прямее.
+   head = {m, y0, z0} — снимок головы крупно со своей матрицей (общий подгон по всей собаке кладёт глаза фото на ~25 мм ниже глаз модели; так же делал project.js видами head-*):
+   для точки (той стороны, что выбрана) в коробке головы y ≥ y0, z ≥ z0 — ещё и uv головы, если он на картинке; на странице голова главнее, где её фото не прозрачное.
+   → {uv:[u,v], mir — взято зеркально, cos — насколько прямо смотрит (−n · dir, 0…1), head:[u,v]|null} | null. Шейдер (owPhotoMat) — то же правило */
+function owPhotoPick(ph,p,n){const d=ph.dir,side=(q,nn,mir)=>{const cs=-(nn[0]*d[0]+nn[1]*d[1]+nn[2]*d[2]);if(cs<=0)return null;const uv=owPhotoUV(ph.m,q);
+    return uv[0]<0||uv[0]>1||uv[1]<0||uv[1]>1?null:{uv,mir,cs,q};};
+  const a=side(p,n,false),b=ph.mirror?side([-p[0],p[1],p[2]],[-n[0],n[1],n[2]],true):null,r=a&&b?(b.cs>a.cs?b:a):a||b;if(!r)return null;
+  const H=ph.head,h=H&&r.q[1]>=H.y0&&r.q[2]>=H.z0?owPhotoUV(H.m,r.q):null;
+  return {uv:r.uv,mir:r.mir,cos:r.cs,head:h&&h[0]>=0&&h[0]<=1&&h[1]>=0&&h[1]<=1?h:null};}

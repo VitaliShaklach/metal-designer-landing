@@ -13,7 +13,7 @@ function owBox(V){const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinit
 // встроенная фигура режима: подгрузить данные (лениво, как вид #146) и открыть
 function owLoad(id,after){FIG_WANT=id;const f=FIGURES[id];
   if(!figureReady(id,()=>{if(FIG_WANT===id)owLoad(id,after);},()=>{if(FIG_WANT===id){loading(false);$('figSel').value=ST.orig?ST.orig.id:OW.on?OW.id:ST.ver?'ver:'+ST.verBase+':'+ST.ver:ST.fig||'';msg('Оригинал не загрузился — проверьте интернет и выберите его ещё раз');}})){loading(true,'Загружаю оригинал…');return;}
-  later(()=>{if(FIG_WANT!==id)return;const r=ORIG[f.ow],D=origDecode(r);owOpen({id,name:f.name,V:D.V,T:D.T,F:D.F,tex:r.tex},'fig');store('shepherd-fig',id);if(after)after();},'Открываю оригинал…');}
+  later(()=>{if(FIG_WANT!==id)return;const r=ORIG[f.ow],D=origDecode(r);owOpen({id,name:f.name,V:D.V,T:D.T,F:D.F,tex:r.tex},'fig');if(f.photos)owPhotosLoad(id,f.photos);store('shepherd-fig',id);if(after)after();},'Открываю оригинал…');}
 // войти в режим. src: {id, name, V, T, F, tex (адрес картинки текстуры) | img, photos}; kind: 'fig' — встроенная, 'file' — из «Открыть модель»
 function owOpen(src,kind){origLeave();owDrop3D();
   Object.assign(OW,{on:true,id:src.id,src:kind,name:src.name,V:src.V,T:src.T||null,F:src.F,img:src.img||null,photos:src.photos||[],calka:src.T&&src.tex?'tex':'',calkaOn:true,seam:null,seamMs:0});   // калька по умолчанию — «Текстура», если у модели есть текстура (#177)
@@ -27,13 +27,13 @@ function owOpen(src,kind){origLeave();owDrop3D();
   owBuild(src);fitBox(OW.box,true);renderAll();msg('Оригинал для обводки: '+fmt(OW.F.length/3)+' '+plural(OW.F.length/3,'треугольник','треугольника','треугольников')+', расчёта нет');}
 function owLeave(){if(!OW.on)return;owDrop3D();Object.assign(OW,{on:false,V:null,T:null,F:null,img:null,G:null,box:null,photos:[],free:[],snap:null,snapK:'',calka:'',seam:null});
   document.body.classList.remove('owview');$('origBox').hidden=true;$('cOrigTex').checked=true;$('bSave').disabled=false;}   // «Текстура» — как была у вида #146 (по умолчанию включена)
-function owDrop3D(){owMkDrop();const o=OW.o3;if(!o)return;OW.o3=OW.mesh=null;if(typeof root!=='undefined'&&root)root.remove(o.mesh);o.geo.dispose();o.plaster.dispose();o.basic.dispose();o.seam.dispose();if(o.mask)o.mask.dispose();if(o.tex)o.tex.dispose();}
+function owDrop3D(){owMkDrop();const o=OW.o3;if(!o)return;OW.o3=OW.mesh=null;if(typeof root!=='undefined'&&root)root.remove(o.mesh);o.geo.dispose();o.plaster.dispose();o.basic.dispose();o.seam.dispose();if(o.mask)o.mask.dispose();if(o.tex)o.tex.dispose();o.photo.dispose();Object.values(o.ptex).forEach(t=>t.dispose());}   // #178: фото-калька и загруженные фото
 // сетка на сцену: гипс с освещением; галочка «Текстура» — картинка Meshy как есть (как у вида #146)
 function owBuild(src){if(!ok)return;while(root.children.length){const c=root.children.pop();c.geometry&&c.geometry.dispose();if(c.element)c.element.remove();}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(OW.V,3));if(OW.T)g.setAttribute('uv',new THREE.BufferAttribute(OW.T,2));
   g.setAttribute('normal',new THREE.BufferAttribute(origNormals(OW.V,OW.F),3));g.setIndex(new THREE.BufferAttribute(OW.F,1));g.computeBoundingSphere();
-  const plaster=new THREE.MeshLambertMaterial({color:OW_PLASTER,side:THREE.DoubleSide}),basic=new THREE.MeshBasicMaterial({color:OW_PLASTER,side:THREE.DoubleSide}),seam=owSeamMat(),mesh=new THREE.Mesh(g,plaster);
-  const o=OW.o3={mesh,geo:g,plaster,basic,seam,mask:null,tex:null};OW.mesh=mesh;root.add(mesh);   // без userData.pick: детали (pickTri) у оригинала нет, точку ищет owPick
+  const plaster=new THREE.MeshLambertMaterial({color:OW_PLASTER,side:THREE.DoubleSide}),basic=new THREE.MeshBasicMaterial({color:OW_PLASTER,side:THREE.DoubleSide}),seam=owSeamMat(),photo=owPhotoMat(),mesh=new THREE.Mesh(g,plaster);
+  const o=OW.o3={mesh,geo:g,plaster,basic,seam,photo,ptex:{},mask:null,tex:null};OW.mesh=mesh;root.add(mesh);   // без userData.pick: детали (pickTri) у оригинала нет, точку ищет owPick
   if(OW.T&&src.tex){const t=new THREE.TextureLoader().load(src.tex+(typeof LAZY_V!=='undefined'?LAZY_V:''),()=>{if(OW.o3!==o)return;basic.map=t;basic.color.set(0xffffff);basic.needsUpdate=true;req3D();
       later(()=>owSeamPrep(o,t.image),'Готовлю кальку…');},undefined,()=>{});
     t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());o.tex=t;}}
@@ -56,11 +56,66 @@ function owSeamPrep(o,im){if(OW.o3!==o||!OW.T||!im)return;const t0=performance.n
   OW.seam={seg};OW.seamMs=Math.round(performance.now()-t0);OW.snapK='';console.log('калька «Текстура»: облако швов '+C.length/3+' точек, '+OW.seamMs+' мс');renderAll();}
 // калька «Текстура» на модели сейчас: «Править фигуру», галочка «Калька», выбрана «Текстура», маска готова (owSeamPrep)
 function owSeamOn(){const o=OW.o3;return !!(o&&ST.edit&&OW.calkaOn&&OW.calka==='tex'&&o.seam.map);}
+/* ---------- #178 кальки «Фото спереди» / «Фото сбоку»: фото Meshy светится на гипс, как проектор (спека, «Калька „Фото“») ----------
+   Фото = {key, name, img, m, dir, mirror} (js/photos-<id>.js, собирает tools/photo-fit.js: камера ракурса ∘ подгон по силуэту ∘ кадр фигуры — одна матрица m). Файл с матрицами грузится при входе,
+   картинка — когда её калька выбрана и видна (owRender → owPhotoGet), один раз. Пиксель — owPhotoUV, сторона — правило owPhotoPick (ow-core.js) в шейдере owPhotoMat:
+   от камеры фото (нормаль · dir ≥ 0), вне картинки, прозрачный фон фото — гипс; у бока (mirror) — ещё и зеркально по X, берётся сторона, что смотрит на камеру прямее.
+   Цвет фото — поверх освещённого гипса с непрозрачностью OW_PHOTO_K; вскользь (нормаль дальше ~65° от взгляда камеры) фото плавно уходит в гипс — там оно размазано полосами.
+   head = {img, m, y0, z0} — снимок головы крупно со своей матрицей: в коробке головы (y ≥ y0, z ≥ z0) он главнее общего фото там, где не прозрачный (общий подгон кладёт глаза ~25 мм ниже).
+   На границе коробки фото головы и общее стыкуются как есть — там бывает ступенька */
+const OW_PHOTO_K=0.85;
+// файл фото-калек фигуры (матрицы): пришёл — список калек обновится; не пришёл — без фото, остальное работает
+function owPhotosLoad(id,k){const set=()=>{if(OW.on&&OW.id===id&&typeof PHOTOS!=='undefined'&&PHOTOS[k]){OW.photos=PHOTOS[k];renderAll();}};
+  if(lazyReady('photos-'+k,set,()=>console.warn('фото-кальки «'+k+'» не загрузились')))set();}
+const owPhoto=()=>OW.photos.find(p=>p.key===OW.calka)||null;
+// картинки фото: общее и голова (если есть)
+const owPhotoImgs=p=>[p.img].concat(p.head?[p.head.img]:[]);
+// фото на модели сейчас: «Править фигуру», галочка «Калька», выбрано фото, его картинки пришли
+function owPhotoOn(){const o=OW.o3,p=owPhoto();return !!(o&&p&&ST.edit&&OW.calkaOn&&owPhotoImgs(p).every(f=>o.ptex[f]&&o.ptex[f].ready));}
+// картинки фото — по одному разу на вход; не пришла — сообщение, без повторов до нового входа. Пришла — сообщение о той кальке, что выбрана сейчас (пока грузилось, могли переключить)
+function owPhotoGet(o,p){owPhotoImgs(p).forEach(f=>{if(o.ptex[f])return;const t=o.ptex[f]=new THREE.TextureLoader().load(f+(typeof LAZY_V!=='undefined'?LAZY_V:''),()=>{if(OW.o3!==o)return;t.ready=true;renderAll();
+      if(owPhotoOn())msg('«'+owPhoto().name+'» на модели: сторона, отвёрнутая от камеры фото, — гипс');},undefined,()=>{if(OW.o3===o)msg('Фото «'+p.name+'» не загрузилось — проверьте интернет и откройте фигуру ещё раз');});
+    t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());msg('Загружаю «'+p.name+'»…');});}
+// материал фото-кальки с данными выбранного фото (без головы — слой головы выключен)
+function owPhotoUse(o,p){const U=o.photo.userData.U,m=p.m,h=p.head;U.owPh.value=o.ptex[p.img];U.owMu.value.set(m[0],m[1],m[2],m[3]);U.owMv.value.set(m[4],m[5],m[6],m[7]);U.owDir.value.set(p.dir[0],p.dir[1],p.dir[2]);U.owMir.value=p.mirror?1:0;
+  U.owHd.value=h?1:0;if(h){U.owPh2.value=o.ptex[h.img];U.owMu2.value.set(h.m[0],h.m[1],h.m[2],h.m[3]);U.owMv2.value.set(h.m[4],h.m[5],h.m[6],h.m[7]);U.owHb.value.set(h.y0,h.z0);}return o.photo;}
+// гипс (Lambert, тот же свет) + фото поверх; точка и нормаль — в кадре фигуры (атрибуты сетки: root без поворота и масштаба). Текстура читается всегда (вне ветвлений — уровни уменьшения считаются верно)
+function owPhotoMat(){const U={owPh:{value:null},owMu:{value:new THREE.Vector4()},owMv:{value:new THREE.Vector4()},owDir:{value:new THREE.Vector3(0,0,-1)},owMir:{value:0},owK:{value:OW_PHOTO_K},
+      owHd:{value:0},owPh2:{value:null},owMu2:{value:new THREE.Vector4()},owMv2:{value:new THREE.Vector4()},owHb:{value:new THREE.Vector2()}},
+    m=new THREE.MeshLambertMaterial({color:OW_PLASTER,side:THREE.DoubleSide});m.userData.U=U;
+  m.onBeforeCompile=sh=>{Object.assign(sh.uniforms,U);
+    sh.vertexShader='varying vec3 vOwP;\nvarying vec3 vOwN;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  vOwP=position;vOwN=normal;');
+    sh.fragmentShader=`uniform sampler2D owPh;
+uniform vec4 owMu;
+uniform vec4 owMv;
+uniform vec3 owDir;
+uniform float owMir;
+uniform float owK;
+uniform float owHd;
+uniform sampler2D owPh2;
+uniform vec4 owMu2;
+uniform vec4 owMv2;
+uniform vec2 owHb;
+varying vec3 vOwP;
+varying vec3 vOwN;
+vec2 owUV(vec3 p){return vec2(dot(owMu.xyz,p)+owMu.w,dot(owMv.xyz,p)+owMv.w);}
+bool owIn(vec2 u){return u.x>=0.&&u.x<=1.&&u.y>=0.&&u.y<=1.;}
+`+sh.fragmentShader.replace('#include <tonemapping_fragment>',`{vec3 n=normalize(vOwN),fx=vec3(-1.,1.,1.);vec2 ua=owUV(vOwP),ub=owUV(vOwP*fx);
+  float ca=-dot(n,owDir),cb=owMir>.5?-dot(n*fx,owDir):-1.;bool va=ca>0.&&owIn(ua),vb=cb>0.&&owIn(ub),b=vb&&(!va||cb>ca);
+  vec2 u=b?ub:ua;vec4 c=texture2D(owPh,vec2(u.x,1.-u.y));
+  vec3 q=b?vOwP*fx:vOwP;vec2 u2=vec2(dot(owMu2.xyz,q)+owMu2.w,dot(owMv2.xyz,q)+owMv2.w);vec4 c2=texture2D(owPh2,vec2(u2.x,1.-u2.y));
+  if(owHd>.5&&q.y>=owHb.x&&q.z>=owHb.y&&owIn(u2))c=vec4(mix(c.rgb,c2.rgb,c2.a),max(c.a,c2.a));
+  float w=(va||vb)?owK*c.a*smoothstep(.2,.45,b?cb:ca):0.;
+  gl_FragColor.rgb=mix(gl_FragColor.rgb,c.rgb,w);}
+#include <tonemapping_fragment>`);};return m;}
 // блок кальки на панели в режиме: галочка «Калька» и выбор — только когда калька готова (текстура пришла и прочиталась — есть маска); сверки (облака TRACE) у оригинала нет
-function owCalkaUI(){const has=!!(OW.o3&&OW.o3.mask&&OW.calka),ts=$('traceSel');$('traceRow').hidden=!has;$('cTrace').checked=OW.calkaOn;ts.hidden=!(has&&OW.calkaOn);
-  const h='<option value="tex">Текстура</option>';if(ts.innerHTML!==h)ts.innerHTML=h;if(has)ts.value=OW.calka;$('diffRow').hidden=true;$('diffNo').hidden=true;$('edTrace').hidden=true;}
+// #178: в списке ещё фото-кальки фигуры (OW.photos); пока готовится «Текстура» (она по умолчанию) — блок скрыт, как было
+function owCalkaUI(){const o=OW.o3,ts=$('traceSel'),L=(o&&o.mask?[['tex','Текстура']]:[]).concat(OW.photos.map(p=>[p.key,p.name])),has=!!(o&&L.length&&!(OW.calka==='tex'&&!o.mask));
+  $('traceRow').hidden=!has;$('cTrace').checked=OW.calkaOn;ts.hidden=!(has&&OW.calkaOn);
+  const h=L.map(([v,n])=>`<option value="${v}">${n}</option>`).join('');if(ts.innerHTML!==h)ts.innerHTML=h;if(has)ts.value=OW.calka;$('diffRow').hidden=true;$('diffNo').hidden=true;$('edTrace').hidden=true;}
 // перерисовка в режиме: только сцена и то, что видно на панели; без расчёта
-function owRender(){if(!OW.on)return;const o=OW.o3;if(o)OW.mesh.material=$('cOrigTex').checked&&o.tex?o.basic:owSeamOn()?o.seam:o.plaster;owMk3D();req3D();
+function owRender(){if(!OW.on)return;const o=OW.o3,ph=owPhoto();if(o&&ph&&ST.edit&&OW.calkaOn)owPhotoGet(o,ph);   // #178: фото грузится, когда его калька выбрана и видна
+  if(o)OW.mesh.material=$('cOrigTex').checked&&o.tex?o.basic:owSeamOn()?o.seam:owPhotoOn()?owPhotoUse(o,ph):o.plaster;owMk3D();req3D();
   $('ttl').textContent=ST.name||OW.name;$('edBox').hidden=!ST.edit;owCalkaUI();mkUI();
   $('hint').textContent=ST.tool?'Разметка: левая кнопка — рисовать, правая — крутить, колесо — масштаб':'Оригинал для обводки: левая кнопка — крутить, колесо — масштаб, правая — сдвиг · галочка «Текстура» — швы Meshy или гипс';
   if(ok)renderer.domElement.setAttribute('aria-label',`3D-модель «${ST.name||OW.name}»: оригинал для обводки, ${Math.round(OW.box.size[0])} × ${Math.round(OW.box.size[1])} × ${Math.round(OW.box.size[2])} мм (Ш × В × Г)`);}
