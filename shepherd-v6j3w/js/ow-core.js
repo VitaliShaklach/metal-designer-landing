@@ -93,3 +93,34 @@ function owDrape(G,list){const seg=[],nrm=[];
 /* путь пера на оригинале: точки руки (owPick, уже на модели) → куски по скачкам (owSplit) → каждый кусок из ≥ 3 точек — mkPen (сглаживание, магнит к seg, замкнутость),
    сглаженные точки — обратно на поверхность (хорды сглаживания срезают выпуклость). → штрихи {k:'pen', pts, closed?} */
 function owStrokes(raw,G,seg,magnet){return owSplit(raw).filter(q=>q.length>=3).map(q=>{const s=mkPen(q,seg,magnet);s.pts=s.pts.map(p=>{const h=owNear(G,p,20);return h?h.p:p;});return s;});}
+/* ---------- #177 калька «Текстура»: облако швов для магнита ----------
+   Швы сваренной модели Meshy на текстуре — светлые (белые на сером). Облако — точки поверхности (кадр фигуры, мм) под светлыми пикселями: каждый треугольник обходится в uv,
+   для каждого пикселя внутри (центр пикселя, край — внутри) со светлотой max(r,g,b) ≥ thr — точка по барицентрическим. Линии из картинки не вытаскиваем — только точки для магнита.
+   px — как getImageData: {W, H, data: RGBA, строка 0 — верх}; uv — как у текстуры three.js (flipY): v = 1 — верхняя строка. step — брать каждый step-й пиксель по обеим осям (сетка общая для всех треугольников). → Float32Array xyz */
+function owSeamCloud(V,T,F,px,thr=.80,step=1){const {W,H,data}=px,lim=thr*255-1e-9,out=[];step=Math.max(1,step|0);
+  for(let t=0;t<F.length;t+=3){const a=F[t],b=F[t+1],c=F[t+2],xa=T[a*2]*W-.5,ya=(1-T[a*2+1])*H-.5,xb=T[b*2]*W-.5,yb=(1-T[b*2+1])*H-.5,xc=T[c*2]*W-.5,yc=(1-T[c*2+1])*H-.5;
+    const d=(xb-xa)*(yc-ya)-(xc-xa)*(yb-ya);if(Math.abs(d)<1e-12)continue;
+    let x0=Math.max(0,Math.ceil(Math.min(xa,xb,xc)-1e-7)),y0=Math.max(0,Math.ceil(Math.min(ya,yb,yc)-1e-7));const x1=Math.min(W-1,Math.floor(Math.max(xa,xb,xc)+1e-7)),y1=Math.min(H-1,Math.floor(Math.max(ya,yb,yc)+1e-7));
+    x0=Math.ceil(x0/step)*step;y0=Math.ceil(y0/step)*step;if(x0>x1||y0>y1)continue;
+    const A=a*3,B=b*3,C=c*3,ux=V[B]-V[A],uy=V[B+1]-V[A+1],uz=V[B+2]-V[A+2],wx=V[C]-V[A],wy=V[C+1]-V[A+1],wz=V[C+2]-V[A+2];
+    for(let y=y0;y<=y1;y+=step)for(let x=x0;x<=x1;x+=step){const o=(y*W+x)*4,m=Math.max(data[o],data[o+1],data[o+2]);if(m<lim)continue;
+      const s=((x-xa)*(yc-ya)-(xc-xa)*(y-ya))/d,r=((xb-xa)*(y-ya)-(x-xa)*(yb-ya))/d;if(s<-1e-7||r<-1e-7||s+r>1+1e-7)continue;
+      out.push(V[A]+ux*s+wx*r,V[A+1]+uy*s+wy*r,V[A+2]+uz*s+wz*r);}}
+  return new Float32Array(out);}
+/* магнит к шву и к своим линиям сразу (#177): A — облако швов отрезками нулевой длины (сетка mkSnapGrid строится один раз и остаётся в A._g), B — свои штрихи (меняются после каждого штриха).
+   → Float32Array A+B с готовой сеткой _g: клетки облака (те же массивы) + клетки своих линий (номера сдвинуты на длину A). Массивы клеток облака не меняются — копия, где добавились свои */
+function owSnapJoin(A,B){if(!A._g)A._g=mkSnapGrid(A);const out=new Float32Array(A.length+B.length);out.set(A);out.set(B,A.length);if(!B.length){out._g=A._g;return out;}
+  const gb=mkSnapGrid(B),sh=A.length/6,g=new Map(A._g);g.cs=A._g.cs;
+  gb.forEach((ks,key)=>{const a=g.get(key),m=ks.map(k=>k+sh);g.set(key,a?a.concat(m):m);});out._g=g;return out;}
+/* маска швов для кальки «Текстура» (#177): светлота max(r,g,b) → 0…255 плавно между порогами thr = [гипс, шов] (как smoothstep в шейдере); уровни уменьшения — максимум 2×2 до 1×1:
+   издалека тонкий шов не гаснет (среднее у обычных уровней текстуры опускает его ниже порога — калька теряла швы, которые видны у «Текстуры» Meshy).
+   px — как getImageData (строка 0 — верх); строки уровней — снизу вверх (текстура из массива в WebGL, flipY нет). → [{W, H, data: Uint8Array W·H}, …] */
+function owSeamMips(px,thr){const {W,H,data}=px,lo=thr[0]*255,k=1/(thr[1]*255-lo),d0=new Uint8Array(W*H);
+  for(let y=0;y<H;y++){const r=(H-1-y)*W;for(let x=0;x<W;x++){const o=(y*W+x)*4,t=Math.max(0,Math.min(1,(Math.max(data[o],data[o+1],data[o+2])-lo)*k));d0[r+x]=Math.round(255*t*t*(3-2*t));}}
+  const out=[{W,H,data:d0}];
+  while(out[out.length-1].W>1||out[out.length-1].H>1){const p=out[out.length-1],w=Math.max(1,p.W>>1),h=Math.max(1,p.H>>1),d=new Uint8Array(w*h);
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){let m=0;for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++){const X=Math.min(p.W-1,x*2+dx),Y=Math.min(p.H-1,y*2+dy),v=p.data[Y*p.W+X];if(v>m)m=v;}d[y*w+x]=m;}
+    out.push({W:w,H:h,data:d});}
+  return out;}
+// облако швов (owSeamCloud, xyz) → отрезки нулевой длины для магнита (mkSnap) с готовой сеткой mkSnapGrid — один раз при входе, дальше склеивается со своими линиями (owSnapJoin) без пересборки
+function owSeamSeg(C){const seg=new Float32Array(C.length*2);for(let i=0;i<C.length;i+=3){seg[i*2]=seg[i*2+3]=C[i];seg[i*2+1]=seg[i*2+4]=C[i+1];seg[i*2+2]=seg[i*2+5]=C[i+2];}seg._g=mkSnapGrid(seg);return seg;}

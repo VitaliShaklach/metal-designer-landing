@@ -668,6 +668,13 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
       'Овчарка 7 (#176): разметка в режиме — инструменты при «Править фигуру», перо по owPick с разрывом и магнитом к своим линиям, штрихи 0x22d65a, свободные концы 0xd01f1f, «Нарезать» скрыта, «Сохранить» включено');
     ok(OWJ.includes("{type:'md-art',v:1,ow:{src:OW.src,id:OW.id,name:OW.name},name:ST.name,mk:")&&UI.includes('if(OW.on)return owJSON();')&&UI.includes('if(j.ow){setTimeout(()=>owFromJSON(j));return;}')&&UI.includes('if(j.ow){owVersion(j,base,+n);return;}'),
       'Овчарка 7 (#176): «Сохранить» в режиме — файл только с разметкой (ow, name, mk — без V/F/P); .json и версия с ow открываются обратно в режим');}
+  // #177: калька «Текстура» — шейдер на гипсе (светлое текстуры → тёмно-коричневые швы), по умолчанию, галочка «Калька» выключает; облако швов — при входе, магнит — к нему и к своим линиям
+  {const OWJ=fs.readFileSync(P+'owork.js','utf8'),CSS=fs.readFileSync(__dirname+'/../css/style.css','utf8'),owRule=(CSS.match(/[^{}]*\{[^}]*\}/g)||[]).filter(r=>r.includes('body.owview')).join('');
+    ok(OWJ.includes('OW_SEAM=[0.65,0.80]')&&OWJ.includes('OW_SEAM_C=0x2a1d14')&&/owSeamMips\([^;]*,OW_SEAM\),m=new THREE\.DataTexture\(/.test(OWJ)&&OWJ.includes('LinearMipmapLinearFilter')&&OWJ.includes("calka:src.T&&src.tex?'tex':''")&&OWJ.includes('owSeamCloud(')&&OWJ.includes('getImageData(')&&OWJ.includes("'Готовлю кальку…'"),
+      'Овчарка 7 (#177): калька «Текстура» — маска швов по порогу OW_SEAM 0,65…0,80 с уровнями по максимуму (издалека не гаснет), швы 0x2a1d14, по умолчанию «Текстура»; маска и облако швов из пикселей текстуры при входе («Готовлю кальку…»)');
+    ok(/body\.owview #edBox>:not\(#symRow\):not\(#mkBox\):not\(#traceRow\):not\(#traceSel\)/.test(owRule)&&UI.includes("$('cTrace').addEventListener('change',e=>{if(OW.on){")&&UI.includes("$('traceSel').addEventListener('change',e=>{if(OW.on){"),
+      'Овчарка 7 (#177): в режиме видны галочка «Калька» и выбор кальки; их обработчики в режиме — своя ветка (слои других фигур не трогаются)');
+    ok(OWJ.includes('owSnapJoin(OW.seam.seg,')&&OWJ.includes('seg=owSeamSeg(C)')&&/function owSnapSeg\(\)\{if\(!ST\.magnet\)return null;/.test(OWJ),'Овчарка 7 (#177): магнит — облако швов (своя сетка, один раз) + свои линии; выключен «Магнит» — не липнет');}
   ok(fs.existsSync(OF)&&fs.statSync(OF).size<=10*1048576&&fs.existsSync(IM)&&fs.statSync(IM).size<=10*1048576&&!HT.includes('orig-shepherd5'),'оригинал: файл данных и текстура есть, каждый ≤ 10 МБ ('+(fs.statSync(OF).size/1048576).toFixed(1)+' и '+(fs.statSync(IM).size/1048576).toFixed(1)+'), на странице не подключены до выбора');
   const oc={console,Math,Buffer,atob:globalThis.atob,window:null};oc.window=oc;vm.createContext(oc);vm.runInContext(fs.readFileSync(P+'orig.js','utf8')+'\n;\n'+fs.readFileSync(P+'mesh.js','utf8')+'\n;\n'+fs.readFileSync(OF,'utf8'),oc);
   const O=vm.runInContext(`(()=>{const r=ORIG.shepherd5,D=origDecode(r),n=D.V.length/3;let mx=0;for(const i of D.F)if(i>mx)mx=i;const pts=[];for(let i=0;i<D.V.length;i+=3)pts.push([D.V[i],D.V[i+1],D.V[i+2]]);
@@ -689,6 +696,21 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
       if(Math.min(V[a],V[b],V[q])>p[0]+2||Math.max(V[a],V[b],V[q])<p[0]-2||Math.min(V[a+1],V[b+1],V[q+1])>p[1]+2||Math.max(V[a+1],V[b+1],V[q+1])<p[1]-2||Math.min(V[a+2],V[b+2],V[q+2])>p[2]+2||Math.max(V[a+2],V[b+2],V[q+2])<p[2]-2)continue;
       const c=oc.tlClosest(p,[V[a],V[a+1],V[a+2]],[V[b],V[b+1],V[b+2]],[V[q],V[q+1],V[q+2]]);bd=Math.min(bd,Math.hypot(c[0]-p[0],c[1]-p[1],c[2]-p[2]));}worst=Math.max(worst,bd);}));R.worst=worst;
     ok(R.raw>=100&&R.strokes>=1&&R.n>=10&&R.worst<=1,`Овчарка 7 (#176): перо по морде — ${R.raw} точек руки → ${R.strokes} ${R.strokes===1?'штрих':'штриха'}, ${R.n} точек, дальше всех от модели ${R.worst.toFixed(3)} мм (≤ 1), ${R.ms} мс`);}
+  // #177: облако швов на 158 тыс. треугольниках из настоящей текстуры (PNG — zlib, без пакетов) — ≤ 3 с вместе с сеткой магнита; скорость — обычной функцией, не в vm (там Math.* ×20).
+  // Магнит (путь «Линии» на странице: mkSnap → owNear): точка гипса в 2–4 мм от шва — с магнитом ≤ 1 мм от шва, без магнита — как была; расстояние до шва — перебором облака
+  {const png=b=>{const zl=require('zlib');let o=8,W,H,ct;const id=[];while(o<b.length){const n=b.readUInt32BE(o),t=b.toString('latin1',o+4,o+8),d=b.subarray(o+8,o+8+n);if(t==='IHDR'){W=d.readUInt32BE(0);H=d.readUInt32BE(4);ct=d[9];}else if(t==='IDAT')id.push(d);o+=12+n;}
+      const ch=ct===6?4:3,raw=zl.inflateSync(Buffer.concat(id)),st=W*ch,out=new Uint8ClampedArray(W*H*4),cur=new Uint8Array(st),prev=new Uint8Array(st);
+      for(let y=0;y<H;y++){const f=raw[y*(st+1)],r=raw.subarray(y*(st+1)+1,(y+1)*(st+1));for(let i=0;i<st;i++){const a=i>=ch?cur[i-ch]:0,u=prev[i],c=i>=ch?prev[i-ch]:0;let p=r[i];
+          if(f===1)p+=a;else if(f===2)p+=u;else if(f===3)p+=(a+u)>>1;else if(f===4){const q=a+u-c,pa=Math.abs(q-a),pb=Math.abs(q-u),pc=Math.abs(q-c);p+=pa<=pb&&pa<=pc?a:pb<=pc?u:c;}cur[i]=p;}
+        for(let x=0;x<W;x++){const s=x*ch,d=(y*W+x)*4;out[d]=cur[s];out[d+1]=cur[s+1];out[d+2]=cur[s+2];out[d+3]=255;}prev.set(cur);}return {W,H,data:out};};
+    const D=vm.runInContext('origDecode(ORIG.shepherd5)',oc),V=new Float32Array(D.V),T=new Float32Array(D.T),F=new Uint32Array(D.F),px=png(fs.readFileSync(IM)),M={};
+    new Function('M',['tlines','markup','ow-core'].map(f=>fs.readFileSync(P+f+'.js','utf8')).join('\n;\n')+';Object.assign(M,{owSeamCloud,owSeamSeg,owSnapJoin,mkSnap,owGrid,owNear});')(M);
+    let t=Date.now();const C=M.owSeamCloud(V,T,F,px),seg=M.owSeamSeg(C);const ms=Date.now()-t,np=C.length/3;
+    const G=M.owGrid(V,F),near=p=>{let b=Infinity;for(let i=0;i<C.length;i+=3)b=Math.min(b,(C[i]-p[0])**2+(C[i+1]-p[1])**2+(C[i+2]-p[2])**2);return Math.sqrt(b);};
+    const all=M.owSeamCloud(V,T,F,px,0,7),J=M.owSnapJoin(seg,new Float32Array(0));let n=0,worst=0,keep=0;
+    for(let i=0;i<all.length&&n<40;i+=3*97){const p=[all[i],all[i+1],all[i+2]],d0=near(p);if(d0<2||d0>4)continue;n++;
+      const on=M.owNear(G,M.mkSnap(p,J,true),20),off=M.owNear(G,M.mkSnap(p,J,false),20);worst=Math.max(worst,near(on.p));if(Math.abs(near(off.p)-d0)<.05)keep++;}
+    ok(np>50000&&ms<=3000&&n>=20&&worst<=1&&keep===n,`Овчарка 7 (#177): облако швов — ${np} точек за ${ms} мс (≤ 3000) с сеткой магнита; ${n} точек в 2–4 мм от шва: с магнитом дальше всех ${worst.toFixed(2)} мм от шва (≤ 1), без магнита — на месте ${keep} из ${n}`);}
   // кадр один с фигурой (xf, как у кальки): по X и Z каждая сторона ±3 мм; по высоте оригинал выше — плиты срезали кончики ушей (Y: низ ≤ 5 мм, верх ≤ 20 мм)
   ok(dd[0].every(x=>x<=3)&&dd[2].every(x=>x<=3)&&dd[1][0]<=5&&dd[1][1]<=20,'оригинал: в кадре рабочей фигуры — по X и Z ±3 мм, по высоте верх выше на '+dd[1][1].toFixed(1)+' мм (кончики ушей)');
   // ракурс: направление и цель в долях высоты габарита; тот же кадр — та же камера, другой кадр — тот же угол, масштаб по высоте

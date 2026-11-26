@@ -97,3 +97,43 @@ test('owDrape: хорда «Линии» над щелью между двумя
   grid(mesh([[[0,0,0],[100,0,0],[100,45,0]],[[0,0,0],[100,45,0],[0,45,0]],[[0,55,20],[100,55,20],[100,100,20]],[[0,55,20],[100,100,20],[0,100,20]]]));
   const S=run("owDrape(G,[{k:'line',pts:[[50,10,0],[50,90,20]]}])");let longest=0;for(let i=0;i<S.length;i+=6)longest=Math.max(longest,Math.hypot(S[i+3]-S[i],S[i+4]-S[i+1],S[i+5]-S[i+2]));
   assert.ok(S.length>0,'по пластинам — рисует');assert.ok(longest<=8,'самый длинный отрезок '+longest.toFixed(1)+' мм');});
+
+// #177: облако швов для магнита — точки поверхности под светлыми пикселями текстуры (швы сваренной модели Meshy — белые). Картинка — как getImageData: RGBA, строка 0 — верх.
+// uv — как у текстуры three.js (flipY): v = 1 — верхняя строка картинки. Треугольник (0,0,10)-(100,0,10)-(0,100,30), uv = (x, y) / 100: точка uv (u, v) — (100u, 100v, 10 + 20v)
+const img=(W,H,lit)=>{const d=new Uint8ClampedArray(W*H*4);for(let y=0;y<H;y++)for(let x=0;x<W;x++){const g=lit(x,y),o=(y*W+x)*4;d[o]=d[o+1]=d[o+2]=g;d[o+3]=255;}return {W,H,data:d};};
+const TRI={V:new Float32Array([0,0,10, 100,0,10, 0,100,30]),T:new Float32Array([0,0, 1,0, 0,1]),F:new Uint32Array([0,1,2])};
+const cloud=(px,...a)=>{c.TV=TRI.V;c.TT=TRI.T;c.TF=TRI.F;c.PX=px;c.A=a;const r=run('owSeamCloud(TV,TT,TF,PX,...A)');assert.ok(r instanceof c.Float32Array&&r.length%3===0,'Float32Array по 3 числа');
+  const P=[];for(let i=0;i<r.length;i+=3)P.push([r[i],r[i+1],r[i+2]].map(x=>+x.toFixed(4)));return P;};
+test('owSeamCloud: белый столбец x = 5 картинки 10×10 — точки только с x 50…60 мм и только внутри треугольника (5 пикселей из 10, диагональ — внутри)',()=>{
+  const P=cloud(img(10,10,x=>x===5?255:60));assert.strictEqual(P.length,5,'в треугольнике (u + v ≤ 1) — нижние 5 пикселей столбца');
+  P.forEach(p=>{assert.ok(p[0]>=50&&p[0]<=60,'x '+p[0]);assert.ok(p[1]>=0&&p[0]+p[1]<=100,'внутри треугольника: '+p);assert.ok(Math.abs(p[2]-(10+p[1]*.2))<1e-3,'на плоскости треугольника: '+p);});
+  assert.deepStrictEqual(P.map(p=>p[1]).sort((a,b)=>a-b),[5,15,25,35,45]);});
+test('owSeamCloud: верхняя строка картинки — v ≈ 1 (как текстура three.js): пиксель (0, 1) → точка (5, 85, 27)',()=>{
+  assert.deepStrictEqual(cloud(img(10,10,(x,y)=>x===0&&y===1?255:0)),[[5,85,27]]);});
+test('owSeamCloud: чёрная картинка — пусто; порог по max(r, g, b): 0,70 — не шов, 0,81 — шов; шаг 2 — каждый второй пиксель по обеим осям',()=>{
+  assert.deepStrictEqual(cloud(img(10,10,()=>0)),[]);assert.deepStrictEqual(cloud(img(10,10,()=>179)),[],'серый 0,70 — не шов');
+  const all=cloud(img(10,10,()=>207));assert.strictEqual(all.length,55,'серый 0,81 — шов: все 55 пикселей в треугольнике (u + v ≤ 1, диагональ — внутри)');
+  const red=img(10,10,()=>0);for(let i=0;i<red.data.length;i+=4){red.data[i]=230;red.data[i+3]=255;}assert.strictEqual(cloud(red).length,55,'яркость — max(r, g, b)');
+  assert.strictEqual(cloud(img(10,10,()=>207),.9).length,0,'порог 0,9');assert.strictEqual(cloud(img(10,10,()=>255),.8,2).length,15,'шаг 2: пиксели 0, 2, 4, 6, 8 по обеим осям, в треугольнике — 15');});
+// #177: магнит к шву и к своим линиям сразу — облако швов (~190 тыс. точек) с готовой сеткой + свои штрихи; после каждого штриха сетку облака не пересобирать.
+// owSnapJoin(A, B) магнитит так же, как одна общая пара отрезков (mkSnap строит сетку сам), и не портит сетки A и B
+test('owSnapJoin: mkSnap по склейке = mkSnap по простому склеенному массиву; сетка облака не тронута',()=>{let s=11;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;
+  const A=[],B=[];for(let i=0;i<2000;i++){const p=[rnd()*200,rnd()*200,rnd()*20];A.push(...p,...p);}for(let i=0;i<60;i++){const p=[rnd()*200,rnd()*200,rnd()*20];B.push(...p,p[0]+rnd()*30-15,p[1]+rnd()*30-15,p[2]);}
+  c.SA=new Float32Array(A);c.SB=new Float32Array(B);c.SP=new Float32Array([...A,...B]);run('JA=owSnapJoin(SA,SB)');assert.strictEqual(run('JA.length'),A.length+B.length);
+  for(let i=0;i<400;i++){c.p=[rnd()*210-5,rnd()*210-5,rnd()*24-2];const a=J(run('mkSnap(p,JA,true)')),b=J(run('mkSnap(p,SP,true)'));assert.deepStrictEqual(a,b,'точка '+i);
+    const only=J(run('mkSnap(p,SA,true)')),fresh=J(run('mkSnap(p,new Float32Array(SA),true)'));assert.deepStrictEqual(only,fresh,'облако без своих линий — как было');}
+  assert.strictEqual(run('owSnapJoin(SA,new Float32Array(0))').length,A.length,'своих линий нет — только облако');});
+// #177: калька «Текстура» издалека — швы не должны пропадать: маска швов (светлота → 0…255 по порогу) и уровни уменьшения по максимуму 2×2, а не среднему (среднее гасит тонкий шов ниже порога).
+// Строки уровней — снизу вверх, как ждёт WebGL у текстуры из массива (у картинки строка 0 — верх)
+test('owSeamMips: белый пиксель — 255, серый посередине порога — ~половина; строки снизу вверх; уровни — максимум 2×2 до 1×1',()=>{
+  const px=img(4,4,(x,y)=>x===1&&y===0?255:x===2&&y===3?185:40);c.PX=px;const L=J(run('owSeamMips(PX,[0.65,0.80]).map(l=>({W:l.W,H:l.H,d:Array.from(l.data)}))'));
+  assert.deepStrictEqual(L.map(l=>[l.W,l.H]),[[4,4],[2,2],[1,1]]);
+  const at=(l,x,yTop)=>l.d[(l.H-1-yTop)*l.W+x];assert.strictEqual(at(L[0],1,0),255,'белый (1, 0) — верхняя строка картинки = последняя строка уровня');
+  assert.ok(Math.abs(at(L[0],2,3)-129)<=1,'серый 0,725 — '+at(L[0],2,3));assert.strictEqual(L[0].d.filter(v=>v).length,2,'остальное — 0 (гипс)');
+  assert.deepStrictEqual(L[1].d,[0,at(L[0],2,3),255,0],'уровень 2×2: низ-лево 0, низ-право — серый, верх-лево — белый');assert.deepStrictEqual(L[2].d,[255]);
+  c.PX=img(4,2,()=>0);assert.deepStrictEqual(J(run('owSeamMips(PX,[0.65,0.80]).map(l=>[l.W,l.H])')),[[4,2],[2,1],[1,1]],'не квадрат — до 1×1');});
+// #177: облако швов → отрезки нулевой длины для магнита (одна функция и на странице, и в smoke) с готовой сеткой: магнит по ним = mkSnap по тем же отрезкам без готовой сетки
+test('owSeamSeg: точка облака — отрезок нулевой длины; сетка готова и магнитит как mkSnap без неё',()=>{
+  c.CL=new Float32Array([1,2,3, 10,20,30, -5,0,7]);const s=run('SS=owSeamSeg(CL)');assert.deepStrictEqual(Array.from(s),[1,2,3,1,2,3, 10,20,30,10,20,30, -5,0,7,-5,0,7]);assert.ok(run('!!SS._g'),'сетка уже построена');
+  for(const p of [[2,2,3],[9,18,31],[-4,1,5],[50,50,50]]){c.p=p;assert.deepStrictEqual(J(run('mkSnap(p,SS,true)')),J(run('mkSnap(p,new Float32Array(SS),true)')),'точка '+p);}
+  assert.strictEqual(run('owSeamSeg(new Float32Array(0)).length'),0);});

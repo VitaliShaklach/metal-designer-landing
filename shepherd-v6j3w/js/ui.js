@@ -466,7 +466,7 @@ function traceLoadFor(rid){if(TRC.id===rid&&(TRC.t||TRC.L)||TRC.loading)return;c
 const layerSet=(k,v)=>{ST.layers[k]=v;store('shepherd-layers',layersSave(ST.layers));};   // нет доступа к памяти браузера — слои живут до перезагрузки
 $('cLEdges').addEventListener('change',e=>{layerSet('edges',e.target.checked);renderAll();});
 $('cLVerts').addEventListener('change',e=>{layerSet('verts',e.target.checked);if(!e.target.checked)ST.sv=-1;renderAll();});
-$('cTrace').addEventListener('change',e=>{ST.traceUrl=false;layerSet('trace',e.target.checked);if(trOn()&&ST.refId)traceLoadFor(traceId());renderAll();});
+$('cTrace').addEventListener('change',e=>{if(OW.on){OW.calkaOn=e.target.checked;renderAll();return;}ST.traceUrl=false;layerSet('trace',e.target.checked);if(trOn()&&ST.refId)traceLoadFor(traceId());renderAll();});
 $('cDiff').addEventListener('change',e=>{layerSet('diff',e.target.checked);renderAll();});
 /* ---------- разметка (#150): «Линия», «Зачеркнуть» — штрихи поверх граней, фигура не меняется; магнит к линиям кальки; зеркальная — бледная; хранится в браузере по фигуре ----------
    инструмент включён — левая кнопка ставит точки, крутить — правой (OrbitControls); выключен — как было. На телефоне (нет точного указателя) инструментов нет */
@@ -515,7 +515,7 @@ addEventListener('keydown',e=>{if(!ST.tool||typing())return;
 // Ctrl+Z / Ctrl+Y в разметке (#180): идёт линия — убрать её последнюю точку, иначе последний штрих; Ctrl+Y — вернуть. Где работает — mkUndoOn; без него ловит обработчик формы
 addEventListener('keydown',e=>{const a=mkUndoKey(e);if(!a||!mkUndoOn()||typing())return;e.preventDefault();mkSync();
   if(mkDo(a==='undo'?mkUndo:mkRedo))renderAll();else msg(a==='undo'?'Разметки нет — убирать нечего':'Возвращать нечего');});
-$('traceSel').addEventListener('change',e=>{ST.tref=e.target.value;if(trOn()&&ST.refId)traceLoadFor(traceId());renderAll();});
+$('traceSel').addEventListener('change',e=>{if(OW.on){OW.calka=e.target.value;renderAll();return;}ST.tref=e.target.value;if(trOn()&&ST.refId)traceLoadFor(traceId());renderAll();});
 
 // клик по грани — выбрать деталь; в редакторе — точку или грань, точку можно тянуть
 (()=>{if(!ok)return;const cv=renderer.domElement,tag=$('hovTag');let down=null,drag=null,raf=0,pen=null;
