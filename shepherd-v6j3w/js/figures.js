@@ -63,3 +63,7 @@ FIGURES.shepherd5_orig={name:'Овчарка 5 — оригинал (вид)',vi
    Овчарка 7 — модель Meshy 1 в 1 (158 336 треугольников), данные общие с видом Овчарки 5. Для другой модели — такая же строка + js/orig-<id>.js + <option> в index.html */
 FIGURES.shepherd7_orig={name:'Овчарка 7 — оригинал',ow:'shepherd5',need:'orig-shepherd5'};
 LAZY['orig-shepherd5']={ok:()=>typeof ORIG!=='undefined'&&!!ORIG.shepherd5,wait:null};
+/* Овчарка 8 — блендер (#183, план docs/superpowers/plans/2026-11-26-shepherd8-blender.md): цветная модель Meshy (2 628 треугольников) с белыми швами гранёной серой,
+   перенесёнными в Blender по частям (#182, «цветная-со-швами-v2.glb»); тот же режим обводки, что у Овчарки 7, данные свои (js/orig-shepherd8.js, img/orig-shepherd8.png) */
+FIGURES.shepherd8_orig={name:'Овчарка 8 — блендер',ow:'shepherd8',need:'orig-shepherd8'};
+LAZY['orig-shepherd8']={ok:()=>typeof ORIG!=='undefined'&&!!ORIG.shepherd8,wait:null};
