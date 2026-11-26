@@ -47,7 +47,7 @@ function owPick(ev){if(!ok||!OW.on||!OW.G)return null;const r=renderer.domElemen
   return {p:[0,1,2].map(i=>at(V,i,3)),uv:T?[at(T,0,2),at(T,1,2)]:null,n:n.map(x=>x/l),tri:h.tri};}
 
 /* ---------- #176 разметка на оригинале: перо, линия, зачёркивание — функции markup.js; поверхность — модель (owPick, owNear), а не плиты ----------
-   Штрихи ярко-зелёные, зеркальные — бледнее; свободные концы (owFreeEnds) — красные точки. Рисуются материалом кальки #169 (tlMat): подтянуты к камере на TL_OVER мм,
+   Штрихи ярко-зелёные, зеркальные — бледнее; свободные концы (owFreeEnds) — красные точки. Рисуются как калька #169 (штрихи — лентой rbTlMat #181, MK_W / MK_W_MIR px; точки — tlMat): подтянуты к камере на TL_OVER мм,
    обратная сторона отсечена по нормали грани — линия на ухе не просвечивает с другой стороны. Видны при «Править фигуру», как разметка у всех фигур. */
 const OW_PEN=0x22d65a,OW_PEN_MIR=0x9ddfae,OW_FREE=0xd01f1f,OW_MAT={};
 const owMat=(c,size)=>OW_MAT[c+'|'+(size||0)]||(OW_MAT[c+'|'+(size||0)]=tlMat(c,size||1));   // материалы — по одному на цвет, на всю страницу
@@ -60,12 +60,12 @@ function owMkDrop(){const m=OW.mk3;if(!m)return;OW.mk3=null;if(typeof root!=='un
 function owMk3D(){if(!ok||!OW.on||!OW.G)return;if(!ST.edit){owMkDrop();OW.free=[];return;}mkSync();const key=MK.key+'|'+MK.ver+'|'+ST.sym;if(OW.mk3&&OW.mk3.key===key)return;owMkDrop();
   const own=ST.mk.concat(ST.mkCur?[ST.mkCur]:[]),done=ST.sym?ST.mk.concat(ST.mk.map(mkMirror).filter(Boolean)):ST.mk,g=new THREE.Group();
   OW.free=owFreeEnds(done);   // текущая (ещё не законченная) линия концов не даёт
-  const add=(geo,mat,P)=>{const o=P?new THREE.Points(geo,mat):new THREE.LineSegments(geo,mat);o.renderOrder=3;g.add(o);},
-    lines=(S,c)=>{if(!S.length)return;const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(S,3));geo.setAttribute('nrm',new THREE.BufferAttribute(S.nrm,3));add(geo,owMat(c));},
+  const add=o=>{o.renderOrder=3;g.add(o);},
+    lines=(S,c,w)=>{if(S.length)add(rbMesh(S,rbTlMat(c,w)));},   // #181: лентой w px — подтяжка, отсечение по nrm и глубина как у кальки
     dots=(pts,c,size)=>{const P=[],N=[];pts.forEach(p=>{const h=owNear(OW.G,p,8);if(!h)return;P.push(...h.p.map((x,k)=>x+h.n[k]*TL_LIFT));N.push(...h.n);});if(!P.length)return;
-      const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(P,3));geo.setAttribute('nrm',new THREE.Float32BufferAttribute(N,3));add(geo,owMat(c,size),true);};
-  lines(owCat(own.map(s=>owDrapeOf(s,false))),OW_PEN);if(ST.sym)lines(owCat(own.map(s=>owDrapeOf(s,true))),OW_PEN_MIR);
-  dots(OW.free,OW_FREE,8);if(ST.mkCur)dots(ST.mkCur.pts,OW_PEN,6);
+      const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(P,3));geo.setAttribute('nrm',new THREE.Float32BufferAttribute(N,3));add(new THREE.Points(geo,owMat(c,size)));};
+  lines(owCat(own.map(s=>owDrapeOf(s,false))),OW_PEN,MK_W);if(ST.sym)lines(owCat(own.map(s=>owDrapeOf(s,true))),OW_PEN_MIR,MK_W_MIR);
+  dots(OW.free,OW_FREE,10);if(ST.mkCur)dots(ST.mkCur.pts,OW_PEN,6);
   root.add(g);OW.mk3={g,key};}
 // магнит пера и линии: к своим штрихам (и их зеркалу при симметрии) — отрезки парами точек, как линии кальки для mkSnap; выключен — null
 function owSnapSeg(){if(!ST.magnet)return null;mkSync();const k=MK.key+'|'+MK.ver+'|'+ST.sym;if(OW.snapK===k)return OW.snap;

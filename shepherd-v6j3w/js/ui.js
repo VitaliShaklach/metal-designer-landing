@@ -494,8 +494,9 @@ function mkUI(){const on=ST.edit&&(OW.on||isPoly()&&!ST.orig);if(!on&&ST.tool){S
 // отмена в разметке (#180): в режиме обводки — по разметке (при «Править фигуру»: без неё разметки не видно); у обычной фигуры — пока выбран инструмент, иначе Ctrl+Z — правки формы (undo/redo)
 function mkUndoOn(){return OW.on?ST.edit:!!ST.tool;}   // объявление функции, не const: mkUI зовут и до этой строки
 // «Карандаш» (#151): пока ведут — лёгкое превью (одна линия поверх, без пересборки сцены); отпустили — сгладить, магнит, замкнутость
-function mkPreview(pts){if(!ok)return;if(!MK.pv){MK.pv=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0xe07a35,depthTest:false}));MK.pv.renderOrder=5;scene.add(MK.pv);}
-  MK.pv.material.color.set(OW.on?OW_PEN:0xe07a35);MK.pv.geometry.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts.flat(),3));MK.pv.geometry=g;MK.pv.visible=pts.length>1;req3D();}
+// #181: лентой MK_W px поверх всего (без проверки глубины, как была линия); точки руки → отрезки парами
+function mkPreview(pts){if(!ok)return;const seg=new Float32Array(Math.max(0,pts.length-1)*6);for(let i=0;i+1<pts.length;i++){seg.set(pts[i],i*6);seg.set(pts[i+1],i*6+3);}
+  const m=rbMesh(seg,rbMat(OW.on?OW_PEN:0xe07a35,{width:MK_W,depthTest:false}));m.renderOrder=5;m.visible=pts.length>1;if(MK.pv){scene.remove(MK.pv);MK.pv.geometry.dispose();}MK.pv=m;scene.add(m);req3D();}
 function mkClick(e){const h=OW.on?owHit(e):pickHit(e);if(!h)return;const p=OW.on?owSurf(mkSnap(h,owSnapSeg(),ST.magnet)):mkSnap(h,traceOn()?TRC.seg:null,ST.magnet),c=ST.mkCur;   // на оригинале (#176) — магнит к своим линиям, точка — на модель
   if(c){const q=c.pts[c.pts.length-1];if(Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2])<1.5)return;}   // второй клик двойного — не новая точка
   if(!c)ST.mkCur={k:ST.tool,pts:[p]};else c.pts.push(p);MK.ver++;if(ST.tool==='cross'&&ST.mkCur.pts.length===2)mkFinish();renderAll();}
