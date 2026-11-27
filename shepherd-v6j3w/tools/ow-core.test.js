@@ -97,3 +97,106 @@ test('owDrape: хорда «Линии» над щелью между двумя
   grid(mesh([[[0,0,0],[100,0,0],[100,45,0]],[[0,0,0],[100,45,0],[0,45,0]],[[0,55,20],[100,55,20],[100,100,20]],[[0,55,20],[100,100,20],[0,100,20]]]));
   const S=run("owDrape(G,[{k:'line',pts:[[50,10,0],[50,90,20]]}])");let longest=0;for(let i=0;i<S.length;i+=6)longest=Math.max(longest,Math.hypot(S[i+3]-S[i],S[i+4]-S[i+1],S[i+5]-S[i+2]));
   assert.ok(S.length>0,'по пластинам — рисует');assert.ok(longest<=8,'самый длинный отрезок '+longest.toFixed(1)+' мм');});
+
+// #177: облако швов для магнита — точки поверхности под светлыми пикселями текстуры (швы сваренной модели Meshy — белые). Картинка — как getImageData: RGBA, строка 0 — верх.
+// uv — как у текстуры three.js (flipY): v = 1 — верхняя строка картинки. Треугольник (0,0,10)-(100,0,10)-(0,100,30), uv = (x, y) / 100: точка uv (u, v) — (100u, 100v, 10 + 20v)
+const img=(W,H,lit)=>{const d=new Uint8ClampedArray(W*H*4);for(let y=0;y<H;y++)for(let x=0;x<W;x++){const g=lit(x,y),o=(y*W+x)*4;d[o]=d[o+1]=d[o+2]=g;d[o+3]=255;}return {W,H,data:d};};
+const TRI={V:new Float32Array([0,0,10, 100,0,10, 0,100,30]),T:new Float32Array([0,0, 1,0, 0,1]),F:new Uint32Array([0,1,2])};
+const cloud=(px,...a)=>{c.TV=TRI.V;c.TT=TRI.T;c.TF=TRI.F;c.PX=px;c.A=a;const r=run('owSeamCloud(TV,TT,TF,PX,...A)');assert.ok(r instanceof c.Float32Array&&r.length%3===0,'Float32Array по 3 числа');
+  const P=[];for(let i=0;i<r.length;i+=3)P.push([r[i],r[i+1],r[i+2]].map(x=>+x.toFixed(4)));return P;};
+test('owSeamCloud: белый столбец x = 5 картинки 10×10 — точки только с x 50…60 мм и только внутри треугольника (5 пикселей из 10, диагональ — внутри)',()=>{
+  const P=cloud(img(10,10,x=>x===5?255:60));assert.strictEqual(P.length,5,'в треугольнике (u + v ≤ 1) — нижние 5 пикселей столбца');
+  P.forEach(p=>{assert.ok(p[0]>=50&&p[0]<=60,'x '+p[0]);assert.ok(p[1]>=0&&p[0]+p[1]<=100,'внутри треугольника: '+p);assert.ok(Math.abs(p[2]-(10+p[1]*.2))<1e-3,'на плоскости треугольника: '+p);});
+  assert.deepStrictEqual(P.map(p=>p[1]).sort((a,b)=>a-b),[5,15,25,35,45]);});
+test('owSeamCloud: верхняя строка картинки — v ≈ 1 (как текстура three.js): пиксель (0, 1) → точка (5, 85, 27)',()=>{
+  assert.deepStrictEqual(cloud(img(10,10,(x,y)=>x===0&&y===1?255:0)),[[5,85,27]]);});
+test('owSeamCloud: чёрная картинка — пусто; порог по max(r, g, b): 0,70 — не шов, 0,81 — шов; шаг 2 — каждый второй пиксель по обеим осям',()=>{
+  assert.deepStrictEqual(cloud(img(10,10,()=>0)),[]);assert.deepStrictEqual(cloud(img(10,10,()=>179)),[],'серый 0,70 — не шов');
+  const all=cloud(img(10,10,()=>207));assert.strictEqual(all.length,55,'серый 0,81 — шов: все 55 пикселей в треугольнике (u + v ≤ 1, диагональ — внутри)');
+  const red=img(10,10,()=>0);for(let i=0;i<red.data.length;i+=4){red.data[i]=230;red.data[i+3]=255;}assert.strictEqual(cloud(red).length,55,'яркость — max(r, g, b)');
+  assert.strictEqual(cloud(img(10,10,()=>207),.9).length,0,'порог 0,9');assert.strictEqual(cloud(img(10,10,()=>255),.8,2).length,15,'шаг 2: пиксели 0, 2, 4, 6, 8 по обеим осям, в треугольнике — 15');});
+// #177: магнит к шву и к своим линиям сразу — облако швов (~190 тыс. точек) с готовой сеткой + свои штрихи; после каждого штриха сетку облака не пересобирать.
+// owSnapJoin(A, B) магнитит так же, как одна общая пара отрезков (mkSnap строит сетку сам), и не портит сетки A и B
+test('owSnapJoin: mkSnap по склейке = mkSnap по простому склеенному массиву; сетка облака не тронута',()=>{let s=11;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;
+  const A=[],B=[];for(let i=0;i<2000;i++){const p=[rnd()*200,rnd()*200,rnd()*20];A.push(...p,...p);}for(let i=0;i<60;i++){const p=[rnd()*200,rnd()*200,rnd()*20];B.push(...p,p[0]+rnd()*30-15,p[1]+rnd()*30-15,p[2]);}
+  c.SA=new Float32Array(A);c.SB=new Float32Array(B);c.SP=new Float32Array([...A,...B]);run('JA=owSnapJoin(SA,SB)');assert.strictEqual(run('JA.length'),A.length+B.length);
+  for(let i=0;i<400;i++){c.p=[rnd()*210-5,rnd()*210-5,rnd()*24-2];const a=J(run('mkSnap(p,JA,true)')),b=J(run('mkSnap(p,SP,true)'));assert.deepStrictEqual(a,b,'точка '+i);
+    const only=J(run('mkSnap(p,SA,true)')),fresh=J(run('mkSnap(p,new Float32Array(SA),true)'));assert.deepStrictEqual(only,fresh,'облако без своих линий — как было');}
+  assert.strictEqual(run('owSnapJoin(SA,new Float32Array(0))').length,A.length,'своих линий нет — только облако');});
+// #177: калька «Текстура» издалека — швы не должны пропадать: маска швов (светлота → 0…255 по порогу) и уровни уменьшения по максимуму 2×2, а не среднему (среднее гасит тонкий шов ниже порога).
+// Строки уровней — снизу вверх, как ждёт WebGL у текстуры из массива (у картинки строка 0 — верх)
+test('owSeamMips: белый пиксель — 255, серый посередине порога — ~половина; строки снизу вверх; уровни — максимум 2×2 до 1×1',()=>{
+  const px=img(4,4,(x,y)=>x===1&&y===0?255:x===2&&y===3?185:40);c.PX=px;const L=J(run('owSeamMips(PX,[0.65,0.80]).map(l=>({W:l.W,H:l.H,d:Array.from(l.data)}))'));
+  assert.deepStrictEqual(L.map(l=>[l.W,l.H]),[[4,4],[2,2],[1,1]]);
+  const at=(l,x,yTop)=>l.d[(l.H-1-yTop)*l.W+x];assert.strictEqual(at(L[0],1,0),255,'белый (1, 0) — верхняя строка картинки = последняя строка уровня');
+  assert.ok(Math.abs(at(L[0],2,3)-129)<=1,'серый 0,725 — '+at(L[0],2,3));assert.strictEqual(L[0].d.filter(v=>v).length,2,'остальное — 0 (гипс)');
+  assert.deepStrictEqual(L[1].d,[0,at(L[0],2,3),255,0],'уровень 2×2: низ-лево 0, низ-право — серый, верх-лево — белый');assert.deepStrictEqual(L[2].d,[255]);
+  c.PX=img(4,2,()=>0);assert.deepStrictEqual(J(run('owSeamMips(PX,[0.65,0.80]).map(l=>[l.W,l.H])')),[[4,2],[2,1],[1,1]],'не квадрат — до 1×1');});
+// #177: облако швов → отрезки нулевой длины для магнита (одна функция и на странице, и в smoke) с готовой сеткой: магнит по ним = mkSnap по тем же отрезкам без готовой сетки
+test('owSeamSeg: точка облака — отрезок нулевой длины; сетка готова и магнитит как mkSnap без неё',()=>{
+  c.CL=new Float32Array([1,2,3, 10,20,30, -5,0,7]);const s=run('SS=owSeamSeg(CL)');assert.deepStrictEqual(Array.from(s),[1,2,3,1,2,3, 10,20,30,10,20,30, -5,0,7,-5,0,7]);assert.ok(run('!!SS._g'),'сетка уже построена');
+  for(const p of [[2,2,3],[9,18,31],[-4,1,5],[50,50,50]]){c.p=p;assert.deepStrictEqual(J(run('mkSnap(p,SS,true)')),J(run('mkSnap(p,new Float32Array(SS),true)')),'точка '+p);}
+  assert.strictEqual(run('owSeamSeg(new Float32Array(0)).length'),0);});
+/* ---------- #178 фото-кальки: точка модели (кадр фигуры, мм) → пиксель фото; сторона, отвёрнутая от камеры фото, — гипс ---------- */
+// матрица «вид спереди, 1000 мм на всю картинку, центр в (0, 500)»: u = x/1000 + 0,5; v = 1 − y/1000 (v вниз, 0 — верх картинки); z не влияет
+const FRONT=[0.001,0,0,0.5, 0,-0.001,0,1];
+test('owPhotoUV: вид спереди — (0,500,0) → середина, (500,1000,0) → правый верх, z не меняет uv',()=>{c.M=FRONT;
+  const uv=p=>{c.p=p;return run('owPhotoUV(M,p)');},near=(a,b)=>assert.ok(Math.abs(a[0]-b[0])<1e-12&&Math.abs(a[1]-b[1])<1e-12,a+' ≠ '+b);
+  near(uv([0,500,0]),[0.5,0.5]);near(uv([500,1000,0]),[1,0]);near(uv([-500,0,0]),[0,1]);near(uv([120,340,-777]),uv([120,340,555]));});
+// фото спереди: камера смотрит по −Z (стоит спереди, морда на +Z). Точка с нормалью к камере — фото; от камеры (нормаль · dir ≥ 0) — гипс; uv вне картинки — гипс
+test('owPhotoPick: нормаль к камере — uv фото; отвёрнута или вбок (нормаль · dir ≥ 0) — null; вне картинки — null',()=>{
+  c.PH={m:FRONT,dir:[0,0,-1],mirror:false};const pick=(p,n)=>{c.p=p;c.n=n;return run('owPhotoPick(PH,p,n)');};
+  const a=pick([0,500,300],[0,0,1]);assert.ok(a&&Math.abs(a.uv[0]-.5)<1e-12&&Math.abs(a.uv[1]-.5)<1e-12&&a.mir===false,JSON.stringify(a));
+  assert.strictEqual(pick([0,500,-300],[0,0,-1]),null,'спина при фото спереди — гипс');assert.strictEqual(pick([0,500,0],[1,0,0]),null,'бок (нормаль поперёк) — гипс');
+  assert.strictEqual(pick([800,500,300],[0,0,1]),null,'за краем картинки — гипс');});
+// фото сбоку: камера слева (x = −3 м) смотрит по +X, mirror — та же картинка зеркально на правый бок (x → −x); берётся сторона, что смотрит на камеру
+const SIDE=[0,0,-0.001,0.5, 0,-0.001,0,1];   // u — по −z (морда +Z слева на картинке), v — вниз
+test('owPhotoPick: бок с зеркалом — левый бок по себе, правый — зеркально, тот же пиксель; без зеркала правый — гипс; спереди-сзади — гипс',()=>{
+  c.PH={m:SIDE,dir:[1,0,0],mirror:true};const pick=(p,n)=>{c.p=p;c.n=n;return run('owPhotoPick(PH,p,n)');};
+  const L=pick([-150,400,100],[-1,0,0]),R=pick([150,400,100],[1,0,0]);
+  assert.ok(L&&L.mir===false&&R&&R.mir===true,JSON.stringify([L,R]));assert.ok(Math.abs(L.uv[0]-R.uv[0])<1e-12&&Math.abs(L.uv[1]-R.uv[1])<1e-12,'зеркальные точки — один пиксель фото');
+  assert.ok(Math.abs(L.uv[0]-.4)<1e-12&&Math.abs(L.uv[1]-.6)<1e-12,'uv '+L.uv);
+  // наискось вперёд-вправо: прямо — от камеры, зеркально — к камере
+  const D=pick([150,400,100],[0.6,0,0.8]);assert.ok(D&&D.mir===true,'наискось вправо — зеркально');assert.strictEqual(pick([0,400,500],[0,0,1]),null,'грудь (нормаль по Z) — гипс');
+  c.PH={m:SIDE,dir:[1,0,0],mirror:false};assert.strictEqual(pick([150,400,100],[1,0,0]),null,'без зеркала правый бок — гипс');});
+// #178 голова: у фото может быть второй слой — снимок головы крупно со своей матрицей (как виды head-* в project.js: общий подгон кладёт глаза фото ~25 мм ниже глаз модели);
+// он светит только на точки в коробке головы (y ≥ y0 и z ≥ z0, кадр фигуры) — у бока для зеркальной стороны по зеркальной точке
+test('owPhotoPick: слой головы — uv головы только в коробке головы; у зеркальной стороны — по зеркальной точке; без слоя — head = null',()=>{
+  const HEAD={m:[0,0,-0.002,0.9, 0,-0.002,0,1.6],y0:600,z0:200};c.PH={m:SIDE,dir:[1,0,0],mirror:true,head:HEAD};const pick=(p,n)=>{c.p=p;c.n=n;return run('owPhotoPick(PH,p,n)');};
+  const L=pick([-60,700,300],[-1,0,0]),R=pick([60,700,300],[1,0,0]),body=pick([-60,500,300],[-1,0,0]),back=pick([-60,700,100],[-1,0,0]);
+  assert.ok(L.head&&Math.abs(L.head[0]-0.3)<1e-12&&Math.abs(L.head[1]-0.2)<1e-12,'голова (0,3; 0,2): '+JSON.stringify(L));
+  assert.ok(R.mir&&R.head&&Math.abs(R.head[0]-L.head[0])<1e-12&&Math.abs(R.head[1]-L.head[1])<1e-12,'правая сторона — зеркально, тот же пиксель головы');
+  assert.strictEqual(body.head,null,'ниже коробки — только общее фото');assert.strictEqual(back.head,null,'позади коробки (z < z0) — только общее фото');
+  c.PH={m:SIDE,dir:[1,0,0],mirror:true};assert.strictEqual(pick([-60,700,300],[-1,0,0]).head,null,'без слоя головы');
+  c.PH={m:SIDE,dir:[1,0,0],mirror:true,head:{...HEAD,m:[0,0,-0.002,2, 0,-0.002,0,1.6]}};assert.strictEqual(pick([-60,700,300],[-1,0,0]).head,null,'uv головы вне картинки — null');});
+
+/* ---------- #179 «Открыть модель» — всегда для обводки: кадр и ориентация модели из файла ---------- */
+test('owFrame + owApply: куб 0…2 → низ 0, верх 1000, центр по X и Z — 0; исходные точки не тронуты',()=>{
+  c.V=new Float32Array([0,0,0, 2,0,0, 2,2,0, 0,2,0, 0,0,2, 2,0,2, 2,2,2, 0,2,2]);run('fr=owFrame(V);W=owApply(V,fr)');const W=run('W');
+  const ax=k=>{let lo=Infinity,hi=-Infinity;for(let i=k;i<W.length;i+=3){lo=Math.min(lo,W[i]);hi=Math.max(hi,W[i]);}return [lo,hi];};
+  assert.ok(W instanceof run('Float32Array')&&W.length===24);assert.ok(Math.abs(run('fr.s')-500)<1e-9,'масштаб 1000 / 2');
+  assert.ok(Math.abs(ax(1)[0])<1e-6&&Math.abs(ax(1)[1]-1000)<1e-6,'Y: 0…1000 — '+ax(1));
+  assert.ok(Math.abs(ax(0)[0]+ax(0)[1])<1e-6&&Math.abs(ax(2)[0]+ax(2)[1])<1e-6,'центр X и Z — 0: '+ax(0)+' / '+ax(2));
+  assert.strictEqual(run('V[6]'),2,'owApply — копия, исходный массив тот же');});
+test('owFrame: плоская модель (высота 0) — масштаб по наибольшей стороне, без деления на 0; точка — масштаб 1',()=>{
+  c.V=new Float32Array([0,5,0, 4,5,0, 0,5,2]);const f=run('owFrame(V)');assert.ok(Math.abs(f.s-250)<1e-9&&Number.isFinite(f.d[1]),JSON.stringify(f));
+  c.V=new Float32Array([3,3,3]);const g=run('owFrame(V)');assert.strictEqual(g.s,1);});
+// куб 0…100: 12 треугольников, обход наружу (нормаль низа z = 0 — вниз, −z)
+const CUBE_V=[0,0,0, 100,0,0, 100,100,0, 0,100,0, 0,0,100, 100,0,100, 100,100,100, 0,100,100],
+  CUBE_F=[0,3,2, 0,2,1, 4,5,6, 4,6,7, 0,1,5, 0,5,4, 1,2,6, 1,6,5, 2,3,7, 2,7,6, 3,0,4, 3,4,7];
+test('owOrient: у модели из файла обход не гарантирован — объём со знаком; наружу — как есть, внутрь — каждый треугольник перевёрнут',()=>{
+  c.V=new Float32Array(CUBE_V);c.F=new Uint32Array(CUBE_F);const a=run('owOrient(V,F)');
+  assert.ok(Math.abs(a.vol-1e6)<1e-3,'объём куба 100³: '+a.vol);assert.strictEqual(a.flipped,false);assert.deepStrictEqual([...a.F],CUBE_F);
+  c.F=new Uint32Array(CUBE_F.map((x,i)=>CUBE_F[i-i%3+[0,2,1][i%3]]));const b=run('owOrient(V,F)');
+  assert.ok(Math.abs(b.vol+1e6)<1e-3,'вывернутый — объём −1e6: '+b.vol);assert.strictEqual(b.flipped,true);
+  run('o2=owOrient(V,owOrient(V,F).F)');assert.ok(Math.abs(run('o2.vol')-1e6)<1e-3&&run('o2.flipped')===false,'после переворота — наружу');
+  run('G=owGrid(V,owOrient(V,F).F);h=owNear(G,[50,50,-5],20)');assert.ok(run('h.n[2]')<-0.99,'owNear у низа — нормаль наружу (вниз): '+run('h.n.join()'));
+  assert.strictEqual(run('F[1]'),CUBE_F[2],'исходный F не тронут');});
+test('owMesh: модель из парсера (массивы точек) → Float32Array в кадре фигуры, Uint32Array треугольников наружу, uv — Float32Array; вывернутый куб 0…2 перевёрнут',()=>{
+  const P=[];for(let i=0;i<8;i++)P.push(CUBE_V.slice(i*3,i*3+3).map(x=>x/50));const Fin=[];for(let t=0;t<12;t++)Fin.push([CUBE_F[t*3],CUBE_F[t*3+2],CUBE_F[t*3+1]]);
+  c.m={V:P,F:Fin,T:P.map((p,i)=>[i/8,1-i/8])};const r=run('owMesh(m)');
+  assert.ok(r.V instanceof run('Float32Array')&&r.V.length===24&&r.F instanceof run('Uint32Array')&&r.F.length===36&&r.T instanceof run('Float32Array')&&r.T.length===16);
+  assert.strictEqual(r.flipped,true,'вывернутый — перевёрнут');assert.ok(run('owOrient(owMesh(m).V,owMesh(m).F).vol')>0,'после — объём > 0');
+  let lo=Infinity,hi=-Infinity;for(let i=1;i<24;i+=3){lo=Math.min(lo,r.V[i]);hi=Math.max(hi,r.V[i]);}assert.ok(Math.abs(lo)<1e-6&&Math.abs(hi-1000)<1e-6,'высота 0…1000');
+  assert.ok(Math.abs(r.T[2]-1/8)<1e-7&&Math.abs(r.T[3]-7/8)<1e-7,'uv вершины 1 — как в модели');
+  c.m={V:P,F:CUBE_F.reduce((a,x,i)=>(i%3?a[a.length-1].push(x):a.push([x]),a),[])};const s=run('owMesh(m)');assert.strictEqual(s.T,null,'без uv — T null');assert.strictEqual(s.flipped,false);});

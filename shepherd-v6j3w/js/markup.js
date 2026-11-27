@@ -13,8 +13,10 @@ function mkMirror(s){if(s.pts.every(p=>Math.abs(p[0])<=MK_AXIS))return null;cons
 function mkClosed(pts,eps=6){if(pts.length<3)return false;const a=pts[0],b=pts[pts.length-1];let L=0;for(let i=1;i<pts.length;i++)L+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1],pts[i][2]-pts[i-1][2]);
   return Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2])<eps&&L>eps*4;}
 // магнит: ближайшая точка нарисованных линий кальки (отрезки seg — пары точек, как из tlinesOnFigure) к p в радиусе r; нет — p как есть
+// сетка отрезков для магнита (клетки 8 мм): строится один раз на массив и лежит в seg._g; #177 — её же склеивает owSnapJoin (облако швов + свои линии)
+function mkSnapGrid(seg){const n=seg.length/6,items=[];for(let k=0;k<n;k++)items.push(k);return tlGrid(items,k=>[[0,1,2].map(i=>Math.min(seg[k*6+i],seg[k*6+3+i])),[0,1,2].map(i=>Math.max(seg[k*6+i],seg[k*6+3+i]))],8,0);}
 function mkSnap(p,seg,on=true,r=MK_SNAP){if(!on||!seg||!seg.length)return p;
-  if(!seg._g){const n=seg.length/6,items=[];for(let k=0;k<n;k++)items.push(k);seg._g=tlGrid(items,k=>[[0,1,2].map(i=>Math.min(seg[k*6+i],seg[k*6+3+i])),[0,1,2].map(i=>Math.max(seg[k*6+i],seg[k*6+3+i]))],8,0);}
+  if(!seg._g)seg._g=mkSnapGrid(seg);
   const G=seg._g,cs=G.cs,R=Math.ceil(r/cs),seen=new Set();let best=null,bd=r;
   for(let dx=-R;dx<=R;dx++)for(let dy=-R;dy<=R;dy++)for(let dz=-R;dz<=R;dz++)for(const k of G.get((Math.floor(p[0]/cs)+dx)+','+(Math.floor(p[1]/cs)+dy)+','+(Math.floor(p[2]/cs)+dz))||[]){if(seen.has(k))continue;seen.add(k);
     const o=k*6,ab=[seg[o+3]-seg[o],seg[o+4]-seg[o+1],seg[o+5]-seg[o+2]],l2=ab[0]**2+ab[1]**2+ab[2]**2,t=l2?Math.max(0,Math.min(1,((p[0]-seg[o])*ab[0]+(p[1]-seg[o+1])*ab[1]+(p[2]-seg[o+2])*ab[2])/l2)):0,
@@ -38,3 +40,18 @@ function mkPen(raw,seg,magnet){const closed=mkClosed(raw),p=mkSmooth(raw).map(q=
 // штрихи → отрезки на поверхности фигуры: прямая между точками штриха — по поверхности (через 2 мм на ближайшую грань, подъём 0,6 мм), как линии кальки
 function mkDrape(list,V,P,FT){if(!list.length)return new Float32Array(0);const pts=[],S=[];list.forEach(s=>{S.push(pts.length/3);const q=s.closed?[...s.pts,s.pts[0]]:s.pts;(q.length===1?[q[0],q[0]]:q).forEach(p=>pts.push(...p));});S.push(pts.length/3);
   const ID=p=>p;ID.inv=p=>p;return tlinesOnFigure({n:list.length,S:Uint32Array.from(S),P:Float32Array.from(pts)},ID,V,P,40,FT);}
+/* ---------- отмена в разметке (#180): свой стек, не UNDO/REDO правок формы. Состояние h = {mk, cur, und, red}: mk — законченные штрихи, cur — линия в процессе (ST.mkCur),
+   und/red — шаги «убрать»/«вернуть»: {add:n} — добавлено n штрихов (одно движение пера может дать несколько); {clear:mk} — «Очистить разметку» (вся разметка одним шагом).
+   Функции не меняют h и его массивы — возвращают новое состояние; нечего делать — тот же h (по нему ui.js понимает, что не сработало) */
+// положить законченные штрихи: новый штрих очищает «вернуть»
+function mkPush(h,list){if(!list||!list.length)return h;return {mk:h.mk.concat(list),cur:h.cur,und:h.und.concat([{add:list.length}]),red:[]};}
+// убрать: идёт линия — её последнюю точку (последняя — линия пропадает целиком; в «вернуть» точки не идут); иначе — последний законченный шаг, он уходит в «вернуть»
+function mkUndo(h){if(h.cur)return {mk:h.mk,cur:h.cur.pts.length>1?{...h.cur,pts:h.cur.pts.slice(0,-1)}:null,und:h.und,red:h.red};const u=h.und[h.und.length-1]||(h.mk.length?{add:1}:null);if(!u)return h;   // шагов нет, а штрихи есть (разметка из браузера) — по одному с конца
+  if(u.clear)return {mk:u.clear,cur:h.cur,und:h.und.slice(0,-1),red:h.red.concat([{clear:u.clear}])};const n=u.add;
+  return {mk:h.mk.slice(0,h.mk.length-n),cur:h.cur,und:h.und.slice(0,-1),red:h.red.concat([{add:h.mk.slice(h.mk.length-n)}])};}
+// «Очистить разметку»: вся разметка — один шаг отмены; линия в процессе просто пропадает (она ещё не штрих)
+function mkClearAll(h){if(!h.mk.length)return h.cur?{mk:h.mk,cur:null,und:h.und,red:h.red}:h;return {mk:[],cur:null,und:h.und.concat([{clear:h.mk}]),red:[]};}
+// вернуть убранное
+function mkRedo(h){const r=h.red[h.red.length-1];if(!r)return h;if(r.clear)return {mk:[],cur:h.cur,und:h.und.concat([{clear:h.mk}]),red:h.red.slice(0,-1)};return {mk:h.mk.concat(r.add),cur:h.cur,und:h.und.concat([{add:r.add.length}]),red:h.red.slice(0,-1)};}
+// клавиши отмены → 'undo' | 'redo' | ''; русская раскладка: Я = Z, Н = Y
+function mkUndoKey(e){if(!(e.ctrlKey||e.metaKey)||typeof e.key!=='string')return '';const k=e.key.toLowerCase(),z=k==='z'||k==='я';if(z&&!e.shiftKey)return 'undo';return z||k==='y'||k==='н'?'redo':'';}

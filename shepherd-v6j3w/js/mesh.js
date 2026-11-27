@@ -19,34 +19,49 @@ function weld(tris,eps){const P=[];tris.forEach(t=>t.forEach(p=>P.push(p)));if(!
 function cleanMesh(m){const used=new Map(),V=[];const F=m.F.map(f=>f.map(i=>{let j=used.get(i);if(j===undefined){j=V.length;V.push(m.V[i].slice());used.set(i,j);}return j;}));return {V,F};}
 
 /* ---------- чтение файлов ---------- */
-function parseOBJ(txt){const P=[],T=[];txt.split(/\r?\n/).forEach(l=>{const s=l.trim().split(/\s+/);
-  if(s[0]==='v')P.push([+s[1],+s[2],+s[3]]);
-  else if(s[0]==='f'){const ix=s.slice(1).map(w=>{const i=parseInt(w,10);return i<0?P.length+i:i-1;});for(let k=1;k+1<ix.length;k++)T.push([P[ix[0]],P[ix[k]],P[ix[k+1]]]);}});
-  return weld(T.filter(t=>t.every(Boolean)));}
+/* OBJ: v, vt, f (v, v/vt, v/vt/vn, v//vn; отрицательные индексы — с конца). #179: есть vt у всех граней — вершина = пара точка + uv (на стыке кусков текстуры одна точка — две вершины, как orig.js),
+   T — uv по вершинам (правило OBJ / three.js: v = 1 — верх картинки); нет — точки свариваются, как было, T нет. → {V:[[x,y,z]], F:[[a,b,c]], T?:[[u,v]]} */
+function parseOBJ(txt){const P=[],UV=[],tris=[];txt.split(/\r?\n/).forEach(l=>{const s=l.trim().split(/\s+/);
+  if(s[0]==='v')P.push([+s[1],+s[2],+s[3]]);else if(s[0]==='vt')UV.push([+s[1],+s[2]||0]);
+  else if(s[0]==='f'){const ix=s.slice(1).map(w=>{const q=w.split('/'),i=parseInt(q[0],10),t=q[1]?parseInt(q[1],10):NaN;return [i<0?P.length+i:i-1,isNaN(t)?-1:t<0?UV.length+t:t-1];});for(let k=1;k+1<ix.length;k++)tris.push([ix[0],ix[k],ix[k+1]]);}});
+  const T=tris.filter(t=>t.every(q=>P[q[0]]));
+  if(!T.length||!T.every(t=>t.every(q=>UV[q[1]])))return weld(T.map(t=>t.map(q=>P[q[0]])));
+  const map=new Map(),V=[],W=[],F=[],n=UV.length,id=q=>{const k=q[0]*n+q[1];let i=map.get(k);if(i===undefined){i=V.length;V.push(P[q[0]].slice());W.push(UV[q[1]].slice());map.set(k,i);}return i;};
+  T.forEach(t=>{if(t[0][0]===t[1][0]||t[1][0]===t[2][0]||t[0][0]===t[2][0])return;F.push(t.map(id));});return {V,F,T:W};}
 function parseSTL(buf){const u8=new Uint8Array(buf),dv=new DataView(buf);
   const n=buf.byteLength>=84?dv.getUint32(80,true):0;
   if(n&&84+n*50===buf.byteLength){const T=[];for(let i=0;i<n;i++){const o=84+i*50+12,t=[];for(let k=0;k<3;k++)t.push([dv.getFloat32(o+k*12,true),dv.getFloat32(o+k*12+4,true),dv.getFloat32(o+k*12+8,true)]);T.push(t);}return weld(T);}
   const txt=new TextDecoder().decode(u8),P=[];txt.replace(/vertex\s+(\S+)\s+(\S+)\s+(\S+)/g,(_,a,b,c)=>{P.push([+a,+b,+c]);return '';});
   const T=[];for(let i=0;i+2<P.length;i+=3)T.push([P[i],P[i+1],P[i+2]]);return weld(T);}
-// GLB (glTF 2.0, двоичный): все сетки с учётом матриц узлов; Draco не поддерживаем
+/* GLB (glTF 2.0, двоичный): все сетки с учётом матриц узлов, склеены в одну; Draco не поддерживаем. #179: вершины — как в файле (без сварки: uv на стыках кусков текстуры разные),
+   T — uv той развёртки, по которой лежит картинка (TEXCOORD_n из baseColorTexture), v перевёрнута в правило OBJ / three.js (у glTF v = 0 — верх); img — картинка текстуры из буфера (Blob png / jpeg / webp).
+   Текстуры нет — why: 'none' — нет картинки, 'uri' — отдельным файлом, 'multi' — у частей разные картинки (или не у всех есть), 'nouv' — нет развёртки, 'format' — картинка не png / jpeg / webp.
+   → {V:[[x,y,z]], F:[[a,b,c]], T?:[[u,v]], img?:Blob, why?} */
 function parseGLB(buf){const dv=new DataView(buf);if(dv.getUint32(0,true)!==0x46546C67)throw new Error('это не GLB');
   let off=12,json=null,bin=null;while(off<buf.byteLength){const len=dv.getUint32(off,true),type=dv.getUint32(off+4,true);
     if(type===0x4E4F534A)json=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,off+8,len)));else if(type===0x004E4942)bin=buf.slice(off+8,off+8+len);off+=8+len;}
   if((json.extensionsUsed||[]).includes('KHR_draco_mesh_compression'))throw new Error('файл сжат Draco — сохраните модель как OBJ или STL без сжатия');
   const acc=i=>{const a=json.accessors[i],bv=json.bufferViews[a.bufferView],n={SCALAR:1,VEC3:3,VEC4:4,VEC2:2}[a.type],
-      T={5126:[Float32Array,4],5125:[Uint32Array,4],5123:[Uint16Array,2],5121:[Uint8Array,1]}[a.componentType],st=bv.byteStride||n*T[1],o=(bv.byteOffset||0)+(a.byteOffset||0),d=new DataView(bin),r=[];
-    const get=p=>a.componentType===5126?d.getFloat32(p,true):a.componentType===5125?d.getUint32(p,true):a.componentType===5123?d.getUint16(p,true):d.getUint8(p);
+      T={5126:[Float32Array,4],5125:[Uint32Array,4],5123:[Uint16Array,2],5121:[Uint8Array,1]}[a.componentType];if(!T)throw new Error('данные GLB сжаты (квантование или meshopt) — сохраните модель как OBJ или GLB без сжатия');const st=bv.byteStride||n*T[1],o=(bv.byteOffset||0)+(a.byteOffset||0),d=new DataView(bin),r=[];
+    const k0=a.normalized?{5123:65535,5121:255}[a.componentType]||1:1,get=p=>(a.componentType===5126?d.getFloat32(p,true):a.componentType===5125?d.getUint32(p,true):a.componentType===5123?d.getUint16(p,true):d.getUint8(p))/k0;
     for(let i=0;i<a.count;i++){const e=[];for(let k=0;k<n;k++)e.push(get(o+i*st+k*T[1]));r.push(n===1?e[0]:e);}return r;};
   const mmul=(a,b)=>{const r=new Array(16).fill(0);for(let i=0;i<4;i++)for(let j=0;j<4;j++)for(let k=0;k<4;k++)r[j*4+i]+=a[k*4+i]*b[j*4+k];return r;};
   const local=nd=>{if(nd.matrix)return nd.matrix;const [x,y,z,w]=nd.rotation||[0,0,0,1],[sx,sy,sz]=nd.scale||[1,1,1],[tx,ty,tz]=nd.translation||[0,0,0];
     return [(1-2*(y*y+z*z))*sx,2*(x*y+z*w)*sx,2*(x*z-y*w)*sx,0, 2*(x*y-z*w)*sy,(1-2*(x*x+z*z))*sy,2*(y*z+x*w)*sy,0, 2*(x*z+y*w)*sz,2*(y*z-x*w)*sz,(1-2*(x*x+y*y))*sz,0, tx,ty,tz,1];};
-  const T=[],I=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
+  // картинка части: материал → baseColorTexture → texture.source (или source из расширения, EXT_texture_webp); и номер развёртки
+  const texOf=pr=>{const mt=pr.material!==undefined&&json.materials?json.materials[pr.material]:null,bt=mt&&mt.pbrMetallicRoughness&&mt.pbrMetallicRoughness.baseColorTexture,tx=bt&&json.textures?json.textures[bt.index]:null;
+    if(!tx)return null;const s=tx.source!==undefined?tx.source:Object.values(tx.extensions||{}).map(e=>e&&e.source).find(x=>x!==undefined);return s===undefined?null:{s,uv:'TEXCOORD_'+(bt.texCoord||0)};};
+  const V=[],F=[],W=[],src=new Set(),I=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];let bare=false,uvAll=true;
   const walk=(ni,pm)=>{const nd=json.nodes[ni],m=mmul(pm,local(nd));
     if(nd.mesh!==undefined)json.meshes[nd.mesh].primitives.forEach(pr=>{if(pr.mode!==undefined&&pr.mode!==4)return;
-      const P=acc(pr.attributes.POSITION).map(p=>[m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12],m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13],m[2]*p[0]+m[6]*p[1]+m[10]*p[2]+m[14]]);
-      const ix=pr.indices!==undefined?acc(pr.indices):P.map((_,i)=>i);for(let i=0;i+2<ix.length;i+=3)T.push([P[ix[i]],P[ix[i+1]],P[ix[i+2]]]);});
+      const P=acc(pr.attributes.POSITION),o=V.length,tx=texOf(pr),ua=pr.attributes[tx?tx.uv:'TEXCOORD_0'],U=ua!==undefined?acc(ua):null;if(tx)src.add(tx.s);else bare=true;if(!U)uvAll=false;
+      P.forEach((p,i)=>{V.push([m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12],m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13],m[2]*p[0]+m[6]*p[1]+m[10]*p[2]+m[14]]);W.push(U?[U[i][0],1-U[i][1]]:[0,0]);});
+      const ix=pr.indices!==undefined?acc(pr.indices):P.map((_,i)=>i);for(let i=0;i+2<ix.length;i+=3){const a=ix[i],b=ix[i+1],c=ix[i+2];if(a!==b&&b!==c&&a!==c)F.push([o+a,o+b,o+c]);}});
     (nd.children||[]).forEach(c=>walk(c,m));};
-  const sc=json.scenes?json.scenes[json.scene||0].nodes:json.nodes.map((_,i)=>i);sc.forEach(i=>walk(i,I));return weld(T);}
+  const sc=json.scenes?json.scenes[json.scene||0].nodes:json.nodes.map((_,i)=>i);sc.forEach(i=>walk(i,I));
+  const r={V,F};if(src.size>1||src.size&&bare){r.why='multi';return r;}if(uvAll&&V.length)r.T=W;if(!src.size){r.why='none';return r;}if(!r.T){r.why='nouv';return r;}
+  const im=(json.images||[])[[...src][0]]||{},mt=im.mimeType||'image/png';if(im.bufferView===undefined){r.why=im.uri?'uri':'none';return r;}if(!/^image\/(png|jpeg|webp)$/.test(mt)){r.why='format';return r;}
+  const bv=json.bufferViews[im.bufferView];r.img=new Blob([new Uint8Array(bin,bv.byteOffset||0,bv.byteLength)],{type:mt});return r;}
 
 /* ---------- поверхность из формулы (для встроенных фигур) — «surface nets» ---------- */
 function sdfMesh(fn,mn,mx,cell){const nx=Math.ceil((mx[0]-mn[0])/cell)+1,ny=Math.ceil((mx[1]-mn[1])/cell)+1,nz=Math.ceil((mx[2]-mn[2])/cell)+1;

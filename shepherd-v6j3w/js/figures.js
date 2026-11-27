@@ -22,7 +22,9 @@ function figureMesh(id,cell=12){const f=FIGURES[id];if(f.poly)return f.build();i
    Версия файла — та же, что у figures.js (?v= из его src), отдельно поднимать не нужно. */
 const LAZY={models:{ok:()=>typeof MODELS!=='undefined',wait:null}};
 const LAZY_V=(typeof document!=='undefined'&&document.currentScript&&/\?v=[^&#]*/.exec(document.currentScript.src)||[''])[0];
-function figureReady(id,cb,fail){const n=FIGURES[id]&&FIGURES[id].need,L=LAZY[n];if(!L||L.ok())return true;
+function figureReady(id,cb,fail){return lazyReady(FIGURES[id]&&FIGURES[id].need,cb,fail);}
+// то же для любого ленивого файла js/<n>.js по имени (фото-кальки #178 — PHOTOS, не фигура)
+function lazyReady(n,cb,fail){const L=LAZY[n];if(!L||L.ok())return true;
   if(!L.wait){L.wait=[];const s=document.createElement('script'),end=()=>{const w=L.wait;L.wait=null;w.forEach(([c,f])=>L.ok()?c():f&&f());};
     s.src='js/'+n+'.js'+LAZY_V;s.onload=end;s.onerror=()=>{s.remove();end();};document.head.appendChild(s);}
   L.wait.push([cb,fail]);return false;}
@@ -61,5 +63,7 @@ LAZY['plates-shepherd6']={ok:()=>typeof MODELS_POLY!=='undefined'&&!!MODELS_POLY
 FIGURES.shepherd5_orig={name:'Овчарка 5 — оригинал (вид)',view:'shepherd5',orig:'shepherd5',need:'orig-shepherd5'};
 /* ---------- Оригинал для обводки (#175, план docs/superpowers/plans/2026-11-25-shepherd7-workshop.md): ow — ключ в ORIG; рабочая фигура без расчёта, в гипсе (js/owork.js) ----------
    Овчарка 7 — модель Meshy 1 в 1 (158 336 треугольников), данные общие с видом Овчарки 5. Для другой модели — такая же строка + js/orig-<id>.js + <option> в index.html */
-FIGURES.shepherd7_orig={name:'Овчарка 7 — оригинал',ow:'shepherd5',need:'orig-shepherd5'};
+FIGURES.shepherd7_orig={name:'Овчарка 7 — оригинал',ow:'shepherd5',need:'orig-shepherd5',photos:'shepherd7'};
+// #178 фото-кальки: photos — ключ в PHOTOS (js/photos-<ключ>.js, собирает tools/photo-fit.js): файл грузится при входе в фигуру (в нём только матрицы), картинки — по выбору кальки
+LAZY['photos-shepherd7']={ok:()=>typeof PHOTOS!=='undefined'&&!!PHOTOS.shepherd7,wait:null};
 LAZY['orig-shepherd5']={ok:()=>typeof ORIG!=='undefined'&&!!ORIG.shepherd5,wait:null};

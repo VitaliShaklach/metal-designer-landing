@@ -93,3 +93,70 @@ function owDrape(G,list){const seg=[],nrm=[];
 /* путь пера на оригинале: точки руки (owPick, уже на модели) → куски по скачкам (owSplit) → каждый кусок из ≥ 3 точек — mkPen (сглаживание, магнит к seg, замкнутость),
    сглаженные точки — обратно на поверхность (хорды сглаживания срезают выпуклость). → штрихи {k:'pen', pts, closed?} */
 function owStrokes(raw,G,seg,magnet){return owSplit(raw).filter(q=>q.length>=3).map(q=>{const s=mkPen(q,seg,magnet);s.pts=s.pts.map(p=>{const h=owNear(G,p,20);return h?h.p:p;});return s;});}
+/* ---------- #177 калька «Текстура»: облако швов для магнита ----------
+   Швы сваренной модели Meshy на текстуре — светлые (белые на сером). Облако — точки поверхности (кадр фигуры, мм) под светлыми пикселями: каждый треугольник обходится в uv,
+   для каждого пикселя внутри (центр пикселя, край — внутри) со светлотой max(r,g,b) ≥ thr — точка по барицентрическим. Линии из картинки не вытаскиваем — только точки для магнита.
+   px — как getImageData: {W, H, data: RGBA, строка 0 — верх}; uv — как у текстуры three.js (flipY): v = 1 — верхняя строка. step — брать каждый step-й пиксель по обеим осям (сетка общая для всех треугольников). → Float32Array xyz */
+function owSeamCloud(V,T,F,px,thr=.80,step=1){const {W,H,data}=px,lim=thr*255-1e-9,out=[];step=Math.max(1,step|0);
+  for(let t=0;t<F.length;t+=3){const a=F[t],b=F[t+1],c=F[t+2],xa=T[a*2]*W-.5,ya=(1-T[a*2+1])*H-.5,xb=T[b*2]*W-.5,yb=(1-T[b*2+1])*H-.5,xc=T[c*2]*W-.5,yc=(1-T[c*2+1])*H-.5;
+    const d=(xb-xa)*(yc-ya)-(xc-xa)*(yb-ya);if(Math.abs(d)<1e-12)continue;
+    let x0=Math.max(0,Math.ceil(Math.min(xa,xb,xc)-1e-7)),y0=Math.max(0,Math.ceil(Math.min(ya,yb,yc)-1e-7));const x1=Math.min(W-1,Math.floor(Math.max(xa,xb,xc)+1e-7)),y1=Math.min(H-1,Math.floor(Math.max(ya,yb,yc)+1e-7));
+    x0=Math.ceil(x0/step)*step;y0=Math.ceil(y0/step)*step;if(x0>x1||y0>y1)continue;
+    const A=a*3,B=b*3,C=c*3,ux=V[B]-V[A],uy=V[B+1]-V[A+1],uz=V[B+2]-V[A+2],wx=V[C]-V[A],wy=V[C+1]-V[A+1],wz=V[C+2]-V[A+2];
+    for(let y=y0;y<=y1;y+=step)for(let x=x0;x<=x1;x+=step){const o=(y*W+x)*4,m=Math.max(data[o],data[o+1],data[o+2]);if(m<lim)continue;
+      const s=((x-xa)*(yc-ya)-(xc-xa)*(y-ya))/d,r=((xb-xa)*(y-ya)-(x-xa)*(yb-ya))/d;if(s<-1e-7||r<-1e-7||s+r>1+1e-7)continue;
+      out.push(V[A]+ux*s+wx*r,V[A+1]+uy*s+wy*r,V[A+2]+uz*s+wz*r);}}
+  return new Float32Array(out);}
+/* магнит к шву и к своим линиям сразу (#177): A — облако швов отрезками нулевой длины (сетка mkSnapGrid строится один раз и остаётся в A._g), B — свои штрихи (меняются после каждого штриха).
+   → Float32Array A+B с готовой сеткой _g: клетки облака (те же массивы) + клетки своих линий (номера сдвинуты на длину A). Массивы клеток облака не меняются — копия, где добавились свои */
+function owSnapJoin(A,B){if(!A._g)A._g=mkSnapGrid(A);const out=new Float32Array(A.length+B.length);out.set(A);out.set(B,A.length);if(!B.length){out._g=A._g;return out;}
+  const gb=mkSnapGrid(B),sh=A.length/6,g=new Map(A._g);g.cs=A._g.cs;
+  gb.forEach((ks,key)=>{const a=g.get(key),m=ks.map(k=>k+sh);g.set(key,a?a.concat(m):m);});out._g=g;return out;}
+/* маска швов для кальки «Текстура» (#177): светлота max(r,g,b) → 0…255 плавно между порогами thr = [гипс, шов] (как smoothstep в шейдере); уровни уменьшения — максимум 2×2 до 1×1:
+   издалека тонкий шов не гаснет (среднее у обычных уровней текстуры опускает его ниже порога — калька теряла швы, которые видны у «Текстуры» Meshy).
+   px — как getImageData (строка 0 — верх); строки уровней — снизу вверх (текстура из массива в WebGL, flipY нет). → [{W, H, data: Uint8Array W·H}, …] */
+function owSeamMips(px,thr){const {W,H,data}=px,lo=thr[0]*255,k=1/(thr[1]*255-lo),d0=new Uint8Array(W*H);
+  for(let y=0;y<H;y++){const r=(H-1-y)*W;for(let x=0;x<W;x++){const o=(y*W+x)*4,t=Math.max(0,Math.min(1,(Math.max(data[o],data[o+1],data[o+2])-lo)*k));d0[r+x]=Math.round(255*t*t*(3-2*t));}}
+  const out=[{W,H,data:d0}];
+  while(out[out.length-1].W>1||out[out.length-1].H>1){const p=out[out.length-1],w=Math.max(1,p.W>>1),h=Math.max(1,p.H>>1),d=new Uint8Array(w*h);
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){let m=0;for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++){const X=Math.min(p.W-1,x*2+dx),Y=Math.min(p.H-1,y*2+dy),v=p.data[Y*p.W+X];if(v>m)m=v;}d[y*w+x]=m;}
+    out.push({W:w,H:h,data:d});}
+  return out;}
+// облако швов (owSeamCloud, xyz) → отрезки нулевой длины для магнита (mkSnap) с готовой сеткой mkSnapGrid — один раз при входе, дальше склеивается со своими линиями (owSnapJoin) без пересборки
+function owSeamSeg(C){const seg=new Float32Array(C.length*2);for(let i=0;i<C.length;i+=3){seg[i*2]=seg[i*2+3]=C[i];seg[i*2+1]=seg[i*2+4]=C[i+1];seg[i*2+2]=seg[i*2+5]=C[i+2];}seg._g=mkSnapGrid(seg);return seg;}
+/* ---------- #178 фото-кальки «Фото спереди» / «Фото сбоку»: фото Meshy светится на модель, как проектор ----------
+   m — 8 чисел одной аффинной матрицы (камера ракурса ∘ подгон фото по силуэту ∘ кадр OBJ → кадр фигуры; считает tools/photo-fit.js у Claude): u = a0·x+a1·y+a2·z+a3, v = b0·x+b1·y+b2·z+b3,
+   точка — в кадре фигуры (мм), u, v — 0…1 по картинке, v вниз (0 — верхняя строка). Тот же расчёт — в шейдере кальки (owork.js, owPhotoMat) */
+function owPhotoUV(m,p){return [m[0]*p[0]+m[1]*p[1]+m[2]*p[2]+m[3],m[4]*p[0]+m[5]*p[1]+m[6]*p[2]+m[7]];}
+/* какой пиксель фото ph = {m, dir, mirror, head?} светит на точку p с нормалью n (наружу): от камеры фото (n · dir ≥ 0) или uv вне картинки — null (гипс).
+   mirror — фото ещё и зеркально по X (собака симметрична: профиль на обе стороны) — для точки (−x, y, z) с нормалью (−nx, ny, nz); из двух берётся та сторона, что смотрит на камеру прямее.
+   head = {m, y0, z0} — снимок головы крупно со своей матрицей (общий подгон по всей собаке кладёт глаза фото на ~25 мм ниже глаз модели; так же делал project.js видами head-*):
+   для точки (той стороны, что выбрана) в коробке головы y ≥ y0, z ≥ z0 — ещё и uv головы, если он на картинке; на странице голова главнее, где её фото не прозрачное.
+   → {uv:[u,v], mir — взято зеркально, cos — насколько прямо смотрит (−n · dir, 0…1), head:[u,v]|null} | null. Шейдер (owPhotoMat) — то же правило */
+function owPhotoPick(ph,p,n){const d=ph.dir,side=(q,nn,mir)=>{const cs=-(nn[0]*d[0]+nn[1]*d[1]+nn[2]*d[2]);if(cs<=0)return null;const uv=owPhotoUV(ph.m,q);
+    return uv[0]<0||uv[0]>1||uv[1]<0||uv[1]>1?null:{uv,mir,cs,q};};
+  const a=side(p,n,false),b=ph.mirror?side([-p[0],p[1],p[2]],[-n[0],n[1],n[2]],true):null,r=a&&b?(b.cs>a.cs?b:a):a||b;if(!r)return null;
+  const H=ph.head,h=H&&r.q[1]>=H.y0&&r.q[2]>=H.z0?owPhotoUV(H.m,r.q):null;
+  return {uv:r.uv,mir:r.mir,cos:r.cs,head:h&&h[0]>=0&&h[0]<=1&&h[1]>=0&&h[1]<=1?h:null};}
+/* ---------- #179 модель из «Открыть модель» — в кадр фигуры, как у встроенных ----------
+   кадр: центр по X и Z — 0, низ — 0, высота (Y) — 1000 мм; точка → p·s + d. Без этого зеркало (ось X = 0) и разметка не в мм. Высота 0 (плоская) — масштаб по наибольшей стороне, точка — 1 */
+const OW_H=1000;
+function owFrame(V){const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
+  for(let i=0;i<V.length;i+=3)for(let k=0;k<3;k++){const x=V[i+k];if(x<lo[k])lo[k]=x;if(x>hi[k])hi[k]=x;}
+  const h=hi[1]-lo[1],big=Math.max(hi[0]-lo[0],h,hi[2]-lo[2]),s=h>1e-9?OW_H/h:big>1e-9?OW_H/big:1;
+  return {s,d:[-(lo[0]+hi[0])/2*s,-lo[1]*s,-(lo[2]+hi[2])/2*s]};}
+// копия точек в кадре f = {s, d}
+function owApply(V,f){const W=new Float32Array(V.length);for(let i=0;i<V.length;i+=3)for(let k=0;k<3;k++)W[i+k]=V[i+k]*f.s+f.d[k];return W;}
+/* обход треугольников модели из файла не гарантирован (у Meshy — наружу, у чужого STL/OBJ — как выйдет), а owNear берёт нормаль по обходу: подъём штриха (TL_LIFT) и отсечение обратной стороны.
+   Объём со знаком Σ a·(b×c)/6 от центра габарита (у замкнутой модели — её объём, от точки не зависит; у дырявой — от центра честнее): < 0 — модель вывернута, переворачиваем каждый треугольник.
+   → {F (копия, если перевёрнут), vol, flipped} */
+function owOrient(V,F){const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];for(let i=0;i<V.length;i+=3)for(let k=0;k<3;k++){if(V[i+k]<lo[k])lo[k]=V[i+k];if(V[i+k]>hi[k])hi[k]=V[i+k];}
+  const o=lo.map((x,k)=>(x+hi[k])/2),q=(i,k)=>V[i+k]-o[k];let s=0;
+  for(let t=0;t<F.length;t+=3){const a=F[t]*3,b=F[t+1]*3,c=F[t+2]*3;s+=q(a,0)*(q(b,1)*q(c,2)-q(b,2)*q(c,1))+q(a,1)*(q(b,2)*q(c,0)-q(b,0)*q(c,2))+q(a,2)*(q(b,0)*q(c,1)-q(b,1)*q(c,0));}
+  const vol=s/6;if(vol>=0)return {F,vol,flipped:false};const G=new Uint32Array(F.length);for(let t=0;t<F.length;t+=3){G[t]=F[t];G[t+1]=F[t+2];G[t+2]=F[t+1];}return {F:G,vol,flipped:true};}
+/* модель из парсера (parseOBJ / parseGLB / parseSTL: {V:[[x,y,z]], F:[[a,b,c]], T?:[[u,v]]}) → данные режима: V — Float32Array в кадре фигуры (owFrame), F — Uint32Array с обходом наружу (owOrient),
+   T — Float32Array uv или null (нет uv у модели). → {V, F, T, frame, flipped, vol} */
+function owMesh(m){const nv=m.V.length,V0=new Float32Array(nv*3),F0=new Uint32Array(m.F.length*3);
+  m.V.forEach((p,i)=>{V0[i*3]=p[0];V0[i*3+1]=p[1];V0[i*3+2]=p[2];});m.F.forEach((f,i)=>{F0[i*3]=f[0];F0[i*3+1]=f[1];F0[i*3+2]=f[2];});
+  let T=null;if(m.T&&m.T.length===nv){T=new Float32Array(nv*2);m.T.forEach((t,i)=>{T[i*2]=t[0];T[i*2+1]=t[1];});}
+  const o=owOrient(V0,F0),frame=owFrame(V0);return {V:owApply(V0,frame),F:o.F,T,frame,flipped:o.flipped,vol:o.vol};}
