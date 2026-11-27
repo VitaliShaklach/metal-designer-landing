@@ -22,11 +22,11 @@ function owOpen(src,kind){origLeave();owDrop3D();
   if(ST.tool){ST.tool='';mkCtl();}ST.edit=false;$('cEdit').checked=false;   // как у любой фигуры (setBase): открывается без «Править фигуру»
   if(typeof ANG!=='undefined'&&ANG.on){ANG.on=false;ANG.pick=[];stage.classList.remove('angmode');$('angCard').hidden=true;}
   ST.fig=kind==='fig'?src.id:'';ST.verBase=kind==='fig'?src.id:'';ST.ver=0;ST.refId='';ST.tref='';ST.sel=ST.selB=ST.sv=ST.sp=ST.sp2=-1;ST.seam=null;ST.name=src.name;$('mName').value=ST.name;
-  document.body.classList.add('owview');$('origBox').hidden=false;$('cOrigTex').checked=false;$('bSave').disabled=false;   // «Сохранить» — только разметка (owJSON, #176)
+  document.body.classList.add('owview');$('origBox').hidden=false;$('cOrigTex').checked=false;$('cOrigTex').disabled=!(src.T&&src.tex);$('bSave').disabled=false;   // «Сохранить» — только разметка (owJSON, #176)
   $('origNote').textContent='Оригинал для обводки: модель как есть, расчёта нет';$('figSel').value=kind==='fig'?src.id:'';
   owBuild(src);fitBox(OW.box,true);renderAll();msg('Оригинал для обводки: '+fmt(OW.F.length/3)+' '+plural(OW.F.length/3,'треугольник','треугольника','треугольников')+', расчёта нет');}
 function owLeave(){if(!OW.on)return;owDrop3D();Object.assign(OW,{on:false,V:null,T:null,F:null,img:null,G:null,box:null,photos:[],free:[],snap:null,snapK:'',calka:'',seam:null});
-  document.body.classList.remove('owview');$('origBox').hidden=true;$('cOrigTex').checked=true;$('bSave').disabled=false;}   // «Текстура» — как была у вида #146 (по умолчанию включена)
+  document.body.classList.remove('owview');$('origBox').hidden=true;$('cOrigTex').checked=true;$('cOrigTex').disabled=false;$('bSave').disabled=false;}   // «Текстура» — как была у вида #146 (по умолчанию включена)
 function owDrop3D(){owMkDrop();const o=OW.o3;if(!o)return;OW.o3=OW.mesh=null;if(typeof root!=='undefined'&&root)root.remove(o.mesh);o.geo.dispose();o.plaster.dispose();o.basic.dispose();o.seam.dispose();if(o.mask)o.mask.dispose();if(o.tex)o.tex.dispose();o.photo.dispose();Object.values(o.ptex).forEach(t=>t.dispose());}   // #178: фото-калька и загруженные фото
 // сетка на сцену: гипс с освещением; галочка «Текстура» — картинка Meshy как есть (как у вида #146)
 function owBuild(src){if(!ok)return;while(root.children.length){const c=root.children.pop();c.geometry&&c.geometry.dispose();if(c.element)c.element.remove();}
@@ -34,9 +34,9 @@ function owBuild(src){if(!ok)return;while(root.children.length){const c=root.chi
   g.setAttribute('normal',new THREE.BufferAttribute(origNormals(OW.V,OW.F),3));g.setIndex(new THREE.BufferAttribute(OW.F,1));g.computeBoundingSphere();
   const plaster=new THREE.MeshLambertMaterial({color:OW_PLASTER,side:THREE.DoubleSide}),basic=new THREE.MeshBasicMaterial({color:OW_PLASTER,side:THREE.DoubleSide}),seam=owSeamMat(),photo=owPhotoMat(),mesh=new THREE.Mesh(g,plaster);
   const o=OW.o3={mesh,geo:g,plaster,basic,seam,photo,ptex:{},mask:null,tex:null};OW.mesh=mesh;root.add(mesh);   // без userData.pick: детали (pickTri) у оригинала нет, точку ищет owPick
-  if(OW.T&&src.tex){const t=new THREE.TextureLoader().load(src.tex+(typeof LAZY_V!=='undefined'?LAZY_V:''),()=>{if(OW.o3!==o)return;basic.map=t;basic.color.set(0xffffff);basic.needsUpdate=true;req3D();
-      later(()=>owSeamPrep(o,t.image),'Готовлю кальку…');},undefined,()=>{});
-    t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());o.tex=t;}}
+  if(OW.T&&src.tex){const inl=src.tex.startsWith('data:'),t=new THREE.TextureLoader().load(src.tex+(inl||typeof LAZY_V==='undefined'?'':LAZY_V),()=>{if(OW.o3!==o)return;basic.map=t;basic.color.set(0xffffff);basic.needsUpdate=true;req3D();
+      later(()=>owSeamPrep(o,t.image),'Готовлю кальку…');},undefined,()=>{if(OW.o3!==o||!inl)return;OW.calka='';$('cOrigTex').checked=false;$('cOrigTex').disabled=true;renderAll();msg('Картинку текстуры не прочитать — калька «Текстура» недоступна');});
+    t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());o.tex=t;}}   // #179: картинка модели из файла — data:-ссылка (без метки ?v=)
 /* #177 материал кальки «Текстура»: гипс (Lambert, тот же свет) + маска швов (owSeamMips, текстура o.mask) — 255 → цвет швов OW_SEAM_C, 0 → цвет гипса.
    Маска считается из тех же пикселей, что облако швов (owSeamPrep), уровни уменьшения — максимумом: издалека швы не гаснут, как гасли бы у текстуры Meshy с обычными уровнями */
 function owSeamMat(){const m=new THREE.MeshLambertMaterial({color:OW_PLASTER,side:THREE.DoubleSide});
@@ -159,9 +159,9 @@ function owHit(e){const h=owPick(e);return h?h.p:null;}
 function owSurf(p){const h=OW.G&&owNear(OW.G,p,20);return h?h.p:p;}
 // «Сохранить» в режиме: только разметка (кадр фигуры, мм) и чья она — без сетки; модель Овчарки 7 и так на странице
 function owJSON(){return {type:'md-art',v:1,ow:{src:OW.src,id:OW.id,name:OW.name},name:ST.name,mk:JSON.parse(mkSave(ST.mk))};}
-// открыть файл режима: встроенная фигура → открыть её с разметкой из файла (видна сразу — «Править фигуру» включается). Модель из файла — задача 5 плана.
+// открыть файл режима: встроенная фигура → открыть её с разметкой из файла (видна сразу — «Править фигуру» включается). Модель из файла — owFileMk (#179).
 // Разметку основы не затираем: если на ней уже что-то есть и оно не то же, что в файле, — файл ложится новой версией в браузере (verPut), как «Сохранить»
-function owFromJSON(j){const o=j.ow||{},f=FIGURES[o.id];if(o.src!=='fig'||!f||!f.ow){msg('Сначала откройте модель «'+(o.name||'?')+'»');return;}const mk=mkLoad(JSON.stringify(j.mk||[])),n=mk.length;
+function owFromJSON(j){const o=j.ow||{},f=FIGURES[o.id];if(o.src==='file'){owFileMk(o,mkLoad(JSON.stringify(j.mk||[])));return;}if(o.src!=='fig'||!f||!f.ow){msg('Сначала откройте модель «'+(o.name||'?')+'»');return;}const mk=mkLoad(JSON.stringify(j.mk||[])),n=mk.length;
   loadFigure(o.id,()=>{mkSync();const own=mkSave(ST.mk);if(ST.mk.length&&own!==mkSave(mk)){const r=verPut(VSTO,o.id,{...j,mk:JSON.parse(mkSave(mk))});
       if(r&&!r.err){verOptions();owVerShow(j,o.id,r.n,true,`Разметка из файла открыта версией «${verName(o.id,r.n)}» — разметка «${f.name}» не тронута`);return;}}
     mkSet(mk);ST.name=j.name||f.name;$('mName').value=ST.name;ST.edit=true;$('cEdit').checked=true;renderAll();msg(`Открыта разметка: ${n} ${plural(n,'штрих','штриха','штрихов')} на «${f.name}»`);});}
@@ -170,3 +170,27 @@ function owVersion(j,base,n){const edit=ST.edit;loadFigure(base,()=>owVerShow(j,
 // фигура уже открыта (owOpen) — сделать её версией n: ключ разметки по версии, пустой — из JSON версии
 function owVerShow(j,base,n,edit,note){ST.ver=n;ST.verBase=base;$('figSel').value='ver:'+base+':'+n;mkSync();if(!ST.mk.length&&Array.isArray(j.mk)&&j.mk.length)mkSet(j.mk);
   if(edit){ST.edit=true;$('cEdit').checked=true;}ST.name=j.name||ST.name;$('mName').value=ST.name;renderAll();msg(note||`Открыта версия «${verName(base,n)}»`);}
+
+/* ---------- #179 «Открыть модель» — всегда для обводки (спека, «Решения»: «Открыть модель»): OBJ / GLB / STL → этот режим; старое расчётное открытие (упрощение и расчёт) убрано ----------
+   Модель — в кадр фигуры (owMesh: центр по X и Z — 0, низ — 0, высота 1000 мм; обход треугольников — наружу по знаку объёма, у чужой модели он не гарантирован). Текстура: GLB — из файла (parseGLB → img),
+   OBJ — картинка, выбранная вместе с ним, STL — нет. Нет текстуры или развёртки — гипс без кальки «Текстура» и с сообщением, перо работает. Разметка — в браузере по имени файла модели (mkFig в ui.js) */
+const OW_EXT=['obj','glb','stl'],OW_PIC=['png','jpg','jpeg','webp'],OW_NOTEX='Текстуры нет — калька «Текстура» недоступна';
+// почему нет текстуры — в скобках после OW_NOTEX (why из parseGLB или по типу файла)
+const OW_WHY={obj:'выберите вместе с OBJ картинку текстуры',objuv:'в OBJ нет развёртки uv',stl:'у STL текстуры не бывает',uri:'у GLB текстура отдельным файлом — откройте модель как OBJ вместе с картинкой',
+  multi:'у частей модели разные текстуры или текстура не у всех',nouv:'в модели нет развёртки uv',format:'картинка текстуры не PNG, JPG или WebP',none:''};
+let OW_WAIT=null;   // разметка из .json, открытого раньше своей модели: {id — имя файла модели, mk} — ляжет на модель, когда её откроют (owFile)
+function owFile(file,pic){const ext=file.name.split('.').pop().toLowerCase(),name=file.name.replace(/\.[^.]+$/,'');
+  file.arrayBuffer().then(buf=>later(()=>{const m=ext==='obj'?parseOBJ(new TextDecoder().decode(buf)):ext==='stl'?parseSTL(buf):parseGLB(buf);if(!m.F.length)throw new Error('в файле нет граней');
+    const D=owMesh(m),img=ext==='glb'?m.img:ext==='obj'&&D.T?pic:null,why=img&&D.T?'':ext==='stl'?'stl':ext==='obj'?(D.T?'obj':'objuv'):m.why||'nouv',n=D.F.length/3;
+    if(D.flipped)console.log('модель «'+file.name+'»: треугольники смотрели внутрь (объём '+Math.round(D.vol)+') — обход перевёрнут');
+    const go=tex=>{owOpen({id:file.name,name,V:D.V,T:D.T,F:D.F,tex},'file');
+    msg('Открыта модель для обводки: '+fmt(n)+' '+plural(n,'треугольник','треугольника','треугольников')+(why?' · '+OW_NOTEX+(OW_WHY[why]?' ('+OW_WHY[why]+')':''):'')+(pic&&!img&&ext!=='obj'?' · картинку «'+pic.name+'» берём только к OBJ':''));
+    if(OW_WAIT&&OW_WAIT.id===file.name){const w=OW_WAIT;OW_WAIT=null;owMkPut(w.mk);}};
+    if(!img){go('');return;}const fr=new FileReader();fr.onload=()=>go(fr.result);fr.onerror=()=>{go('');msg('Модель открыта, но картинку текстуры не прочитать — калька «Текстура» недоступна');};fr.readAsDataURL(img);},'Читаю модель…'));}   // картинка — data:-ссылкой: ссылки blob на странице — только у скачивания (saveBlob в ui.js); не прочиталась — без текстуры
+// разметка из файла — на открытую модель: была другая — не пропадает, Ctrl+Z возвращает её (два шага отмены #180: «добавить» и «очистить»)
+function owMkPut(mk){mkSync();const n=mk.length;if(!n){renderAll();msg(`В файле разметки нет штрихов — разметка «${OW.name}» не тронута`);return;}const keep=ST.mk.length>0&&mkSave(ST.mk)!==mkSave(mk);if(keep){mkDo(mkClearAll);mkDo(mkPush,mk);}else mkSet(mk);
+  ST.edit=true;$('cEdit').checked=true;renderAll();msg(`Открыта разметка: ${n} ${plural(n,'штрих','штриха','штрихов')} на «${OW.name}»`+(keep?' — прежняя разметка: Ctrl+Z дважды':''));}
+// .json разметки модели из файла: модель открыта — разметка на неё; нет — «Сначала откройте модель», разметка ждёт модель (OW_WAIT), а если в браузере для неё пусто — ложится и туда (переживёт перезагрузку)
+function owFileMk(o,mk){const id=o.id||o.name||'?',n=mk.length;if(!n){msg(`В файле разметки нет штрихов — открывать нечего (модель «${id}»)`);return;}if(OW.on&&OW.src==='file'&&OW.id===id){owMkPut(mk);return;}
+  OW_WAIT={id,mk};const k=mkKey('file:'+id),busy=mkLoad(store(k)).length>0;if(!busy)store(k,mkSave(mk));
+  msg(`Сначала откройте модель «${id}» — разметка из файла (${n} ${plural(n,'штрих','штриха','штрихов')}) ляжет на неё`+(busy?' (у модели в браузере своя разметка — файл ляжет поверх, если открыть модель до перезагрузки страницы; прежняя — Ctrl+Z)':''));}

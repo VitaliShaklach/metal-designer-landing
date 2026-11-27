@@ -202,10 +202,12 @@ function figFromJSON(j,name){if(j.type!=='md-art')throw new Error('это не �
 // показать открытое: калька берётся, только если файл фигуры-эталона уже загружен; ver — версия из браузера {base,n}, edit — вернуть режим правки
 function finishOpen(m,o,ver,edit){if(!m.F.length)throw new Error('в файле нет граней');ST.tref='';ST.refId=o.ref&&typeof MODELS_POLY!=='undefined'&&MODELS_POLY[o.ref]?o.ref:'';ST.frame=o.frame?{min:o.frame[0],max:o.frame[1]}:null;ST.fig='';ST.verBase=ver?ver.base:'';ST.ver=ver?ver.n:0;
   $('figSel').value=ver?'ver:'+ver.base+':'+ver.n:'';setBase(m,o);if(edit){ST.edit=true;$('cEdit').checked=true;if(ST.refId&&trOn())traceLoadFor(traceId());}compute();renderAll('instant');}
-function openFile(file){const ext=file.name.split('.').pop().toLowerCase(),name=file.name.replace(/\.[^.]+$/,'');
-  file.arrayBuffer().then(buf=>later(()=>{let m,o={name};
-    if(ext==='obj')m=parseOBJ(new TextDecoder().decode(buf));else if(ext==='stl')m=parseSTL(buf);else if(ext==='glb')m=parseGLB(buf);
-    else if(ext==='json'){const j=JSON.parse(new TextDecoder().decode(buf));if(j.ow){setTimeout(()=>owFromJSON(j));return;}({m,o}=figFromJSON(j,name));}   // ow — разметка оригинала для обводки (#176); после later — иначе он спрячет «Загружаю оригинал…»
+// «Открыть модель» (#179): OBJ / GLB / STL — всегда оригинал для обводки (owFile, owork.js: гипс, перо, без расчёта), к OBJ — картинка текстуры вторым файлом; сохранённая фигура .json — как раньше
+function openFile(files){files=[...files];const ext=f=>f.name.split('.').pop().toLowerCase(),mf=files.find(f=>OW_EXT.includes(ext(f))),pic=files.find(f=>OW_PIC.includes(ext(f)));
+  if(mf){owFile(mf,pic);return;}const file=files.find(f=>ext(f)==='json')||files[0];if(!file)return;
+  if(file===pic){msg('Картинка текстуры открывается вместе с моделью OBJ — выберите оба файла сразу');return;}const name=file.name.replace(/\.[^.]+$/,'');
+  file.arrayBuffer().then(buf=>later(()=>{let m,o;
+    if(ext(file)==='json'){const j=JSON.parse(new TextDecoder().decode(buf));if(j.ow){setTimeout(()=>owFromJSON(j));return;}({m,o}=figFromJSON(j,name));}   // ow — разметка оригинала для обводки (#176); после later — иначе он спрячет «Загружаю оригинал…»
     else throw new Error('нужен файл OBJ, STL, GLB или JSON');
     finishOpen(m,o);
     msg(`Открыто: ${m.F.length} ${plural(m.F.length,'треугольник','треугольника','треугольников')}${isDense()?' — упрощаю до '+ST.faces:''}`);},'Читаю модель…'));}
@@ -261,7 +263,7 @@ function perfUI(){$('cPerf').checked=!!ST.perf;$('cNotch').checked=!!ST.slotNotc
 let RT=0;const recalc=(fit,heavy)=>{clearTimeout(RT);RT=setTimeout(()=>heavy?later(()=>{compute();renderAll(fit);}):(compute(),renderAll(fit)),heavy?150:60);};
 $('figSel').addEventListener('change',e=>{const v=e.target.value;if(!v)return;if(ST.orig&&v===ST.orig.back){origReturn();return;}if(v.startsWith('ver:'))loadVersion(v);else loadFigure(v);});
 $('bOpen').addEventListener('click',()=>$('fileIn').click());
-$('fileIn').addEventListener('change',e=>{const f=e.target.files[0];if(f)openFile(f);e.target.value='';});
+$('fileIn').addEventListener('change',e=>{if(e.target.files.length)openFile(e.target.files);e.target.value='';});   // #179: несколько файлов — модель и картинка текстуры
 $('bSave').addEventListener('click',save);
 $('mName').addEventListener('input',e=>{ST.name=e.target.value;$('ttl').textContent=ST.name||'Фигура';label3D();});
 ['H','W','D'].forEach(k=>$('d'+k).addEventListener('change',e=>{const v=Math.max(50,+e.target.value||0);
@@ -472,7 +474,7 @@ $('cDiff').addEventListener('change',e=>{layerSet('diff',e.target.checked);rende
    инструмент включён — левая кнопка ставит точки, крутить — правой (OrbitControls); выключен — как было. На телефоне (нет точного указателя) инструментов нет */
 ST.tool='';ST.mk=[];ST.mkCur=null;ST.magnet=true;
 const MK={key:null,ver:0,why:false,draw:null,dkey:'',mb0:null,fine:typeof matchMedia==='function'&&matchMedia('(pointer:fine)').matches,und:[],red:[]};   // und/red — шаги отмены разметки (#180), не UNDO/REDO формы
-const mkFig=()=>ST.ver?ST.verBase+'.'+ST.ver:(ST.fig||'file');
+const mkFig=()=>ST.ver?ST.verBase+'.'+ST.ver:(ST.fig||(OW.on&&OW.src==='file'?'file:'+OW.id:'file'));   // #179: модель из файла в режиме обводки — разметка по имени её файла
 function mkSync(){const k=mkKey(mkFig());if(MK.key!==k){MK.key=k;ST.mk=mkLoad(store(k));ST.mkCur=null;mkReset();MK.ver++;}}   // другая фигура или версия — свой стек отмены, с нуля
 function mkStore(){if(MK.key)store(MK.key,mkSave(ST.mk));MK.ver++;}   // нет памяти браузера — разметка живёт до перезагрузки
 function mkReset(){MK.und=[];MK.red=[];}

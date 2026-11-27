@@ -169,3 +169,34 @@ test('owPhotoPick: слой головы — uv головы только в к�
   assert.strictEqual(body.head,null,'ниже коробки — только общее фото');assert.strictEqual(back.head,null,'позади коробки (z < z0) — только общее фото');
   c.PH={m:SIDE,dir:[1,0,0],mirror:true};assert.strictEqual(pick([-60,700,300],[-1,0,0]).head,null,'без слоя головы');
   c.PH={m:SIDE,dir:[1,0,0],mirror:true,head:{...HEAD,m:[0,0,-0.002,2, 0,-0.002,0,1.6]}};assert.strictEqual(pick([-60,700,300],[-1,0,0]).head,null,'uv головы вне картинки — null');});
+
+/* ---------- #179 «Открыть модель» — всегда для обводки: кадр и ориентация модели из файла ---------- */
+test('owFrame + owApply: куб 0…2 → низ 0, верх 1000, центр по X и Z — 0; исходные точки не тронуты',()=>{
+  c.V=new Float32Array([0,0,0, 2,0,0, 2,2,0, 0,2,0, 0,0,2, 2,0,2, 2,2,2, 0,2,2]);run('fr=owFrame(V);W=owApply(V,fr)');const W=run('W');
+  const ax=k=>{let lo=Infinity,hi=-Infinity;for(let i=k;i<W.length;i+=3){lo=Math.min(lo,W[i]);hi=Math.max(hi,W[i]);}return [lo,hi];};
+  assert.ok(W instanceof run('Float32Array')&&W.length===24);assert.ok(Math.abs(run('fr.s')-500)<1e-9,'масштаб 1000 / 2');
+  assert.ok(Math.abs(ax(1)[0])<1e-6&&Math.abs(ax(1)[1]-1000)<1e-6,'Y: 0…1000 — '+ax(1));
+  assert.ok(Math.abs(ax(0)[0]+ax(0)[1])<1e-6&&Math.abs(ax(2)[0]+ax(2)[1])<1e-6,'центр X и Z — 0: '+ax(0)+' / '+ax(2));
+  assert.strictEqual(run('V[6]'),2,'owApply — копия, исходный массив тот же');});
+test('owFrame: плоская модель (высота 0) — масштаб по наибольшей стороне, без деления на 0; точка — масштаб 1',()=>{
+  c.V=new Float32Array([0,5,0, 4,5,0, 0,5,2]);const f=run('owFrame(V)');assert.ok(Math.abs(f.s-250)<1e-9&&Number.isFinite(f.d[1]),JSON.stringify(f));
+  c.V=new Float32Array([3,3,3]);const g=run('owFrame(V)');assert.strictEqual(g.s,1);});
+// куб 0…100: 12 треугольников, обход наружу (нормаль низа z = 0 — вниз, −z)
+const CUBE_V=[0,0,0, 100,0,0, 100,100,0, 0,100,0, 0,0,100, 100,0,100, 100,100,100, 0,100,100],
+  CUBE_F=[0,3,2, 0,2,1, 4,5,6, 4,6,7, 0,1,5, 0,5,4, 1,2,6, 1,6,5, 2,3,7, 2,7,6, 3,0,4, 3,4,7];
+test('owOrient: у модели из файла обход не гарантирован — объём со знаком; наружу — как есть, внутрь — каждый треугольник перевёрнут',()=>{
+  c.V=new Float32Array(CUBE_V);c.F=new Uint32Array(CUBE_F);const a=run('owOrient(V,F)');
+  assert.ok(Math.abs(a.vol-1e6)<1e-3,'объём куба 100³: '+a.vol);assert.strictEqual(a.flipped,false);assert.deepStrictEqual([...a.F],CUBE_F);
+  c.F=new Uint32Array(CUBE_F.map((x,i)=>CUBE_F[i-i%3+[0,2,1][i%3]]));const b=run('owOrient(V,F)');
+  assert.ok(Math.abs(b.vol+1e6)<1e-3,'вывернутый — объём −1e6: '+b.vol);assert.strictEqual(b.flipped,true);
+  run('o2=owOrient(V,owOrient(V,F).F)');assert.ok(Math.abs(run('o2.vol')-1e6)<1e-3&&run('o2.flipped')===false,'после переворота — наружу');
+  run('G=owGrid(V,owOrient(V,F).F);h=owNear(G,[50,50,-5],20)');assert.ok(run('h.n[2]')<-0.99,'owNear у низа — нормаль наружу (вниз): '+run('h.n.join()'));
+  assert.strictEqual(run('F[1]'),CUBE_F[2],'исходный F не тронут');});
+test('owMesh: модель из парсера (массивы точек) → Float32Array в кадре фигуры, Uint32Array треугольников наружу, uv — Float32Array; вывернутый куб 0…2 перевёрнут',()=>{
+  const P=[];for(let i=0;i<8;i++)P.push(CUBE_V.slice(i*3,i*3+3).map(x=>x/50));const Fin=[];for(let t=0;t<12;t++)Fin.push([CUBE_F[t*3],CUBE_F[t*3+2],CUBE_F[t*3+1]]);
+  c.m={V:P,F:Fin,T:P.map((p,i)=>[i/8,1-i/8])};const r=run('owMesh(m)');
+  assert.ok(r.V instanceof run('Float32Array')&&r.V.length===24&&r.F instanceof run('Uint32Array')&&r.F.length===36&&r.T instanceof run('Float32Array')&&r.T.length===16);
+  assert.strictEqual(r.flipped,true,'вывернутый — перевёрнут');assert.ok(run('owOrient(owMesh(m).V,owMesh(m).F).vol')>0,'после — объём > 0');
+  let lo=Infinity,hi=-Infinity;for(let i=1;i<24;i+=3){lo=Math.min(lo,r.V[i]);hi=Math.max(hi,r.V[i]);}assert.ok(Math.abs(lo)<1e-6&&Math.abs(hi-1000)<1e-6,'высота 0…1000');
+  assert.ok(Math.abs(r.T[2]-1/8)<1e-7&&Math.abs(r.T[3]-7/8)<1e-7,'uv вершины 1 — как в модели');
+  c.m={V:P,F:CUBE_F.reduce((a,x,i)=>(i%3?a[a.length-1].push(x):a.push([x]),a),[])};const s=run('owMesh(m)');assert.strictEqual(s.T,null,'без uv — T null');assert.strictEqual(s.flipped,false);});

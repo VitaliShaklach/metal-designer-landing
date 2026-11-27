@@ -138,3 +138,25 @@ function owPhotoPick(ph,p,n){const d=ph.dir,side=(q,nn,mir)=>{const cs=-(nn[0]*d
   const a=side(p,n,false),b=ph.mirror?side([-p[0],p[1],p[2]],[-n[0],n[1],n[2]],true):null,r=a&&b?(b.cs>a.cs?b:a):a||b;if(!r)return null;
   const H=ph.head,h=H&&r.q[1]>=H.y0&&r.q[2]>=H.z0?owPhotoUV(H.m,r.q):null;
   return {uv:r.uv,mir:r.mir,cos:r.cs,head:h&&h[0]>=0&&h[0]<=1&&h[1]>=0&&h[1]<=1?h:null};}
+/* ---------- #179 модель из «Открыть модель» — в кадр фигуры, как у встроенных ----------
+   кадр: центр по X и Z — 0, низ — 0, высота (Y) — 1000 мм; точка → p·s + d. Без этого зеркало (ось X = 0) и разметка не в мм. Высота 0 (плоская) — масштаб по наибольшей стороне, точка — 1 */
+const OW_H=1000;
+function owFrame(V){const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
+  for(let i=0;i<V.length;i+=3)for(let k=0;k<3;k++){const x=V[i+k];if(x<lo[k])lo[k]=x;if(x>hi[k])hi[k]=x;}
+  const h=hi[1]-lo[1],big=Math.max(hi[0]-lo[0],h,hi[2]-lo[2]),s=h>1e-9?OW_H/h:big>1e-9?OW_H/big:1;
+  return {s,d:[-(lo[0]+hi[0])/2*s,-lo[1]*s,-(lo[2]+hi[2])/2*s]};}
+// копия точек в кадре f = {s, d}
+function owApply(V,f){const W=new Float32Array(V.length);for(let i=0;i<V.length;i+=3)for(let k=0;k<3;k++)W[i+k]=V[i+k]*f.s+f.d[k];return W;}
+/* обход треугольников модели из файла не гарантирован (у Meshy — наружу, у чужого STL/OBJ — как выйдет), а owNear берёт нормаль по обходу: подъём штриха (TL_LIFT) и отсечение обратной стороны.
+   Объём со знаком Σ a·(b×c)/6 от центра габарита (у замкнутой модели — её объём, от точки не зависит; у дырявой — от центра честнее): < 0 — модель вывернута, переворачиваем каждый треугольник.
+   → {F (копия, если перевёрнут), vol, flipped} */
+function owOrient(V,F){const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];for(let i=0;i<V.length;i+=3)for(let k=0;k<3;k++){if(V[i+k]<lo[k])lo[k]=V[i+k];if(V[i+k]>hi[k])hi[k]=V[i+k];}
+  const o=lo.map((x,k)=>(x+hi[k])/2),q=(i,k)=>V[i+k]-o[k];let s=0;
+  for(let t=0;t<F.length;t+=3){const a=F[t]*3,b=F[t+1]*3,c=F[t+2]*3;s+=q(a,0)*(q(b,1)*q(c,2)-q(b,2)*q(c,1))+q(a,1)*(q(b,2)*q(c,0)-q(b,0)*q(c,2))+q(a,2)*(q(b,0)*q(c,1)-q(b,1)*q(c,0));}
+  const vol=s/6;if(vol>=0)return {F,vol,flipped:false};const G=new Uint32Array(F.length);for(let t=0;t<F.length;t+=3){G[t]=F[t];G[t+1]=F[t+2];G[t+2]=F[t+1];}return {F:G,vol,flipped:true};}
+/* модель из парсера (parseOBJ / parseGLB / parseSTL: {V:[[x,y,z]], F:[[a,b,c]], T?:[[u,v]]}) → данные режима: V — Float32Array в кадре фигуры (owFrame), F — Uint32Array с обходом наружу (owOrient),
+   T — Float32Array uv или null (нет uv у модели). → {V, F, T, frame, flipped, vol} */
+function owMesh(m){const nv=m.V.length,V0=new Float32Array(nv*3),F0=new Uint32Array(m.F.length*3);
+  m.V.forEach((p,i)=>{V0[i*3]=p[0];V0[i*3+1]=p[1];V0[i*3+2]=p[2];});m.F.forEach((f,i)=>{F0[i*3]=f[0];F0[i*3+1]=f[1];F0[i*3+2]=f[2];});
+  let T=null;if(m.T&&m.T.length===nv){T=new Float32Array(nv*2);m.T.forEach((t,i)=>{T[i*2]=t[0];T[i*2+1]=t[1];});}
+  const o=owOrient(V0,F0),frame=owFrame(V0);return {V:owApply(V0,frame),F:o.F,T,frame,flipped:o.flipped,vol:o.vol};}
