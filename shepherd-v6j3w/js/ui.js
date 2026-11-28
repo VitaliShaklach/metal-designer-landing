@@ -231,6 +231,7 @@ function origEnter(id){const f=FIGURES[id],box=meshBox(CUR.M3.V),k=camKeep(box),
 function origLeave(){if(!ST.orig)return;origDispose();ST.orig=null;document.body.classList.remove('origview');$('origBox').hidden=true;$('bSave').disabled=false;}
 function origReturn(){const box=meshBox(CUR.M3.V),k=camKeep(box);$('figSel').value=ST.orig.back;origLeave();later(()=>{renderAll();camRestore(k,box);msg('');},'Возвращаю фигуру…');}
 $('cOrigTex').addEventListener('change',e=>{if(OW.on){owRender();return;}if(!ST.orig)return;ST.orig.tex=e.target.checked;origTex(ST.orig.tex);});
+$('sTone').addEventListener('input',e=>{if(OW.on)owToneSet(+e.target.value);});   // #188 «Тон гипса» — только в режиме обводки (у вида #146 строка скрыта, style.css)
 $('cModel').addEventListener('change',e=>{OW.modelOn=e.target.checked;owRender();});   // #184 «Модель» у плоской фото-кальки: снята — только фото, модель заслоняет глубиной (owFlatUse)
 /* ---------- версии фигуры в браузере (#148): «Сохранить» кладёт версию в память браузера и скачивает .json ---------- */
 const VSTO={get:k=>localStorage.getItem(k),set:(k,v)=>localStorage.setItem(k,v)},verName=(b,n)=>((FIGURES[b]||{}).name||b)+'.'+n;   // нет памяти — бросает, verPut/verList это ловят

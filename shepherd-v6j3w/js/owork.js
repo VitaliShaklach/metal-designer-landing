@@ -2,8 +2,8 @@
    Режим фигуры, а не вид: FIGURES.<id>.ow — ключ в ORIG (данные js/orig-<id>.js, общие с видом #146). Расчёт (compute), цифры, таблицы, «Углы» в режиме не работают —
    renderAll() зовёт только owRender(). Рабочая фигура до входа (CUR) остаётся в памяти нетронутой и снова считается, когда выбрали другую фигуру (setBase → owLeave).
    Точка под курсором — owPick: луч по сетке клеток (owGrid/owRay в ow-core.js), а не перебор 158 тыс. треугольников. */
-const OW={on:false,id:'',src:'',name:'',V:null,T:null,F:null,img:null,photos:[],calka:'',calkaOn:true,modelOn:true,seam:null,seamMs:0,mesh:null,G:null,box:null,o3:null,mk3:null,free:[],snap:null,snapK:''};   // mk3 — разметка на сцене, free — свободные концы, snap — отрезки магнита (#176); calka/calkaOn/seam — калька и облако швов (#177); modelOn — галочка «Модель» у плоской кальки (#184)
-// гипс — светлый тёплый серо-бежевый (спека, «Цвета»)
+const OW={on:false,id:'',src:'',name:'',V:null,T:null,F:null,img:null,photos:[],calka:'',calkaOn:true,modelOn:true,seam:null,seamMs:0,mesh:null,G:null,box:null,o3:null,mk3:null,free:[],snap:null,snapK:'',tone:1};   // mk3 — разметка на сцене, free — свободные концы, snap — отрезки магнита (#176); calka/calkaOn/seam — калька и облако швов (#177); modelOn — галочка «Модель» у плоской кальки (#184)
+// гипс — светлый тёплый серо-бежевый (спека #175, «Цвета»); с #188 материалы режима берут цвет по «Тону гипса» — owTone(OW.tone).color (шаг 1 — #a29b90, чуть темнее этого)
 const OW_PLASTER=0xb8b0a4;
 /* #177 калька «Текстура»: светлота текселя L = max(r,g,b); L ≤ 0,65 — гипс, L ≥ 0,80 — шов (тёмно-коричневый, почти чёрный), между — плавно. Облако швов для магнита (owSeamCloud) — по тому же верхнему порогу:
    точка облака = пиксель, который калька рисует швом целиком. Калька видна при «Править фигуру» (как калька у всех фигур), галочка «Калька» выключает — гипс; «Текстура» Meshy (вид как есть) — главнее кальки */
@@ -24,15 +24,16 @@ function owOpen(src,kind){origLeave();owDrop3D();
   ST.fig=kind==='fig'?src.id:'';ST.verBase=kind==='fig'?src.id:'';ST.ver=0;ST.refId='';ST.tref='';ST.sel=ST.selB=ST.sv=ST.sp=ST.sp2=-1;ST.seam=null;ST.name=src.name;$('mName').value=ST.name;
   document.body.classList.add('owview');$('origBox').hidden=false;$('cOrigTex').checked=false;$('cOrigTex').disabled=!(src.T&&src.tex);$('bSave').disabled=false;   // «Сохранить» — только разметка (owJSON, #176)
   $('origNote').textContent='Оригинал для обводки: модель как есть, расчёта нет';$('figSel').value=kind==='fig'?src.id:'';
+  if(typeof lightRig==='function')lightRig(true);owToneSet(+store('ow-tone')||1);   // #188 свет от камеры и «Тон гипса» (шаг из браузера) — до сборки: материалы сразу в тоне
   owBuild(src);fitBox(OW.box,true);renderAll();msg('Оригинал для обводки: '+fmt(OW.F.length/3)+' '+plural(OW.F.length/3,'треугольник','треугольника','треугольников')+', расчёта нет');}
-function owLeave(){if(!OW.on)return;owDrop3D();if(typeof VIEW!=='undefined'&&VIEW.ortho)viewOrtho(false);Object.assign(OW,{on:false,V:null,T:null,F:null,img:null,G:null,box:null,photos:[],free:[],snap:null,snapK:'',calka:'',seam:null});
+function owLeave(){if(!OW.on)return;owDrop3D();if(typeof VIEW!=='undefined'&&VIEW.ortho)viewOrtho(false);if(typeof lightRig==='function')lightRig(false);Object.assign(OW,{on:false,V:null,T:null,F:null,img:null,G:null,box:null,photos:[],free:[],snap:null,snapK:'',calka:'',seam:null});
   document.body.classList.remove('owview');$('origBox').hidden=true;$('modelRow').hidden=true;$('cOrigTex').checked=true;$('cOrigTex').disabled=false;$('bSave').disabled=false;}   // «Текстура» — как была у вида #146 (по умолчанию включена)
 function owDrop3D(){owMkDrop();const o=OW.o3;if(!o)return;OW.o3=OW.mesh=null;if(typeof root!=='undefined'&&root){root.remove(o.mesh);root.remove(o.flat.g);}owFlatDrop(o.flat);o.flat.mg.dispose();o.flat.mh.dispose();o.geo.dispose();o.plaster.dispose();o.depth.dispose();o.basic.dispose();o.seam.dispose();if(o.mask)o.mask.dispose();if(o.tex)o.tex.dispose();o.photo.dispose();Object.values(o.ptex).forEach(t=>{t.dispose();if(t.mask)t.mask.dispose();});}   // #178: фото-калька и загруженные фото (#185: и маски швов); #184: плоская калька (плоскости и их материалы) и материал «только глубина»
 // сетка на сцену: гипс с освещением; галочка «Текстура» — картинка Meshy как есть (как у вида #146)
 function owBuild(src){if(!ok)return;while(root.children.length){const c=root.children.pop();c.geometry&&c.geometry.dispose();if(c.element)c.element.remove();}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(OW.V,3));if(OW.T)g.setAttribute('uv',new THREE.BufferAttribute(OW.T,2));
   g.setAttribute('normal',new THREE.BufferAttribute(origNormals(OW.V,OW.F),3));g.setIndex(new THREE.BufferAttribute(OW.F,1));g.computeBoundingSphere();
-  const plaster=new THREE.MeshLambertMaterial({color:OW_PLASTER,side:THREE.DoubleSide}),basic=new THREE.MeshBasicMaterial({color:OW_PLASTER,side:THREE.DoubleSide}),seam=owSeamMat(),photo=owPhotoMat(),mesh=new THREE.Mesh(g,plaster);
+  const plaster=new THREE.MeshLambertMaterial({color:owTone(OW.tone).color,side:THREE.DoubleSide}),basic=new THREE.MeshBasicMaterial({color:owTone(OW.tone).color,side:THREE.DoubleSide}),seam=owSeamMat(),photo=owPhotoMat(),mesh=new THREE.Mesh(g,plaster);
   const depth=new THREE.MeshBasicMaterial({colorWrite:false,side:THREE.DoubleSide}),FU=Object.assign({owOp:{value:.5}},photo.userData.U),flat={g:new THREE.Group(),gen:null,head:null,key:'',mg:owFlatMat(FU,0),mh:owFlatMat(FU,1)};flat.g.visible=false;   // #184 плоская калька: униформы — те же объекты, что у проекции; depth — модель при снятой «Модели»: не рисуется, только глубина (штрихи за ней не просвечивают)
   const o=OW.o3={mesh,geo:g,plaster,depth,basic,seam,photo,flat,ptex:{},mask:null,tex:null};OW.mesh=mesh;root.add(mesh);root.add(flat.g);   // без userData.pick: детали (pickTri) у оригинала нет, точку ищет owPick
   if(OW.T&&src.tex){const inl=src.tex.startsWith('data:'),t=new THREE.TextureLoader().load(src.tex+(inl||typeof LAZY_V==='undefined'?'':LAZY_V),()=>{if(OW.o3!==o)return;basic.map=t;basic.color.set(0xffffff);basic.needsUpdate=true;req3D();
@@ -40,7 +41,7 @@ function owBuild(src){if(!ok)return;while(root.children.length){const c=root.chi
     t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());o.tex=t;}}   // #179: картинка модели из файла — data:-ссылка (без метки ?v=)
 /* #177 материал кальки «Текстура»: гипс (Lambert, тот же свет) + маска швов (owSeamMips, текстура o.mask) — 255 → цвет швов OW_SEAM_C, 0 → цвет гипса.
    Маска считается из тех же пикселей, что облако швов (owSeamPrep), уровни уменьшения — максимумом: издалека швы не гаснут, как гасли бы у текстуры Meshy с обычными уровнями */
-function owSeamMat(){const m=new THREE.MeshLambertMaterial({color:OW_PLASTER,side:THREE.DoubleSide});
+function owSeamMat(){const m=new THREE.MeshLambertMaterial({color:owTone(OW.tone).color,side:THREE.DoubleSide});
   m.onBeforeCompile=sh=>{sh.uniforms.owSeamC={value:new THREE.Color(OW_SEAM_C)};
     sh.fragmentShader='uniform vec3 owSeamC;\n'+sh.fragmentShader.replace('#include <map_fragment>',`#ifdef USE_MAP
   diffuseColor.rgb=mix(diffuseColor.rgb,owSeamC,texture2D(map,vUv).r);
@@ -57,6 +58,11 @@ function owSeamPrep(o,im){if(OW.o3!==o||!OW.T||!im)return;const t0=performance.n
   OW.seam={seg};OW.seamMs=Math.round(performance.now()-t0);OW.snapK='';console.log('калька «Текстура»: облако швов '+C.length/3+' точек, '+OW.seamMs+' мс');renderAll();}
 // калька «Текстура» на модели сейчас: «Править фигуру», галочка «Калька», выбрана «Текстура», маска готова (owSeamPrep)
 function owSeamOn(){const o=OW.o3;return !!(o&&ST.edit&&OW.calkaOn&&OW.calka==='tex'&&o.seam.map);}
+/* #188 «Тон гипса»: шаг 1…6 (owToneStep) → OW.tone и браузер (одни на всю мастерскую), лампы «от камеры» (LIGHT_CAM, view3d.js) и цвет гипса у материалов режима: гипс, калька «Текстура»,
+   фото-калька (гипс вне фото и вскользь); «Текстура» Meshy (basic) — только пока у неё нет картинки. Материалов ещё нет (вход, до owBuild) — их owBuild создаст уже в тоне */
+function owToneSet(step){const s=owToneStep(step),t=owTone(s),o=OW.o3,L=typeof LIGHT_CAM!=='undefined'?LIGHT_CAM:null;OW.tone=s;store('ow-tone',String(s));
+  if(L&&L.key){L.hemi.intensity=t.hemi;L.key.intensity=t.key;L.fill.intensity=t.fill;}if(o){[o.plaster,o.seam,o.photo].forEach(m=>m.color.setHex(t.color));if(!o.basic.map)o.basic.color.setHex(t.color);}
+  $('sTone').value=s;$('toneVal').textContent=s;if(typeof req3D==='function')req3D();}
 /* ---------- #178 кальки «Фото спереди» / «Фото сбоку»: фото Meshy светится на гипс, как проектор (спека, «Калька „Фото“») ----------
    Фото = {key, name, img, m, dir, mirror} (js/photos-<id>.js, собирает tools/photo-fit.js: камера ракурса ∘ подгон по силуэту ∘ кадр фигуры — одна матрица m). Файл с матрицами грузится при входе,
    картинка — когда её калька выбрана и видна (owRender → owPhotoGet), один раз. Пиксель — owPhotoUV, сторона — правило owPhotoPick (ow-core.js) в шейдере owPhotoMat:
@@ -94,7 +100,7 @@ function owPhotoUse(o,p){const U=o.photo.userData.U,m=p.m,h=p.head;U.owPh.value=
 // гипс (Lambert, тот же свет) + фото поверх (цвет как есть, швы — по маске); точка и нормаль — в кадре фигуры (атрибуты сетки: root без поворота и масштаба). Текстура читается всегда (вне ветвлений — уровни уменьшения считаются верно)
 function owPhotoMat(){const U={owPh:{value:null},owMu:{value:new THREE.Vector4()},owMv:{value:new THREE.Vector4()},owDir:{value:new THREE.Vector3(0,0,-1)},owMir:{value:0},owMk:{value:null},owMk2:{value:null},owSeamC:{value:new THREE.Color(OW_PHOTO_SEAM_C)},
       owHd:{value:0},owBand:{value:OW_HEAD_BAND},owPh2:{value:null},owMu2:{value:new THREE.Vector4()},owMv2:{value:new THREE.Vector4()},owHb:{value:new THREE.Vector2()},owHe:{value:new THREE.Vector4(1e-6,1e-6,1e-6,1e-6)}},
-    m=new THREE.MeshLambertMaterial({color:OW_PLASTER,side:THREE.DoubleSide});m.userData.U=U;
+    m=new THREE.MeshLambertMaterial({color:owTone(OW.tone).color,side:THREE.DoubleSide});m.userData.U=U;
   m.onBeforeCompile=sh=>{Object.assign(sh.uniforms,U);
     sh.vertexShader='varying vec3 vOwP;\nvarying vec3 vOwN;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  vOwP=position;vOwN=normal;');
     sh.fragmentShader=OW_PH_GLSL+sh.fragmentShader.replace('#include <tonemapping_fragment>',`{vec3 n=normalize(vOwN),fx=vec3(-1.,1.,1.);vec2 ua=owUV(vOwP),ub=owUV(vOwP*fx);

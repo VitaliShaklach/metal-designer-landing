@@ -245,3 +245,10 @@ test('owFlatShow: плоская калька — только в ортовид
   assert.strictEqual(run("owFlatShow('front','front',true)"),true);assert.strictEqual(run("owFlatShow('side','side',true)"),true);
   assert.strictEqual(run("owFlatShow('front','side',true)"),false);assert.strictEqual(run("owFlatShow('side','front',true)"),false);
   assert.strictEqual(run("owFlatShow('front','front',false)"),false);assert.strictEqual(run("owFlatShow('front','',false)"),false);assert.strictEqual(run("owFlatShow('tex','front',true)"),false);});
+
+// #188 «Тон гипса»: 6 шагов линейно между шагом 1 (.30/.90/.22/#a29b90) и шагом 6 (.16/.62/.08/#5f5a52) — рассеянный, ключевой, подсветка, цвет гипса (спека, таблица «Решения»)
+test('owTone: шаги 1 и 6 — числа из спеки, шаг 3 — по каналам между ними; шаг округляется и зажимается в 1…6',()=>{
+  const near=(a,b,t)=>{for(const k of ['hemi','key','fill'])assert.ok(Math.abs(a[k]-b[k])<1e-9,t+': '+k+' '+a[k]+' ≠ '+b[k]);assert.strictEqual(a.color,b.color,t+': цвет '+a.color.toString(16)+' ≠ '+b.color.toString(16));};
+  const T=s=>run('owTone('+s+')'),s1={hemi:.30,key:.90,fill:.22,color:0xa29b90},s6={hemi:.16,key:.62,fill:.08,color:0x5f5a52};
+  near(T(1),s1,'шаг 1');near(T(6),s6,'шаг 6');near(T(3),{hemi:.244,key:.788,fill:.164,color:0x878177},'шаг 3');
+  near(T(0),s1,'шаг 0 → 1');near(T(9),s6,'шаг 9 → 6');near(T(2.6),T(3),'шаг 2,6 → 3');});

@@ -5,6 +5,11 @@ let renderer,scene,camera,camO=null,controls,labels,root,ok=true,camAnim=null,ne
 // half — полувысота кадра camO при zoom 1; axis — ось вида при входе (повернули дальше 1° — выход в перспективу). Все лучи, проекции и рендер — от curCam()
 const VIEW={ortho:false,key:'',want:'',half:1,axis:null};
 function curCam(){return VIEW.ortho?camO:camera;}
+/* #188 два набора ламп: LIGHT_SCENE — свет сцены (как был у всех фигур), LIGHT_CAM — свет мастерской «от камеры» (режим обводки): hemi — рассеянный (небо — вверх мира, как у сцены),
+   key — ключевой над зрителем (0, 1, 0,35 в кадре камеры), fill — подсветка от зрителя (0, 0, 1); цель обеих — точка (0, 0, −1) в кадре камеры. key и fill — в группе rig, которая перед каждым
+   кадром встаёт на место той камеры, которой рисуют (scene.onBeforeRender): так одни и те же лампы светят и в перспективе (camera), и в ортокамере (camO, #184). Создаются один раз — ламп не прибавляется */
+const LIGHT_SCENE=[],LIGHT_CAM={hemi:null,key:null,fill:null,rig:null};
+function lightRig(on){if(!ok||!LIGHT_CAM.key)return;LIGHT_SCENE.forEach(l=>{l.visible=!on;});[LIGHT_CAM.hemi,LIGHT_CAM.key,LIGHT_CAM.fill].forEach(l=>{l.visible=!!on;});req3D();}
 function req3D(){need=Math.max(need,3);}
 try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.domElement.setAttribute('role','img');renderer.domElement.setAttribute('aria-label','3D-модель фигуры');stage.appendChild(renderer.domElement);}catch(e){ok=false;}
 if(ok){scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(35,1,5,30000);camera.position.set(700,600,1400);camO=new THREE.OrthographicCamera(-1,1,1,-1,5,30000);
@@ -15,6 +20,10 @@ if(ok){scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(35,1,5,30000);
   const d2=new THREE.DirectionalLight(0xbfd0e0,.35);d2.position.set(-1500,500,-900);scene.add(d2);
   // подсветка снизу-спереди: подбородок и низ шеи не проваливаются в черноту, детали различимы
   const d3=new THREE.DirectionalLight(0xfff4e8,.45);d3.position.set(400,-1400,1300);scene.add(d3);
+  scene.children.forEach(o=>{if(o.isLight)LIGHT_SCENE.push(o);});
+  {const L=LIGHT_CAM,t=new THREE.Object3D();L.hemi=new THREE.HemisphereLight(0xf2f4f5,0xb4aea6,.3);L.key=new THREE.DirectionalLight(0xffffff,.9);L.fill=new THREE.DirectionalLight(0xffffff,.22);L.rig=new THREE.Group();
+    t.position.set(0,0,-1);L.key.position.set(0,1,.35);L.fill.position.set(0,0,1);L.key.target=L.fill.target=t;L.rig.add(t,L.key,L.fill);[L.hemi,L.key,L.fill].forEach(l=>{l.visible=false;});scene.add(L.hemi,L.rig);
+    scene.onBeforeRender=(r,s,c)=>{if(!L.key.visible)return;L.rig.position.setFromMatrixPosition(c.matrixWorld);L.rig.quaternion.setFromRotationMatrix(c.matrixWorld);L.rig.updateMatrixWorld(true);};}
   root=new THREE.Group();scene.add(root);
   const grid=new THREE.GridHelper(6000,60,0xb9c0bd,0xd5dad7);grid.material.transparent=true;grid.material.opacity=.5;scene.add(grid);}
 const COL={steel:[0x6b737b,0x8a929a],inox:[0x9aa3ab,0xc2c9cf],corten:[0x8a4a2a,0xa8623a],alu:[0xa9b0b6,0xd0d5d9]};

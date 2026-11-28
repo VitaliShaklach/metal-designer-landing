@@ -744,6 +744,16 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
       &&OWJ.includes("$('modelRow').hidden=!fl;")&&OWJ.includes("modelOn:true,seam:null,seamMs:0});$('cModel').checked=true;")&&OWJ.includes('o.depth.dispose();')
       &&OWJ.includes("function owJSON(){return {type:'md-art',v:1,ow:{src:OW.src,id:OW.id,name:OW.name},name:ST.name,mk:JSON.parse(mkSave(ST.mk))};}"),
       'Овчарка 7 (#184): галочка «Модель» — скрыта, пока нет плоской кальки; снята — модель только в глубину (заслоняет штрихи), фото 100 %; включена — гипс, 50 %; сброс при открытии; owJSON прежний');}
+  // #188 задача 1: свет от камеры и «Тон гипса» только в мастерской — ползунок 1…6 в #origBox после «Текстуры» (у вида #146 строка скрыта правилом style.css), owOpen включает лампы «от камеры»
+  // (lightRig(true)) и тон из браузера до сборки материалов, owLeave — свет сцены (lightRig(false)); лампы сцены (view3d.js) — те же четыре, лампы «от камеры» — по точкам из плана
+  {const HT=fs.readFileSync(__dirname+'/../index.html','utf8'),V3J=fs.readFileSync(P+'view3d.js','utf8'),OWJ=fs.readFileSync(P+'owork.js','utf8'),UI=fs.readFileSync(P+'ui.js','utf8'),CSS=fs.readFileSync(__dirname+'/../css/style.css','utf8'),
+      box=HT.slice(HT.indexOf('id="origBox"'),HT.indexOf('</div>',HT.indexOf('id="origBox"'))),open=OWJ.slice(OWJ.indexOf('function owOpen('),OWJ.indexOf('function owLeave(')),leave=OWJ.slice(OWJ.indexOf('function owLeave('),OWJ.indexOf('function owDrop3D('));
+    ok(box.includes('<input type="range" id="sTone" min="1" max="6" step="1" value="1">')&&box.indexOf('id="sTone"')>box.indexOf('id="cOrigTex"')&&box.includes('Тон гипса: <b id="toneVal">1</b>')&&CSS.includes('body:not(.owview) #toneRow{display:none}')
+      &&/lightRig\(true\);owToneSet\(\+store\('ow-tone'\)\|\|1\);[^\n]*\n\s*owBuild\(src\)/.test(open)&&leave.includes('lightRig(false)')&&UI.includes("$('sTone').addEventListener('input',e=>{if(OW.on)owToneSet(+e.target.value);});")
+      &&['scene.add(new THREE.HemisphereLight(0xf2f4f5,0xb4aea6,.8));','const d=new THREE.DirectionalLight(0xffffff,.85);d.position.set(900,1600,1800);scene.add(d);','const d2=new THREE.DirectionalLight(0xbfd0e0,.35);d2.position.set(-1500,500,-900);scene.add(d2);','const d3=new THREE.DirectionalLight(0xfff4e8,.45);d3.position.set(400,-1400,1300);scene.add(d3);'].every(x=>V3J.includes(x))
+      &&V3J.includes('t.position.set(0,0,-1);L.key.position.set(0,1,.35);L.fill.position.set(0,0,1);L.key.target=L.fill.target=t;')&&V3J.includes('scene.onBeforeRender=(r,s,c)=>')
+      &&(OWJ.match(/color:owTone\(OW\.tone\)\.color/g)||[]).length===4,
+      'Мастерская (#188): «Тон гипса» 1…6 в блоке мастерской после «Текстуры» (у вида #146 скрыт); вход — лампы «от камеры» (над зрителем, подсветка от зрителя, и на ортокамере) и тон из браузера, выход — свет сцены, лампы сцены прежние; материалы режима — в тоне');}
   // #176: перо по морде Овчарки 7 — точки руки (лучи по сетке, как owPick) → owStrokes → каждая точка штриха ≤ 1 мм от модели; расстояние — перебором треугольников (не той же сеткой)
   {['tlines','markup'].forEach(f=>vm.runInContext(fs.readFileSync(P+f+'.js','utf8'),oc));   // ow-core.js уже в oc (блок #175 выше)
     const R=vm.runInContext(`(()=>{const D=origDecode(ORIG.shepherd5),G=owGrid(D.V,D.F),O=[600,860,2500],raw=[];
