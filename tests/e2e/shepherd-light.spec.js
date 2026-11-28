@@ -195,11 +195,15 @@ test('тон и «Белые швы» сменены, пока «Текстур�
   page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   await page.goto('/shepherd-v6j3w/#f=shepherd7_orig');
   await page.evaluate(() => localStorage.clear());
+  // картинка текстуры Овчарки 7 ждёт, пока тон и галочка не сменены: «Текстура» гарантированно ещё готовится (без гонки с кешем браузера)
+  let release; const gate = new Promise(r => { release = r; });
+  await page.route('**/img/orig-shepherd5.png*', async route => { await gate; try { await route.continue(); } catch (e) { /* запрос уже отменён */ } });
   await page.reload();
-  await page.waitForFunction(ready('shepherd7_orig'), null, {timeout: 120000, polling: 'raf'});
+  await page.waitForFunction(ready('shepherd7_orig'), null, {timeout: 120000});
   const early = await page.evaluate(() => { const m = !!OW.o3.mask; const r = $('sTone'); r.value = 5; r.dispatchEvent(new Event('input', {bubbles: true}));
     const c = $('cSeamW'); c.checked = true; c.dispatchEvent(new Event('change', {bubbles: true})); return m; });
   expect(early, 'сменили до готовности маски').toBe(false);
+  release();
   await maskReady(page);
   await editOn(page);
   const r = await page.evaluate(() => { const o = OW.o3; return {seam: owSeamOn() && OW.mesh.material === o.seam, c: o.seam.color.getHex(), t: owTone(5).color, w: o.seam.userData.owSeamC.value.getHex(), v: $('sTone').value, chk: $('cSeamW').checked}; });
@@ -226,5 +230,37 @@ test('модель без текстуры («Открыть модель»): «
   expect(await page.evaluate(() => [OW.o3.plaster.color.getHex() === owTone(3).color, LIGHT_CAM.key.intensity === owTone(3).key, $('toneVal').textContent])).toEqual([true, true, '3']);
   await pick(page, 'shepherd6');
   expect(await page.evaluate(() => $('seamWRow').hidden), 'вышли из режима — строки нет').toBe(true);
+  expect(errs).toEqual([]);
+});
+
+test('зелёный штрих пера и красные концы видны на всех тонах 1…6 — с тёмными и с белыми швами', async ({page}) => {
+  test.slow();
+  const errs = await open(page);
+  await maskReady(page);
+  await view(page, 'front');
+  await editOn(page);
+  await page.evaluate(() => { const s = $('cSym'); s.checked = false; s.dispatchEvent(new Event('change')); });
+  // штрих пера поперёк морды по точкам модели; середина — зелёная лента, концы — красные точки
+  const P = (await hit(page, Array.from({length: 21}, (_, i) => [-50 + i * 5, 780]))).filter(Boolean).map(h => h.p);
+  expect(P.length).toBe(21);
+  await page.evaluate(P => { mkSet([{k: 'pen', pts: P}]); renderAll(); }, P);
+  expect(await page.evaluate(() => [ST.mk.length, OW.free.length, owSeamOn()])).toEqual([1, 2, true]);
+  // насколько пиксель «зелёный» (g − max(r, b)) и «красный» (r − max(g, b)): лучший в квадрате 5 × 5 вокруг проекции точки
+  const col = () => page.evaluate(([a, b, c, d]) => {
+    const cam = curCam(), gl = renderer.getContext(), W = gl.drawingBufferWidth, H = gl.drawingBufferHeight, px = new Uint8Array(100); renderer.render(scene, cam);
+    const best = (p, f) => { const v = new THREE.Vector3(...p).project(cam); gl.readPixels(Math.round((v.x + 1) / 2 * W) - 2, Math.round((v.y + 1) / 2 * H) - 2, 5, 5, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      let m = -255; for (let i = 0; i < 100; i += 4) m = Math.max(m, f(px[i], px[i + 1], px[i + 2])); return m; };
+    const g = (r, gg, bb) => gg - Math.max(r, bb), red = (r, gg, bb) => r - Math.max(gg, bb);
+    return {mid: Math.min(best(b, g), best(c, g)), ends: Math.min(best(a, red), best(d, red))};
+  }, [P[0], P[9], P[11], P[20]]);
+  for (const w of [false, true]) {
+    await seamW(page, w);
+    for (const s of [1, 2, 3, 4, 5, 6]) {
+      await tone(page, s);
+      const r = await col();
+      expect(r.mid, `тон ${s}, белые швы ${w}: зелёный штрих`).toBeGreaterThan(60);
+      expect(r.ends, `тон ${s}, белые швы ${w}: красные концы`).toBeGreaterThan(60);
+    }
+  }
   expect(errs).toEqual([]);
 });
