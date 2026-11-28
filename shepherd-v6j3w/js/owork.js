@@ -2,12 +2,12 @@
    Режим фигуры, а не вид: FIGURES.<id>.ow — ключ в ORIG (данные js/orig-<id>.js, общие с видом #146). Расчёт (compute), цифры, таблицы, «Углы» в режиме не работают —
    renderAll() зовёт только owRender(). Рабочая фигура до входа (CUR) остаётся в памяти нетронутой и снова считается, когда выбрали другую фигуру (setBase → owLeave).
    Точка под курсором — owPick: луч по сетке клеток (owGrid/owRay в ow-core.js), а не перебор 158 тыс. треугольников. */
-const OW={on:false,id:'',src:'',name:'',V:null,T:null,F:null,img:null,photos:[],calka:'',calkaOn:true,modelOn:true,seam:null,seamMs:0,mesh:null,G:null,box:null,o3:null,mk3:null,free:[],snap:null,snapK:'',tone:1};   // mk3 — разметка на сцене, free — свободные концы, snap — отрезки магнита (#176); calka/calkaOn/seam — калька и облако швов (#177); modelOn — галочка «Модель» у плоской кальки (#184)
+const OW={on:false,id:'',src:'',name:'',V:null,T:null,F:null,img:null,photos:[],calka:'',calkaOn:true,modelOn:true,seam:null,seamMs:0,mesh:null,G:null,box:null,o3:null,mk3:null,free:[],snap:null,snapK:'',tone:1,seamW:false};   // mk3 — разметка на сцене, free — свободные концы, snap — отрезки магнита (#176); calka/calkaOn/seam — калька и облако швов (#177); modelOn — галочка «Модель» у плоской кальки (#184)
 // гипс — светлый тёплый серо-бежевый (спека #175, «Цвета»); с #188 материалы режима берут цвет по «Тону гипса» — owTone(OW.tone).color (шаг 1 — #a29b90, чуть темнее этого)
 const OW_PLASTER=0xb8b0a4;
 /* #177 калька «Текстура»: светлота текселя L = max(r,g,b); L ≤ 0,65 — гипс, L ≥ 0,80 — шов (тёмно-коричневый, почти чёрный), между — плавно. Облако швов для магнита (owSeamCloud) — по тому же верхнему порогу:
    точка облака = пиксель, который калька рисует швом целиком. Калька видна при «Править фигуру» (как калька у всех фигур), галочка «Калька» выключает — гипс; «Текстура» Meshy (вид как есть) — главнее кальки */
-const OW_SEAM=[0.65,0.80],OW_SEAM_C=0x2a1d14;
+const OW_SEAM=[0.65,0.80],OW_SEAM_C=0x2a1d14,OW_SEAM_W=0xf2f2f2;   // OW_SEAM_W — «Белые швы» (#188)
 function owBox(V){const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
   for(let i=0;i<V.length;i+=3)for(let k=0;k<3;k++){const x=V[i+k];if(x<min[k])min[k]=x;if(x>max[k])max[k]=x;}return {min,max,size:max.map((x,k)=>x-min[k])};}
 // встроенная фигура режима: подгрузить данные (лениво, как вид #146) и открыть
@@ -24,10 +24,10 @@ function owOpen(src,kind){origLeave();owDrop3D();
   ST.fig=kind==='fig'?src.id:'';ST.verBase=kind==='fig'?src.id:'';ST.ver=0;ST.refId='';ST.tref='';ST.sel=ST.selB=ST.sv=ST.sp=ST.sp2=-1;ST.seam=null;ST.name=src.name;$('mName').value=ST.name;
   document.body.classList.add('owview');$('origBox').hidden=false;$('cOrigTex').checked=false;$('cOrigTex').disabled=!(src.T&&src.tex);$('bSave').disabled=false;   // «Сохранить» — только разметка (owJSON, #176)
   $('origNote').textContent='Оригинал для обводки: модель как есть, расчёта нет';$('figSel').value=kind==='fig'?src.id:'';
-  if(typeof lightRig==='function')lightRig(true);owToneSet(+store('ow-tone')||1);   // #188 свет от камеры и «Тон гипса» (шаг из браузера) — до сборки: материалы сразу в тоне
+  if(typeof lightRig==='function')lightRig(true);owToneSet(+store('ow-tone')||1);owSeamWhite(store('ow-seam-white')==='1');   // #188 свет от камеры, «Тон гипса» и «Белые швы» (из браузера) — до сборки: материалы сразу в тоне и с цветом швов
   owBuild(src);fitBox(OW.box,true);renderAll();msg('Оригинал для обводки: '+fmt(OW.F.length/3)+' '+plural(OW.F.length/3,'треугольник','треугольника','треугольников')+', расчёта нет');}
 function owLeave(){if(!OW.on)return;owDrop3D();if(typeof VIEW!=='undefined'&&VIEW.ortho)viewOrtho(false);if(typeof lightRig==='function')lightRig(false);Object.assign(OW,{on:false,V:null,T:null,F:null,img:null,G:null,box:null,photos:[],free:[],snap:null,snapK:'',calka:'',seam:null});
-  document.body.classList.remove('owview');$('origBox').hidden=true;$('modelRow').hidden=true;$('cOrigTex').checked=true;$('cOrigTex').disabled=false;$('bSave').disabled=false;}   // «Текстура» — как была у вида #146 (по умолчанию включена)
+  document.body.classList.remove('owview');$('origBox').hidden=true;$('modelRow').hidden=true;$('seamWRow').hidden=true;$('cOrigTex').checked=true;$('cOrigTex').disabled=false;$('bSave').disabled=false;}   // «Текстура» — как была у вида #146 (по умолчанию включена)
 function owDrop3D(){owMkDrop();const o=OW.o3;if(!o)return;OW.o3=OW.mesh=null;if(typeof root!=='undefined'&&root){root.remove(o.mesh);root.remove(o.flat.g);}owFlatDrop(o.flat);o.flat.mg.dispose();o.flat.mh.dispose();o.geo.dispose();o.plaster.dispose();o.depth.dispose();o.basic.dispose();o.seam.dispose();if(o.mask)o.mask.dispose();if(o.tex)o.tex.dispose();o.photo.dispose();Object.values(o.ptex).forEach(t=>{t.dispose();if(t.mask)t.mask.dispose();});}   // #178: фото-калька и загруженные фото (#185: и маски швов); #184: плоская калька (плоскости и их материалы) и материал «только глубина»
 // сетка на сцену: гипс с освещением; галочка «Текстура» — картинка Meshy как есть (как у вида #146)
 function owBuild(src){if(!ok)return;while(root.children.length){const c=root.children.pop();c.geometry&&c.geometry.dispose();if(c.element)c.element.remove();}
@@ -41,8 +41,8 @@ function owBuild(src){if(!ok)return;while(root.children.length){const c=root.chi
     t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());o.tex=t;}}   // #179: картинка модели из файла — data:-ссылка (без метки ?v=)
 /* #177 материал кальки «Текстура»: гипс (Lambert, тот же свет) + маска швов (owSeamMips, текстура o.mask) — 255 → цвет швов OW_SEAM_C, 0 → цвет гипса.
    Маска считается из тех же пикселей, что облако швов (owSeamPrep), уровни уменьшения — максимумом: издалека швы не гаснут, как гасли бы у текстуры Meshy с обычными уровнями */
-function owSeamMat(){const m=new THREE.MeshLambertMaterial({color:owTone(OW.tone).color,side:THREE.DoubleSide});
-  m.onBeforeCompile=sh=>{sh.uniforms.owSeamC={value:new THREE.Color(OW_SEAM_C)};
+function owSeamMat(){const m=new THREE.MeshLambertMaterial({color:owTone(OW.tone).color,side:THREE.DoubleSide});m.userData.owSeamC={value:new THREE.Color(OW.seamW?OW_SEAM_W:OW_SEAM_C)};   // #188 цвет швов — униформа в userData: owSeamWhite меняет её и до, и после компиляции шейдера
+  m.onBeforeCompile=sh=>{sh.uniforms.owSeamC=m.userData.owSeamC;
     sh.fragmentShader='uniform vec3 owSeamC;\n'+sh.fragmentShader.replace('#include <map_fragment>',`#ifdef USE_MAP
   diffuseColor.rgb=mix(diffuseColor.rgb,owSeamC,texture2D(map,vUv).r);
 #endif`);};return m;}
@@ -63,6 +63,9 @@ function owSeamOn(){const o=OW.o3;return !!(o&&ST.edit&&OW.calkaOn&&OW.calka==='
 function owToneSet(step){const s=owToneStep(step),t=owTone(s),o=OW.o3,L=typeof LIGHT_CAM!=='undefined'?LIGHT_CAM:null;OW.tone=s;store('ow-tone',String(s));
   if(L&&L.key){L.hemi.intensity=t.hemi;L.key.intensity=t.key;L.fill.intensity=t.fill;}if(o){[o.plaster,o.seam,o.photo].forEach(m=>m.color.setHex(t.color));if(!o.basic.map)o.basic.color.setHex(t.color);}
   $('sTone').value=s;$('toneVal').textContent=s;if(typeof req3D==='function')req3D();}
+/* #188 «Белые швы»: швы кальки «Текстура» белые (OW_SEAM_W) или тёмно-коричневые (OW_SEAM_C) → OW.seamW и браузер (одни на всю мастерскую), униформа owSeamC материала кальки.
+   Облако швов и магнит (#177) считаются по текстуре, а не по цвету кальки — от галочки не зависят; фото-кальки (#178, #185) — свой цвет швов */
+function owSeamWhite(on){OW.seamW=!!on;store('ow-seam-white',OW.seamW?'1':'0');const o=OW.o3;if(o)o.seam.userData.owSeamC.value.setHex(OW.seamW?OW_SEAM_W:OW_SEAM_C);$('cSeamW').checked=OW.seamW;if(typeof req3D==='function')req3D();}
 /* ---------- #178 кальки «Фото спереди» / «Фото сбоку»: фото Meshy светится на гипс, как проектор (спека, «Калька „Фото“») ----------
    Фото = {key, name, img, m, dir, mirror} (js/photos-<id>.js, собирает tools/photo-fit.js: камера ракурса ∘ подгон по силуэту ∘ кадр фигуры — одна матрица m). Файл с матрицами грузится при входе,
    картинка — когда её калька выбрана и видна (owRender → owPhotoGet), один раз. Пиксель — owPhotoUV, сторона — правило owPhotoPick (ow-core.js) в шейдере owPhotoMat:
@@ -155,7 +158,7 @@ function owFlatDrop(f){[f.gen,f.head].forEach(q=>{if(q){f.g.remove(q);q.geometry
 // блок кальки на панели в режиме: галочка «Калька» и выбор — только когда калька готова (текстура пришла и прочиталась — есть маска); сверки (облака TRACE) у оригинала нет
 // #178: в списке ещё фото-кальки фигуры (OW.photos); пока готовится «Текстура» (она по умолчанию) — блок скрыт, как было
 function owCalkaUI(){const o=OW.o3,ts=$('traceSel'),L=(o&&o.mask?[['tex','Текстура']]:[]).concat(OW.photos.map(p=>[p.key,p.name])),has=!!(o&&L.length&&!(OW.calka==='tex'&&!o.mask));
-  $('traceRow').hidden=!has;$('cTrace').checked=OW.calkaOn;ts.hidden=!(has&&OW.calkaOn);
+  $('traceRow').hidden=!has;$('cTrace').checked=OW.calkaOn;ts.hidden=!(has&&OW.calkaOn);$('seamWRow').hidden=!(o&&o.mask);   // #188 «Белые швы» — когда калька «Текстура» готова
   const h=L.map(([v,n])=>`<option value="${v}">${n}</option>`).join('');if(ts.innerHTML!==h)ts.innerHTML=h;if(has)ts.value=OW.calka;$('diffRow').hidden=true;$('diffNo').hidden=true;$('edTrace').hidden=true;}
 // перерисовка в режиме: только сцена и то, что видно на панели; без расчёта
 function owRender(){if(!OW.on)return;const o=OW.o3,ph=owPhoto();if(o&&ph&&ST.edit&&OW.calkaOn)owPhotoGet(o,ph);   // #178: фото грузится, когда его калька выбрана и видна

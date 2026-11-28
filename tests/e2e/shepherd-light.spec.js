@@ -119,3 +119,112 @@ test('Овчарка 7 → 6 → 7 → 6: ламп не прибавляется
   expect(await page.evaluate(() => [LIGHT_SCENE.every(l => l.visible), [LIGHT_CAM.hemi, LIGHT_CAM.key, LIGHT_CAM.fill].some(l => l.visible)])).toEqual([true, false]);
   expect(errs).toEqual([]);
 });
+
+/* ---------- #188 задача 2: галочка «Белые швы» — швы кальки «Текстура» белые (#f2f2f2) вместо тёмно-коричневых (OW_SEAM_C); облако швов и магнит (#177) от неё не зависят ---------- */
+const maskReady = page => page.waitForFunction(() => OW.o3 && OW.o3.mask && OW.seam && !$('traceRow').hidden, null, {timeout: 120000});
+const seamW = (page, on) => page.evaluate(on => { const c = $('cSeamW'); c.checked = on; c.dispatchEvent(new Event('change', {bubbles: true})); }, on);
+// строка галочки на экране, галочка, цвет шва в шейдере кальки «Текстура»
+const seamState = page => page.evaluate(() => { const r = $('seamWRow'); return {row: !!r && !r.hidden && r.offsetParent !== null, chk: !!$('cSeamW') && $('cSeamW').checked, c: OW.o3.seam.userData.owSeamC.value.getHex()}; });
+async function editOn(page) {
+  await page.evaluate(() => { const c = $('cEdit'); c.checked = true; c.dispatchEvent(new Event('change')); MK.fine = true; $('controls').querySelector('[data-g="edit"]').classList.remove('shut'); renderAll(); });
+}
+// точки облака швов, видимые спереди (луч спереди попадает в саму точку), → средняя светлота пикселя под ними: калька выключена (гипс) и включена (швы). Кадр — активной камерой, пиксель 1 × 1
+const seamLum = page => page.evaluate(() => {
+  const S = OW.seam.seg, P = [];
+  for (let i = 0; i < S.length && P.length < 300; i += 6 * 41) { const p = [S[i], S[i + 1], S[i + 2]], h = owRay(OW.G, [p[0], p[1], 5000], [0, 0, -1]); if (h && Math.abs(5000 - h.t - p[2]) < 1.5) P.push(p); }
+  const c = curCam(), gl = renderer.getContext(), W = gl.drawingBufferWidth, H = gl.drawingBufferHeight, px = new Uint8Array(4);
+  const read = on => { OW.calkaOn = on; owRender(); renderer.render(scene, c); let s = 0;
+    P.forEach(p => { const v = new THREE.Vector3(...p).project(c); gl.readPixels(Math.round((v.x + 1) / 2 * W), Math.round((v.y + 1) / 2 * H), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); s += .299 * px[0] + .587 * px[1] + .114 * px[2]; }); return s / P.length; };
+  const r = {n: P.length, plaster: read(false), seam: read(true), mat: OW.mesh.material === OW.o3.seam}; owRender(); req3D(); return r;
+});
+
+test('«Белые швы»: скрыта, пока «Текстура» готовится; готова — видна, снята, швы тёмные; включил — швы белые и светлее гипса; после перезагрузки — включена', async ({page}) => {
+  test.slow();
+  const errs = await open(page);
+  const s0 = await page.evaluate(() => ({mask: !!OW.o3.mask, shown: !!$('seamWRow') && !$('seamWRow').hidden && $('seamWRow').offsetParent !== null}));
+  if (!s0.mask) expect(s0.shown, 'пока маски нет — строки нет').toBe(false);
+  await maskReady(page);
+  const C = await page.evaluate(() => OW_SEAM_C);
+  expect(await seamState(page), 'маска готова: строка видна, галочка снята, швы OW_SEAM_C').toEqual({row: true, chk: false, c: C});
+  await view(page, 'front');
+  await editOn(page);
+  const dark = await seamLum(page);
+  expect(dark.n, 'видимых спереди точек шва').toBeGreaterThanOrEqual(40);
+  expect(dark.mat, 'на модели — калька «Текстура»').toBe(true);
+  expect(dark.seam, `тёмные швы темнее гипса: ${dark.seam.toFixed(1)} против ${dark.plaster.toFixed(1)}`).toBeLessThan(dark.plaster - 15);
+  await seamW(page, true);
+  expect(await seamState(page)).toEqual({row: true, chk: true, c: 0xf2f2f2});
+  expect(await page.evaluate(() => [OW_SEAM_W, store('ow-seam-white')])).toEqual([0xf2f2f2, '1']);
+  const white = await seamLum(page);
+  expect(white.seam, `белые швы светлее гипса: ${white.seam.toFixed(1)} против ${white.plaster.toFixed(1)}`).toBeGreaterThan(white.plaster + 15);
+  expect(Math.abs(white.plaster - dark.plaster), 'гипс от галочки не меняется').toBeLessThanOrEqual(2);
+  await page.reload();
+  await page.waitForFunction(ready('shepherd7_orig'), null, {timeout: 120000});
+  await maskReady(page);
+  expect(await seamState(page), 'после перезагрузки').toEqual({row: true, chk: true, c: 0xf2f2f2});
+  await seamW(page, false);
+  expect(await seamState(page), 'выключил — снова OW_SEAM_C').toEqual({row: true, chk: false, c: C});
+  expect(await page.evaluate(() => store('ow-seam-white'))).toBe('0');
+  expect(errs).toEqual([]);
+});
+
+test('магнит к шву (#177) липнет одинаково при вкл и выкл «Белых швах»', async ({page}) => {
+  test.slow();
+  const errs = await open(page);
+  await maskReady(page);
+  await editOn(page);
+  // точки рядом со швами (сдвиг 2…4 мм) → куда их тянет магнит; отрезки магнита — заново (OW.snapK = '')
+  const snap = () => page.evaluate(() => { OW.snapK = ''; const S = OW.seam.seg, seg = owSnapSeg(), out = [];
+    for (let i = 0, k = 0; i < S.length && out.length < 60; i += 6 * 997, k++) { const q = [S[i] + 2 + k % 3, S[i + 1] - 2, S[i + 2] + 1]; out.push(mkSnap(q, seg, true).map(x => Math.round(x * 1000) / 1000)); }
+    let sum = 0; for (let i = 0; i < seg.length; i += 97) sum += seg[i];
+    return {n: S.length, seg: seg.length, sum: Math.round(sum * 1000), on: owSeamOn(), out}; });
+  const off = await snap();
+  expect(off.on, 'калька «Текстура» на модели').toBe(true);
+  expect(off.out.length).toBeGreaterThanOrEqual(20);
+  await seamW(page, true);
+  expect(await snap()).toEqual(off);
+  await seamW(page, false);
+  expect(await snap()).toEqual(off);
+  expect(errs).toEqual([]);
+});
+
+test('тон и «Белые швы» сменены, пока «Текстура» готовится, — калька появляется в выбранном тоне и с белыми швами', async ({page}) => {
+  test.slow();
+  const errs = [];
+  page.on('pageerror', e => errs.push(e.message));
+  page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
+  await page.goto('/shepherd-v6j3w/#f=shepherd7_orig');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.waitForFunction(ready('shepherd7_orig'), null, {timeout: 120000, polling: 'raf'});
+  const early = await page.evaluate(() => { const m = !!OW.o3.mask; const r = $('sTone'); r.value = 5; r.dispatchEvent(new Event('input', {bubbles: true}));
+    const c = $('cSeamW'); c.checked = true; c.dispatchEvent(new Event('change', {bubbles: true})); return m; });
+  expect(early, 'сменили до готовности маски').toBe(false);
+  await maskReady(page);
+  await editOn(page);
+  const r = await page.evaluate(() => { const o = OW.o3; return {seam: owSeamOn() && OW.mesh.material === o.seam, c: o.seam.color.getHex(), t: owTone(5).color, w: o.seam.userData.owSeamC.value.getHex(), v: $('sTone').value, chk: $('cSeamW').checked}; });
+  expect(r).toEqual({seam: true, c: r.t, t: r.t, w: 0xf2f2f2, v: '5', chk: true});
+  await view(page, 'front');
+  const L = await seamLum(page);
+  expect(L.seam, `белые швы на тоне 5 светлее гипса: ${L.seam.toFixed(1)} против ${L.plaster.toFixed(1)}`).toBeGreaterThan(L.plaster + 15);
+  expect(errs).toEqual([]);
+});
+
+test('модель без текстуры («Открыть модель»): «Тон гипса» есть и работает, «Белых швов» нет', async ({page}) => {
+  test.slow();
+  const errs = await open(page);
+  await maskReady(page);
+  expect((await seamState(page)).row, 'у Овчарки 7 строка видна').toBe(true);
+  // куб 200 мм без развёртки и картинки — как STL из «Открыть модель»
+  await page.evaluate(() => { const s = 100, V = new Float32Array([-s, 0, -s, s, 0, -s, s, 2 * s, -s, -s, 2 * s, -s, -s, 0, s, s, 0, s, s, 2 * s, s, -s, 2 * s, s]),
+    F = new Uint32Array([0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5]);
+    owOpen({id: 'cube.stl', name: 'cube', V, T: null, F, tex: ''}, 'file'); });
+  await page.waitForFunction(() => OW.on && OW.src === 'file' && OW.o3, null, {timeout: 30000});
+  const r = await page.evaluate(() => ({tone: $('toneRow').offsetParent !== null, seamRow: !$('seamWRow').hidden && $('seamWRow').offsetParent !== null, tex: $('cOrigTex').disabled}));
+  expect(r).toEqual({tone: true, seamRow: false, tex: true});
+  await tone(page, 3);
+  expect(await page.evaluate(() => [OW.o3.plaster.color.getHex() === owTone(3).color, LIGHT_CAM.key.intensity === owTone(3).key, $('toneVal').textContent])).toEqual([true, true, '3']);
+  await pick(page, 'shepherd6');
+  expect(await page.evaluate(() => $('seamWRow').hidden), 'вышли из режима — строки нет').toBe(true);
+  expect(errs).toEqual([]);
+});

@@ -754,6 +754,16 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
       &&V3J.includes('t.position.set(0,0,-1);L.key.position.set(0,1,.35);L.fill.position.set(0,0,1);L.key.target=L.fill.target=t;')&&V3J.includes('scene.onBeforeRender=(r,s,c)=>')
       &&(OWJ.match(/color:owTone\(OW\.tone\)\.color/g)||[]).length===4,
       'Мастерская (#188): «Тон гипса» 1…6 в блоке мастерской после «Текстуры» (у вида #146 скрыт); вход — лампы «от камеры» (над зрителем, подсветка от зрителя, и на ортокамере) и тон из браузера, выход — свет сцены, лампы сцены прежние; материалы режима — в тоне');}
+  // #188 задача 2: «Белые швы» — галочка в #origBox после «Тона гипса», по умолчанию строка скрыта и галочка снята; видна, когда есть маска «Текстуры» (owCalkaUI), выход — скрыта;
+  // вход — галочка из браузера до сборки материалов; цвет шва — униформа owSeamC из m.userData (создана до компиляции шейдера); фото-кальки (#178, #185) — свой цвет швов, как был
+  {const HT=fs.readFileSync(__dirname+'/../index.html','utf8'),OWJ=fs.readFileSync(P+'owork.js','utf8'),UI=fs.readFileSync(P+'ui.js','utf8'),
+      box=HT.slice(HT.indexOf('id="origBox"'),HT.indexOf('</div>',HT.indexOf('id="origBox"'))),open=OWJ.slice(OWJ.indexOf('function owOpen('),OWJ.indexOf('function owLeave(')),leave=OWJ.slice(OWJ.indexOf('function owLeave('),OWJ.indexOf('function owDrop3D(')),
+      cal=OWJ.slice(OWJ.indexOf('function owCalkaUI('),OWJ.indexOf('function owRender(')),mat=OWJ.slice(OWJ.indexOf('function owSeamMat('),OWJ.indexOf('function owSeamPrep('));
+    ok(box.includes('<label class="chk" id="seamWRow" hidden><input type="checkbox" id="cSeamW"><span>Белые швы</span></label>')&&box.indexOf('id="seamWRow"')>box.indexOf('id="sTone"')&&OWJ.includes('const OW_SEAM=[0.65,0.80],OW_SEAM_C=0x2a1d14,OW_SEAM_W=0xf2f2f2;')
+      &&/owSeamWhite\(store\('ow-seam-white'\)==='1'\);[^\n]*\n\s*owBuild\(src\)/.test(open)&&leave.includes("$('seamWRow').hidden=true;")&&cal.includes("$('seamWRow').hidden=!(o&&o.mask);")
+      &&UI.includes("$('cSeamW').addEventListener('change',e=>{if(OW.on)owSeamWhite(e.target.checked);});")&&mat.includes('sh.uniforms.owSeamC=m.userData.owSeamC;')&&!mat.includes('new THREE.Color(OW_SEAM_C)}')
+      &&OWJ.includes('owSeamC:{value:new THREE.Color(OW_PHOTO_SEAM_C)}'),
+      'Мастерская (#188): «Белые швы» в блоке мастерской после «Тона гипса» (по умолчанию скрыта и снята), видна при готовой маске «Текстуры», выход — скрыта; вход — галочка из браузера до сборки; швы фото-кальк — как были');}
   // #176: перо по морде Овчарки 7 — точки руки (лучи по сетке, как owPick) → owStrokes → каждая точка штриха ≤ 1 мм от модели; расстояние — перебором треугольников (не той же сеткой)
   {['tlines','markup'].forEach(f=>vm.runInContext(fs.readFileSync(P+f+'.js','utf8'),oc));   // ow-core.js уже в oc (блок #175 выше)
     const R=vm.runInContext(`(()=>{const D=origDecode(ORIG.shepherd5),G=owGrid(D.V,D.F),O=[600,860,2500],raw=[];
