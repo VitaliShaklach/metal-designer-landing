@@ -6,9 +6,9 @@
 <title>Овчарка — фигура из листа · Редактор</title>
 <meta name="description" content="Овчарка из листа металла, высота 1000 мм. Растягивайте фигуру — детали, масса, длина реза и швов пересчитываются.">
 <link rel="icon" href="../editor/mangal/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../fonts/fonts.css?v=2026-11-22d">
-<link rel="stylesheet" href="../editor/editor.css?v=2026-11-22d">
-<link rel="stylesheet" href="css/style.css?v=2026-11-22d">
+<link rel="stylesheet" href="../fonts/fonts.css?v=2026-11-28">
+<link rel="stylesheet" href="../editor/editor.css?v=2026-11-28">
+<link rel="stylesheet" href="css/style.css?v=2026-11-28">
 </head>
 <body>
 <div class="edbar">
@@ -28,9 +28,9 @@
   <section>
     <div class="pick">
       <label><span class="t">Название</span><input id="mName" class="inp" value=""></label>
-      <label><span class="t">Фигура</span><select id="figSel"><option value="shepherd" selected>Овчарка</option><option value="shepherd2_1000">Овчарка 2 (948)</option><option value="shepherd2_700">Овчарка 2 (678)</option><option value="shepherd2_500">Овчарка 2 (488)</option><option value="shepherd2_350">Овчарка 2 (344)</option><option value="shepherd3">Овчарка 3</option><option value="shepherd5">Овчарка 5</option></select></label>
+      <label><span class="t">Фигура</span><select id="figSel"><option value="shepherd" selected>Овчарка</option><option value="shepherd2_1000">Овчарка 2 (948)</option><option value="shepherd2_700">Овчарка 2 (678)</option><option value="shepherd2_500">Овчарка 2 (488)</option><option value="shepherd2_350">Овчарка 2 (344)</option><option value="shepherd3">Овчарка 3</option><option value="shepherd5">Овчарка 5</option><option value="shepherd5_orig">Овчарка 5 — оригинал (вид)</option><option value="shepherd6r">Овчарка 6 — оригинал</option><option value="shepherd6">Овчарка 6 (как доберман)</option><option value="shepherd7_orig">Овчарка 7 — оригинал</option></select></label>
       <div class="btns"><button id="bOpen" type="button">Открыть модель</button><button id="bSave" type="button">Сохранить</button></div>
-      <input type="file" id="fileIn" accept=".obj,.stl,.glb,.json" hidden>
+      <input type="file" id="fileIn" accept=".obj,.stl,.glb,.json,.png,.jpg,.jpeg,.webp" multiple hidden>
       <span class="pickhint" id="msg"></span>
     </div>
     <div class="studio">
@@ -45,6 +45,9 @@
       <div class="controls" id="controls">
         <div class="drawerhead"><b>Панель</b><button type="button" id="drawerClose" aria-label="Закрыть">✕</button></div>
 
+        <div class="grp" id="origBox" hidden><p class="note" id="origNote"></p>
+          <label class="chk"><input type="checkbox" id="cOrigTex" checked><span>Текстура</span></label></div>
+
         <div class="grp shut" data-g="size"><button type="button" class="gt">Размер фигуры</button>
           <div class="xyz3"><label>Высота<input class="inp" id="dH" type="number" min="50" step="10"></label><label>Ширина<input class="inp" id="dW" type="number" min="50" step="10"></label><label>Глубина<input class="inp" id="dD" type="number" min="50" step="10"></label></div>
           <label class="chk"><input type="checkbox" id="cProp" checked><span>Пропорционально<small>Меняете одно — остальные тянутся следом. Снимите галочку, чтобы растянуть только по одной оси</small></span></label>
@@ -52,14 +55,28 @@
         </div>
 
         <div class="grp shut" data-g="edit"><button type="button" class="gt">Редактор</button>
-          <label class="chk"><input type="checkbox" id="cEdit"><span>Править фигуру<small>На модели появятся точки: клик по точке — выбрать, тянуть мышкой — двигать. Клик по грани — выбрать грань</small></span></label>
+          <label class="chk"><input type="checkbox" id="cEdit"><span>Править фигуру<small>Клик по грани — выбрать грань. Точки углов — по галочке ниже</small></span></label>
           <div id="edBox" hidden>
-            <label class="chk"><input type="checkbox" id="cSym" checked><span>Симметрия<small>Левая половина повторяет правую — для животных удобно</small></span></label>
+            <label class="chk" id="symRow"><input type="checkbox" id="cSym" checked><span>Симметрия<small>Левая половина повторяет правую — для животных удобно</small></span></label>
+            <p class="note laynote">Что показывать</p>
+            <label class="chk"><input type="checkbox" id="cLEdges" checked><span>Линии граней</span></label>
+            <label class="chk"><input type="checkbox" id="cLVerts"><span>Точки углов</span></label>
             <label class="chk" id="traceRow" hidden><input type="checkbox" id="cTrace"><span>Калька</span></label>
             <select class="inp" id="traceSel" hidden style="width:auto;margin:0 0 8px 26px"></select>
+            <label class="chk" id="diffRow" hidden><input type="checkbox" id="cDiff"><span>Подсказки сверки</span></label>
+            <p class="note" id="diffNo" hidden style="margin:-4px 0 8px 26px">У этой кальки нет сверки — только линии формы</p>
             <div id="edSel" class="edsel"></div>
+            <div id="mkBox" hidden>
+              <p class="note laynote">Разметка</p>
+              <div class="edbtns" id="mkTools"><button type="button" data-tool="line" id="mk_line">Линия</button><button type="button" data-tool="pen" id="mk_pen">Карандаш</button><button type="button" data-tool="cross" id="mk_cross">Зачеркнуть</button></div>
+              <label class="chk"><input type="checkbox" id="cMagnet" checked><span>Магнит</span></label>
+              <div class="btns"><button id="bMkApply" type="button">Нарезать</button><button id="bMkClear" type="button">Очистить разметку</button></div>
+              <p class="note" id="mkNote"></p>
+            </div>
+            <details id="edMore"><summary>Другие операции</summary>
             <div class="row2"><label>На сколько, мм<input class="inp" id="edD" type="number" value="30" min="1" step="5"></label><span></span></div>
             <div class="edbtns" id="edOps"><button type="button" data-op="extrude" id="op_extrude">Выдавить</button><button type="button" data-op="inset" id="op_inset">Вдавить</button><button type="button" data-op="bump" id="op_bump">Бугор</button><button type="button" data-op="pit" id="op_pit">Впадина</button><button type="button" data-op="split" id="op_split">Разрезать пополам</button><button type="button" data-op="del" id="op_del">Удалить грань</button><button type="button" data-op="merge" id="op_merge">Убрать шов</button><button type="button" data-op="cut" id="op_cut">Провести шов</button></div>
+            </details>
             <p class="note" id="edPlan"></p>
             <p class="note" id="edTrace" hidden></p>
             <div class="btns" id="edFix"><button id="bFlat" type="button">Выровнять грани</button><button id="bTri" type="button">Разбить на треугольники</button></div>
@@ -160,26 +177,35 @@
 </div>
 
 <div class="zoom" id="zoom" hidden><div class="zoombar"><span id="zoomTtl"></span><button type="button" id="zoomOut" aria-label="Мельче">−</button><span id="zoomK">100%</span><button type="button" id="zoomIn" aria-label="Крупнее">+</button><button type="button" id="zoomFit">Весь лист</button><button type="button" id="zoomX" aria-label="Закрыть">✕</button></div><div class="zoombox" id="zoomBox"></div></div>
-<script src="../vendor/three/three.min.js?v=2026-11-22d"></script>
-<script src="../vendor/three/OrbitControls.js?v=2026-11-22d"></script>
-<script src="../vendor/three/CSS2DRenderer.js?v=2026-11-22d"></script>
-<script src="../editor/common/calc.js?v=2026-11-22d"></script>
-<script src="js/mesh.js?v=2026-11-22d"></script>
-<script src="js/models-poly.js?v=2026-11-22d"></script>
-<script src="js/figures.js?v=2026-11-22d"></script>
-<script src="js/plates-shepherd.js?v=2026-11-22d"></script>
-<script src="js/edit.js?v=2026-11-22d"></script>
-<script src="js/trace.js?v=2026-11-22d"></script>
-<script src="js/view3d.js?v=2026-11-22d"></script>
-<script src="js/prod.js?v=2026-11-22d"></script>
-<script src="js/bend.js?v=2026-11-22d"></script>
-<script src="js/bend3d.js?v=2026-11-22d"></script>
-<script src="js/slots.js?v=2026-11-22d"></script>
-<script src="js/sheets.js?v=2026-11-22d"></script>
-<script src="js/ui.js?v=2026-11-22d"></script>
-<script src="js/angles-core.js?v=2026-11-22d"></script>
-<script src="js/angles.js?v=2026-11-22d"></script>
-<script src="js/tips.js?v=2026-11-22d"></script>
+<script src="../vendor/three/three.min.js?v=2026-11-28"></script>
+<script src="../vendor/three/OrbitControls.js?v=2026-11-28"></script>
+<script src="../vendor/three/CSS2DRenderer.js?v=2026-11-28"></script>
+<script src="../editor/common/calc.js?v=2026-11-28"></script>
+<script src="js/mesh.js?v=2026-11-28"></script>
+<script src="js/models-poly.js?v=2026-11-28"></script>
+<script src="js/figures.js?v=2026-11-28"></script>
+<script src="js/plates-shepherd.js?v=2026-11-28"></script>
+<script src="js/layers.js?v=2026-11-28"></script>
+<script src="js/edit.js?v=2026-11-28"></script>
+<script src="js/versions.js?v=2026-11-28"></script>
+<script src="js/trace.js?v=2026-11-28"></script>
+<script src="js/tlines.js?v=2026-11-28"></script>
+<script src="js/markup.js?v=2026-11-28"></script>
+<script src="js/apply.js?v=2026-11-28"></script>
+<script src="js/ribbon.js?v=2026-11-28"></script>
+<script src="js/view3d.js?v=2026-11-28"></script>
+<script src="js/orig.js?v=2026-11-28"></script>
+<script src="js/ow-core.js?v=2026-11-28"></script>
+<script src="js/owork.js?v=2026-11-28"></script>
+<script src="js/prod.js?v=2026-11-28"></script>
+<script src="js/bend.js?v=2026-11-28"></script>
+<script src="js/bend3d.js?v=2026-11-28"></script>
+<script src="js/slots.js?v=2026-11-28"></script>
+<script src="js/sheets.js?v=2026-11-28"></script>
+<script src="js/ui.js?v=2026-11-28"></script>
+<script src="js/angles-core.js?v=2026-11-28"></script>
+<script src="js/angles.js?v=2026-11-28"></script>
+<script src="js/tips.js?v=2026-11-28"></script>
 <div id="printBox"></div>
 </body>
 </html>

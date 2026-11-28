@@ -77,7 +77,7 @@ function traceDiff(E,V,F,map,t){const red=[],ST=2;let tot=0,on=0,nr=0;const G=ne
   E.forEach((e,i)=>{const A=V[e.a],B=V[e.b],L=V3.len(V3.sub(B,A)),n=Math.max(2,Math.round(L/ST)),ds=[];
     for(let k=0;k<=n;k++){const p=V3.add(A,V3.mul(V3.sub(B,A),k/n)),key=gk(...p);let c=G.get(key);if(!c)G.set(key,c=[]);c.push(p);
       if(e.open||k===0||k===n)continue;const q=map(p),dd=j=>j<0?1e9:Math.hypot(t.P[j*3]-q[0],t.P[j*3+1]-q[1],t.P[j*3+2]-q[2]);let d=dd(traceNear(t,q[0],q[1],q[2],2,1));if(d>TR_NEAR)d=Math.min(d,dd(traceNear(t,q[0],q[1],q[2],5,1)));ds.push(d);}
-    if(e.open||!ds.length)return;ds.sort((x,y)=>x-y);const md=ds[ds.length>>1];tot+=L;if(md<=TR_NEAR)on+=L;if(md<=TR_FAR)nr+=L;else red.push(i);});
+    if(e.open||e.hole||!ds.length)return;ds.sort((x,y)=>x-y);const md=ds[ds.length>>1];tot+=L;if(md<=TR_NEAR)on+=L;if(md<=TR_FAR)nr+=L;else red.push(i);});
   // наша поверхность — занятые клетки по TR_SURF/2 мм
   const SG=new Set(),sk=(i,j,k)=>((i+256)*512+j+256)*512+k+256,R2=TR_SURF/2;   // клетки по TR_SURF/2 мм, где есть наша поверхность; ключ < 2³¹ — быстрый
   // растр в плоскости треугольника через 2 мм + его стороны: выборок ~ площадь, а не квадрат длинной стороны (у тонких треугольников)
