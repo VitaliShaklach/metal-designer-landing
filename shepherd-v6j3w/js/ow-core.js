@@ -122,6 +122,19 @@ function owSeamMips(px,thr){const {W,H,data}=px,lo=thr[0]*255,k=1/(thr[1]*255-lo
     for(let y=0;y<h;y++)for(let x=0;x<w;x++){let m=0;for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++){const X=Math.min(p.W-1,x*2+dx),Y=Math.min(p.H-1,y*2+dy),v=p.data[Y*p.W+X];if(v>m)m=v;}d[y*w+x]=m;}
     out.push({W:w,H:h,data:d});}
   return out;}
+/* #185 З3 фото-калька с резкими гранями: px — пиксели фото {W, H, data RGBA, верхняя строка первая}, thr — пороги светлоты швов [от, до] (как у owSeamMips).
+   fill — грани без швов: пиксель шва (светлота ≥ thr[0]) и фон (альфа 0) — цветом ближайшего пикселя грани (волной), альфа как была; mips — маска швов owSeamMips.
+   Шейдер кладёт шов поверх граней резким порогом по маске — при увеличении фото шов не расплывается вместе с гранями. Строки fill — снизу вверх, как у маски */
+function owPhotoPrep(px,thr){const {W,H,data}=px,N=W*H,lo=thr[0]*255,f=new Uint8Array(N*4),own=new Uint8Array(N);let fr=[];
+  for(let k=0;k<N;k++){const o=k*4;if(data[o+3]&&Math.max(data[o],data[o+1],data[o+2])<lo){own[k]=1;fr.push(k);}}
+  const src=new Int32Array(N).fill(-1);fr.forEach(k=>src[k]=k);
+  while(fr.length){const nx=[];for(const k of fr){const x=k%W;for(const q of [x>0?k-1:-1,x<W-1?k+1:-1,k>=W?k-W:-1,k<N-W?k+W:-1])if(q>=0&&src[q]<0){src[q]=src[k];nx.push(q);}}fr=nx;}
+  for(let y=0;y<H;y++){const r=(H-1-y)*W;for(let x=0;x<W;x++){const k=y*W+x,s=(src[k]<0?k:src[k])*4,o=(r+x)*4;f[o]=data[s];f[o+1]=data[s+1];f[o+2]=data[s+2];f[o+3]=data[k*4+3];}}
+  // маска — по светлоте, сглаженной 1-2-1 по строкам и столбцам: фото головы увеличено из 512 px (пиксели парами), резкий порог по несглаженной даёт лесенку; сильнее (1-4-6-4-1) — гаснут швы 2 px общих фото
+  const L=new Float32Array(N),T=new Float32Array(N),K=[1,2,1],bl=(A,B,dx,dy)=>{for(let y=0;y<H;y++)for(let x=0;x<W;x++){let s=0;for(let i=0;i<3;i++){const X=Math.min(W-1,Math.max(0,x+(i-1)*dx)),Y=Math.min(H-1,Math.max(0,y+(i-1)*dy));s+=K[i]*A[Y*W+X];}B[y*W+x]=s/4;}};
+  for(let k=0;k<N;k++)L[k]=Math.max(data[k*4],data[k*4+1],data[k*4+2]);bl(L,T,1,0);bl(T,L,0,1);
+  const sm=new Uint8ClampedArray(N*4);for(let k=0;k<N;k++)sm[k*4]=L[k];
+  return {fill:f,mips:owSeamMips({W,H,data:sm},thr)};}
 // облако швов (owSeamCloud, xyz) → отрезки нулевой длины для магнита (mkSnap) с готовой сеткой mkSnapGrid — один раз при входе, дальше склеивается со своими линиями (owSnapJoin) без пересборки
 function owSeamSeg(C){const seg=new Float32Array(C.length*2);for(let i=0;i<C.length;i+=3){seg[i*2]=seg[i*2+3]=C[i];seg[i*2+1]=seg[i*2+4]=C[i+1];seg[i*2+2]=seg[i*2+5]=C[i+2];}seg._g=mkSnapGrid(seg);return seg;}
 /* ---------- #178 фото-кальки «Фото спереди» / «Фото сбоку»: фото Meshy светится на модель, как проектор ----------
@@ -138,6 +151,12 @@ function owPhotoPick(ph,p,n){const d=ph.dir,side=(q,nn,mir)=>{const cs=-(nn[0]*d
   const a=side(p,n,false),b=ph.mirror?side([-p[0],p[1],p[2]],[-n[0],n[1],n[2]],true):null,r=a&&b?(b.cs>a.cs?b:a):a||b;if(!r)return null;
   const H=ph.head,h=H&&r.q[1]>=H.y0&&r.q[2]>=H.z0?owPhotoUV(H.m,r.q):null;
   return {uv:r.uv,mir:r.mir,cos:r.cs,head:h&&h[0]>=0&&h[0]<=1&&h[1]>=0&&h[1]<=1?h:null};}
+/* #185 З4 вес слоя головы фото в точке p (кадр фигуры): 1 в коробке головы (y ≥ y0, z ≥ z0), 0 ниже y0 − band или позади z0 − band, между — гладко (smoothstep по каждой оси, произведение);
+   uv — точка на картинке головы (v вниз), e — та же полоса в долях uv [слева, справа, сверху, снизу]: у края, к которому собака на картинке подходит вплотную, вес так же спадает до 0
+   (за краем головы нет — общее фото начиналось ступенькой: низ картинки головы спереди ≈ 687 мм, выше y0); 0 — край пустой (фон), не гасится (кончики ушей — у самого верха).
+   Голова и общее фото подогнаны по-разному — жёсткая граница давала ступеньку на шее. Шейдер owPhotoMat — та же формула (OW_HEAD_BAND и owHe в owork.js) */
+function owHeadW(p,y0,z0,band,uv,e){const s=(a,b,x)=>{if(b<=a)return 1;const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};let w=s(y0-band,y0,p[1])*s(z0-band,z0,p[2]);
+  if(uv)w*=s(0,e[0],uv[0])*s(0,e[1],1-uv[0])*s(0,e[2],uv[1])*s(0,e[3],1-uv[1]);return w;}
 /* ---------- #179 модель из «Открыть модель» — в кадр фигуры, как у встроенных ----------
    кадр: центр по X и Z — 0, низ — 0, высота (Y) — 1000 мм; точка → p·s + d. Без этого зеркало (ось X = 0) и разметка не в мм. Высота 0 (плоская) — масштаб по наибольшей стороне, точка — 1 */
 const OW_H=1000;
