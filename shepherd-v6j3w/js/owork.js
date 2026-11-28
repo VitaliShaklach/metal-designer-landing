@@ -25,7 +25,7 @@ function owOpen(src,kind){origLeave();owDrop3D();
   document.body.classList.add('owview');$('origBox').hidden=false;$('cOrigTex').checked=false;$('cOrigTex').disabled=!(src.T&&src.tex);$('bSave').disabled=false;   // «Сохранить» — только разметка (owJSON, #176)
   $('origNote').textContent='Оригинал для обводки: модель как есть, расчёта нет';$('figSel').value=kind==='fig'?src.id:'';
   owBuild(src);fitBox(OW.box,true);renderAll();msg('Оригинал для обводки: '+fmt(OW.F.length/3)+' '+plural(OW.F.length/3,'треугольник','треугольника','треугольников')+', расчёта нет');}
-function owLeave(){if(!OW.on)return;owDrop3D();Object.assign(OW,{on:false,V:null,T:null,F:null,img:null,G:null,box:null,photos:[],free:[],snap:null,snapK:'',calka:'',seam:null});
+function owLeave(){if(!OW.on)return;if(typeof VIEW!=='undefined'&&VIEW.ortho)viewOrtho(false);owDrop3D();Object.assign(OW,{on:false,V:null,T:null,F:null,img:null,G:null,box:null,photos:[],free:[],snap:null,snapK:'',calka:'',seam:null});
   document.body.classList.remove('owview');$('origBox').hidden=true;$('cOrigTex').checked=true;$('cOrigTex').disabled=false;$('bSave').disabled=false;}   // «Текстура» — как была у вида #146 (по умолчанию включена)
 function owDrop3D(){owMkDrop();const o=OW.o3;if(!o)return;OW.o3=OW.mesh=null;if(typeof root!=='undefined'&&root)root.remove(o.mesh);o.geo.dispose();o.plaster.dispose();o.basic.dispose();o.seam.dispose();if(o.mask)o.mask.dispose();if(o.tex)o.tex.dispose();o.photo.dispose();Object.values(o.ptex).forEach(t=>{t.dispose();if(t.mask)t.mask.dispose();});}   // #178: фото-калька и загруженные фото (#185: и маски швов)
 // сетка на сцену: гипс с освещением; галочка «Текстура» — картинка Meshy как есть (как у вида #146)
@@ -136,7 +136,7 @@ function owRender(){if(!OW.on)return;const o=OW.o3,ph=owPhoto();if(o&&ph&&ST.edi
   if(ok)renderer.domElement.setAttribute('aria-label',`3D-модель «${ST.name||OW.name}»: оригинал для обводки, ${Math.round(OW.box.size[0])} × ${Math.round(OW.box.size[1])} × ${Math.round(OW.box.size[2])} мм (Ш × В × Г)`);}
 // точка под курсором: {p:[x,y,z], uv:[u,v]|null, n:[x,y,z], tri} или null (промах)
 function owPick(ev){if(!ok||!OW.on||!OW.G)return null;const r=renderer.domElement.getBoundingClientRect(),rc=new THREE.Raycaster();
-  rc.setFromCamera(new THREE.Vector2((ev.clientX-r.left)/r.width*2-1,-(ev.clientY-r.top)/r.height*2+1),camera);const O=rc.ray.origin,D=rc.ray.direction,h=owRay(OW.G,[O.x,O.y,O.z],[D.x,D.y,D.z]);if(!h)return null;
+  rc.setFromCamera(new THREE.Vector2((ev.clientX-r.left)/r.width*2-1,-(ev.clientY-r.top)/r.height*2+1),curCam());const O=rc.ray.origin,D=rc.ray.direction,h=owRay(OW.G,[O.x,O.y,O.z],[D.x,D.y,D.z]);if(!h)return null;
   const {V,T,F}=OW,a=F[h.tri*3],b=F[h.tri*3+1],c=F[h.tri*3+2],w=1-h.u-h.v,at=(A,i,k)=>A[a*k+i]*w+A[b*k+i]*h.u+A[c*k+i]*h.v,
     e1=[0,1,2].map(i=>V[b*3+i]-V[a*3+i]),e2=[0,1,2].map(i=>V[c*3+i]-V[a*3+i]),n=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],e1[0]*e2[1]-e1[1]*e2[0]],
     l=(n[0]*D.x+n[1]*D.y+n[2]*D.z>0?-1:1)*(Math.hypot(...n)||1);   // нормаль — к камере: модель двусторонняя, обход треугольников у Meshy бывает внутрь

@@ -225,3 +225,7 @@ test('owHeadW: у края картинки головы вес спадает �
   assert.strictEqual(w(.5,.5),1,'середина');assert.strictEqual(w(.5,1),0,'низ');assert.strictEqual(w(0,.5),0,'лево');assert.ok(Math.abs(w(.5,.9)-.5)<=.01,'низ, полполосы: '+w(.5,.9));assert.ok(Math.abs(w(.95,.5)-.5)<=.01,'право, полполосы: '+w(.95,.5));
   assert.strictEqual(w(.5,.01),1,'верх пустой — не гасится');assert.strictEqual(w(.5,.01,'0,0,0,0'),1,'все края пустые');
   assert.strictEqual(run('owHeadW([0,700,900],638,842,40)'),1,'без uv — как было');});
+
+// #184 ортокамера «Спереди» / «Сбоку»: полувысота кадра — предмет на расстоянии dist того же размера, что в перспективе fov (1000·tan 17,5° = 315,299)
+test('owOrthoHalf: полувысота орто-кадра по расстоянию и углу перспективы',()=>{
+  assert.ok(Math.abs(run('owOrthoHalf(1000,35)')-315.299)<=.01,'1000 мм, 35°: '+run('owOrthoHalf(1000,35)'));assert.strictEqual(run('owOrthoHalf(0,35)'),0);});

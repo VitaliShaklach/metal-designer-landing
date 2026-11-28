@@ -721,6 +721,12 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
   {vm.runInContext(fs.readFileSync(P+'ow-core.js','utf8'),oc);const R=vm.runInContext(`(()=>{const D=origDecode(ORIG.shepherd5);let t=Date.now();const G=owGrid(D.V,D.F),tg=Date.now()-t;let s=1,hit=0,front=0;const rnd=()=>(s=(s*16807)%2147483647)/2147483647,O=[600,860,2500];
       t=Date.now();for(let i=0;i<100;i++){const q=[(rnd()-.5)*200,1018*(.7+rnd()*.25),1177*.8],d=q.map((x,k)=>x-O[k]),l=Math.hypot(...d),h=owRay(G,O,d.map(x=>x/l));if(h){hit++;if(O[2]+d[2]/l*h.t>700)front++;}}return {tg,ms:(Date.now()-t)/100,hit,front};})()`,oc);
     ok(R.hit>=70&&R.front===R.hit&&R.ms<=4,`Овчарка 7 (#175): луч по сетке — ${R.hit} из 100 в морду (все спереди, z > 700), ${R.ms.toFixed(2)} мс на луч (≤ 4), сетка — ${R.tg} мс`);}
+  // #184: ортокамера «Спереди» / «Сбоку» у фигур режима обводки — лучи, проекции и рендер от активной камеры curCam(), а не от перспективной camera (иначе в орто перо мимо курсора);
+  // орто — только виды front / side при OW.on (у Овчарок 1–6 перспектива); полувысота кадра — owOrthoHalf (ow-core.js уже в oc, блок #175 выше)
+  {const V3J=fs.readFileSync(P+'view3d.js','utf8'),OWJ=fs.readFileSync(P+'owork.js','utf8'),old=[V3J,OWJ].filter(S=>/setFromCamera\([^;]*,camera\)|render\(scene,camera\)|\.project\(camera\)/.test(S)).length;
+    ok(old===0&&V3J.includes('renderer.render(scene,curCam());labels.render(scene,curCam());')&&OWJ.includes('),curCam());const O=rc.ray.origin')&&V3J.includes('function curCam(){return VIEW.ortho?camO:camera;}')
+      &&V3J.includes("OW.on&&(k==='front'||k==='side')")&&V3J.includes('controls.object=camO;')&&Math.abs(oc.owOrthoHalf(1000,35)-315.299)<.01,
+      'Овчарка 7 (#184): «Спереди» / «Сбоку» у фигур режима обводки — ортокамера (owOrthoHalf), лучи пера, проекции и рендер — от curCam(); setFromCamera / render / project с camera не осталось');}
   // #176: перо по морде Овчарки 7 — точки руки (лучи по сетке, как owPick) → owStrokes → каждая точка штриха ≤ 1 мм от модели; расстояние — перебором треугольников (не той же сеткой)
   {['tlines','markup'].forEach(f=>vm.runInContext(fs.readFileSync(P+f+'.js','utf8'),oc));   // ow-core.js уже в oc (блок #175 выше)
     const R=vm.runInContext(`(()=>{const D=origDecode(ORIG.shepherd5),G=owGrid(D.V,D.F),O=[600,860,2500],raw=[];

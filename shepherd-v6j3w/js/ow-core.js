@@ -179,3 +179,5 @@ function owMesh(m){const nv=m.V.length,V0=new Float32Array(nv*3),F0=new Uint32Ar
   m.V.forEach((p,i)=>{V0[i*3]=p[0];V0[i*3+1]=p[1];V0[i*3+2]=p[2];});m.F.forEach((f,i)=>{F0[i*3]=f[0];F0[i*3+1]=f[1];F0[i*3+2]=f[2];});
   let T=null;if(m.T&&m.T.length===nv){T=new Float32Array(nv*2);m.T.forEach((t,i)=>{T[i*2]=t[0];T[i*2+1]=t[1];});}
   const o=owOrient(V0,F0),frame=owFrame(V0);return {V:owApply(V0,frame),F:o.F,T,frame,flipped:o.flipped,vol:o.vol};}
+// #184 ортокамера «Спереди» / «Сбоку»: полувысота кадра орто, при которой предмет на расстоянии dist того же размера, что в перспективе с углом fovDeg; обратное (выход из орто) — dist = half / tan(fovDeg·π/360)
+function owOrthoHalf(dist,fovDeg){return dist*Math.tan(fovDeg*Math.PI/360);}
