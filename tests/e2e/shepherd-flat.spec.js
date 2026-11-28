@@ -179,13 +179,16 @@ test('плоская калька: «Текстура» в «Спереди» �
   await calka(page, 'front');
   await page.waitForTimeout(150);
   expect((await flatState(page)).vis).toBe(true);
-  const r =await page.evaluate(() => { const f = OW.o3.flat, mk = OW.mk3 ? OW.mk3.g.children.map(c => c.renderOrder) : [];
+  // штрих на морде (две точки поверхности) — чтобы на сцене была разметка и её порядок рисования сравнивался с плоской по-настоящему
+  await page.evaluate(() => { const a = owNear(OW.G, [0, 820, 1170], 80), b = owNear(OW.G, [30, 820, 1170], 80); mkSet([{k: 'line', pts: [a.p, b.p]}]); renderAll(); });
+  const r = await page.evaluate(() => { const f = OW.o3.flat, mk = OW.mk3 ? OW.mk3.g.children.map(c => c.renderOrder) : [];
     return {model: OW.mesh.renderOrder, gen: f.gen.renderOrder, head: f.head.renderOrder, group: f.g.renderOrder, mk, dt: [f.gen.material.depthTest, f.head.material.depthTest], dw: [f.gen.material.depthWrite, f.head.material.depthWrite], tr: [f.gen.material.transparent, f.head.material.transparent],
       tex: [f.gen.material.uniforms.owPh.value === OW.o3.ptex[owPhoto().img], f.head.material.uniforms.owPh2.value === OW.o3.ptex[owPhoto().head.img]]}; });
   expect(r.gen).toBeGreaterThan(r.model);
   expect(r.head).toBeGreaterThan(r.gen);
   expect(r.group, 'группа не поднимает порядок (groupOrder у three.js главнее renderOrder)').toBe(0);
-  expect(3, 'штрихи разметки (renderOrder 3) — поверх плоской').toBeGreaterThan(r.head);
+  expect(r.mk.length, 'разметка на сцене').toBeGreaterThan(0);
+  r.mk.forEach(o => expect(o, 'штрихи разметки — поверх плоской').toBeGreaterThan(r.head));
   expect(r.dt).toEqual([false, false]);
   expect(r.dw).toEqual([false, false]);
   expect(r.tr).toEqual([true, true]);
@@ -240,7 +243,7 @@ test('галочка «Модель»: видна только с плоской
   expect(errs).toEqual([]);
 });
 
-test('«Модель» снята: штрихи за передними лапами и на затылке не просвечивают (модель в глубине), штрих на морде виден поверх фото; перо — точка на модели под курсором', async ({page}) => {
+test('«Модель» снята: штрихи за передними лапами заслонены глубиной модели, на затылке и другом боку не видны; на морде и ближнем боку видны поверх фото; перо — точка на модели под курсором', async ({page}) => {
   test.slow();
   const errs = await open(page);
   await page.waitForFunction(() => OW.photos.length === 2, null, {timeout: 60000});
@@ -251,7 +254,8 @@ test('«Модель» снята: штрихи за передними лапа
   await setModel(page, false);
   expect((await modelState(page)).mat).toBe('depth');
   // лучи ортокамеры: все попадания по глубине (нормаль — owNear, наружу). Штрих — два попадания одного слоя в соседних точках экрана (12 px вбок):
-  // «за лапами» — задние лапы лицом к камере за передними (их прячет только глубина модели), «затылок» — последнее попадание луча через голову (обратная сторона)
+  // «за лапами» — задние лапы лицом к камере за передними (их прячет только глубина модели, это проверяет контроль ниже); «затылок» — последнее попадание луча через голову,
+  // обратная сторона: её отсекает и лента разметки по нормали (#181), так что тут проверено только «не видно», а не чем именно
   const S = await page.evaluate(() => { const c = curCam(), rc = new THREE.Raycaster(), r = renderer.domElement.getBoundingClientRect(), b = OW.box;
     const hits = (X, Y) => { rc.setFromCamera(new THREE.Vector2((X - r.left) / r.width * 2 - 1, -(Y - r.top) / r.height * 2 + 1), c); const O = rc.ray.origin.toArray(), D = rc.ray.direction.toArray(), L = []; let t = 0;
       for (let i = 0; i < 40; i++) { const h = owRay(OW.G, O.map((x, k) => x + D[k] * t), D); if (!h) break; t += h.t; const p = O.map((x, k) => x + D[k] * t), n = owNear(OW.G, p, 2); L.push({p, nz: n ? n.n[2] : 0}); t += 0.5; } return L; };
@@ -276,7 +280,7 @@ test('«Модель» снята: штрихи за передними лапа
   const a = await shot([]), b = await shot(H);
   const seen = P.map((p, i) => diff(a.n[i], b.n[i]) > 40), shown = P.map((p, i) => diff(a.d[i], b.d[i]));
   expect(seen.slice(0, occN).filter(Boolean).length, 'контроль: без глубины модели штрихи за лапами видны').toBeGreaterThan(0);
-  P.forEach((p, i) => { if (i >= occN || seen[i]) expect(shown[i], `штрих ${p.map(Math.round)} (${i < occN ? 'за лапами' : 'затылок'}) не просвечивает`).toBeLessThanOrEqual(8); });
+  P.forEach((p, i) => { if (i >= occN || seen[i]) expect(shown[i], `штрих ${p.map(Math.round)} (${i < occN ? 'за лапами — заслонён глубиной модели' : 'затылок — не виден'})`).toBeLessThanOrEqual(8); });
   // штрих на морде — виден поверх фото 100 %
   const F = [mid(S.front[0])];
   await page.evaluate(() => mkSet([]));
@@ -295,5 +299,27 @@ test('«Модель» снята: штрихи за передними лапа
   expect(await page.evaluate(p => !!owNear(OW.G, p, 1), p), 'на поверхности модели').toBe(true);
   const [[px, py]] = await project(page, [p]);
   expect(Math.hypot(px - x, py - y), 'под курсором').toBeLessThanOrEqual(1);
+  // «Сбоку» (камера с +X), «Фото сбоку», «Модель» снята: штрих на ближнем боку виден, на другом боку (последнее попадание луча, нормаль от камеры) — нет
+  await page.evaluate(() => mkSet([]));
+  await calka(page, 'side');
+  await view(page, 'side');
+  expect(await modelState(page), '«Сбоку», «Модель» снята').toMatchObject({flat: true, mat: 'depth', op: 1});
+  const Q = await page.evaluate(() => { const c = curCam(), rc = new THREE.Raycaster(), r = renderer.domElement.getBoundingClientRect(), b = OW.box, du = 24 / r.width, near = [], far = [];
+    const hits = (u, v) => { rc.setFromCamera(new THREE.Vector2(u, v), c); const O = rc.ray.origin.toArray(), D = rc.ray.direction.toArray(), L = []; let t = 0;
+      for (let i = 0; i < 40; i++) { const h = owRay(OW.G, O.map((x, k) => x + D[k] * t), D); if (!h) break; t += h.t; const p = O.map((x, k) => x + D[k] * t), n = owNear(OW.G, p, 2); L.push({p, nx: n ? n.n[0] : 0}); t += 0.5; } return L; };
+    const line = (A, B) => A && B && Math.hypot(...A.p.map((q, k) => q - B.p[k])) < 25 ? {k: 'line', pts: [A.p, B.p]} : null;
+    for (const y of [300, 500, 700]) for (const z of [300, 600, 900]) { const v = new THREE.Vector3(b.max[0], y, z).project(c), A = hits(v.x, v.y), B = hits(v.x + du, v.y); if (A.length < 2 || B.length < 2) continue;
+      const a = A[A.length - 1], e = B[B.length - 1]; if (a.nx < -0.3 && e.nx < -0.3) { const s = line(a, e); if (s) far.push(s); }
+      if (!near.length && A[0].nx > 0.3 && B[0].nx > 0.3) { const s = line(A[0], B[0]); if (s) near.push(s); } }
+    return {near, far}; });
+  expect(Q.near.length, 'штрих на ближнем боку').toBe(1);
+  expect(Q.far.length, 'штрихи на другом боку').toBeGreaterThan(0);
+  // ближний и другой бок — порознь: на экране они в одних и тех же местах
+  const PN = Q.near.map(mid), PF = Q.far.map(mid), n0 = await pix(page, PN), g0 = await pix(page, PF);
+  await page.evaluate(mk => mkSet(mk), Q.far);
+  const g1 = await pix(page, PF);
+  PF.forEach((p, i) => expect(diff(g0[i], g1[i]), `штрих ${p.map(Math.round)} на другом боку не виден`).toBeLessThanOrEqual(8));
+  await page.evaluate(mk => mkSet(mk), Q.near);
+  expect(diff(n0[0], (await pix(page, PN))[0]), 'штрих на ближнем боку виден').toBeGreaterThan(40);
   expect(errs).toEqual([]);
 });

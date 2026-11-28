@@ -740,7 +740,7 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
   {const HT=fs.readFileSync(__dirname+'/../index.html','utf8'),UI=fs.readFileSync(P+'ui.js','utf8'),OWJ=fs.readFileSync(P+'owork.js','utf8'),CSS=fs.readFileSync(__dirname+'/../css/style.css','utf8');
     ok(CSS.includes(':not(#traceSel):not(#modelRow),')&&HT.includes('<label class="chk" id="modelRow" hidden><input type="checkbox" id="cModel" checked>')&&HT.indexOf('id="modelRow"')>HT.indexOf('id="traceSel"')
       &&UI.includes("$('cModel').addEventListener('change',e=>{OW.modelOn=e.target.checked;owRender();});")
-      &&OWJ.includes('depth=new THREE.MeshBasicMaterial({colorWrite:false,side:THREE.DoubleSide})')&&OWJ.includes('f.mg.uniforms.owOp.value=OW.modelOn?.5:1;return OW.modelOn?o.plaster:o.depth;}')
+      &&OWJ.includes('depth=new THREE.MeshBasicMaterial({colorWrite:false,side:THREE.DoubleSide})')&&OWJ.includes('[f.mg,f.mh].forEach(m=>{m.uniforms.owOp.value=OW.modelOn?.5:1;});return OW.modelOn?o.plaster:o.depth;}')
       &&OWJ.includes("$('modelRow').hidden=!fl;")&&OWJ.includes("modelOn:true,seam:null,seamMs:0});$('cModel').checked=true;")&&OWJ.includes('o.depth.dispose();')
       &&OWJ.includes("function owJSON(){return {type:'md-art',v:1,ow:{src:OW.src,id:OW.id,name:OW.name},name:ST.name,mk:JSON.parse(mkSave(ST.mk))};}"),
       'Овчарка 7 (#184): галочка «Модель» — скрыта, пока нет плоской кальки; снята — модель только в глубину (заслоняет штрихи), фото 100 %; включена — гипс, 50 %; сброс при открытии; owJSON прежний');}
