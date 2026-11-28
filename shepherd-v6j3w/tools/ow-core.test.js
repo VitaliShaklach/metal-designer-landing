@@ -225,3 +225,30 @@ test('owHeadW: у края картинки головы вес спадает �
   assert.strictEqual(w(.5,.5),1,'середина');assert.strictEqual(w(.5,1),0,'низ');assert.strictEqual(w(0,.5),0,'лево');assert.ok(Math.abs(w(.5,.9)-.5)<=.01,'низ, полполосы: '+w(.5,.9));assert.ok(Math.abs(w(.95,.5)-.5)<=.01,'право, полполосы: '+w(.95,.5));
   assert.strictEqual(w(.5,.01),1,'верх пустой — не гасится');assert.strictEqual(w(.5,.01,'0,0,0,0'),1,'все края пустые');
   assert.strictEqual(run('owHeadW([0,700,900],638,842,40)'),1,'без uv — как было');});
+
+// #184 ортокамера «Спереди» / «Сбоку»: полувысота кадра — предмет на расстоянии dist того же размера, что в перспективе fov (1000·tan 17,5° = 315,299)
+test('owOrthoHalf: полувысота орто-кадра по расстоянию и углу перспективы',()=>{
+  assert.ok(Math.abs(run('owOrthoHalf(1000,35)')-315.299)<=.01,'1000 мм, 35°: '+run('owOrthoHalf(1000,35)'));assert.strictEqual(run('owOrthoHalf(0,35)'),0);});
+
+// #184 плоская фото-калька: углы картинки в кадре фигуры — плоскость поперёк взгляда фото на глубине depth; через матрицу фото углы дают uv (0,0), (1,0), (1,1), (0,1)
+test('owPhotoQuad: углы плоской кальки «спереди» и «сбоку» (общее фото и голова) — uv углов картинки, глубина по оси взгляда',()=>{
+  const pc={window:{}};vm.createContext(pc);vm.runInContext(fs.readFileSync(__dirname+'/../js/photos-shepherd7.js','utf8'),pc);const PH=pc.window.PHOTOS.shepherd7,UV=[[0,0],[1,0],[1,1],[0,1]];
+  assert.strictEqual(PH.map(p=>p.key).join(),'front,side');
+  PH.forEach(ph=>[['общее',ph.m],['голова',ph.head.m]].forEach(([nm,m])=>{const depth=ph.key==='front'?1178:161,ax=ph.key==='front'?2:0;c.m=m;c.dir=ph.dir;c.depth=depth;const Q=run('owPhotoQuad(m,dir,depth)');
+    assert.strictEqual(Q.length,4,ph.key+' '+nm);
+    Q.forEach((q,i)=>{assert.strictEqual(q.length,3);assert.ok(Math.abs(q[ax]-depth)<1e-9,`${ph.key} ${nm}, угол ${i}: по оси взгляда ${q[ax]} ≠ ${depth}`);c.q=q;const uv=run('owPhotoUV(m,q)');
+      assert.ok(Math.abs(uv[0]-UV[i][0])<=1e-6&&Math.abs(uv[1]-UV[i][1])<=1e-6,`${ph.key} ${nm}, угол ${i}: uv ${uv} ≠ ${UV[i]}`);});}));
+  // «спереди» общее: u = 0,000967·x + 0,498 → x угла (0,0) = −0,498 / 0,000967 ≈ −514,6 мм; v = −0,000935·y + 0,962 → y = 0,962 / 0,000935 ≈ 1029,2 мм (верх картинки выше головы)
+  c.m=PH[0].m;c.dir=PH[0].dir;const q0=run('owPhotoQuad(m,dir,1178)')[0];assert.ok(Math.abs(q0[0]+514.61)<.1&&Math.abs(q0[1]-1029.2)<.1,'угол (0,0) «спереди»: '+q0);});
+
+test('owFlatShow: плоская калька — только в ортовиде своего ракурса',()=>{
+  assert.strictEqual(run("owFlatShow('front','front',true)"),true);assert.strictEqual(run("owFlatShow('side','side',true)"),true);
+  assert.strictEqual(run("owFlatShow('front','side',true)"),false);assert.strictEqual(run("owFlatShow('side','front',true)"),false);
+  assert.strictEqual(run("owFlatShow('front','front',false)"),false);assert.strictEqual(run("owFlatShow('front','',false)"),false);assert.strictEqual(run("owFlatShow('tex','front',true)"),false);});
+
+// #188 «Тон гипса»: 6 шагов линейно между шагом 1 (.30/.90/.22/#a29b90) и шагом 6 (.16/.62/.08/#5f5a52) — рассеянный, ключевой, подсветка, цвет гипса (спека, таблица «Решения»)
+test('owTone: шаги 1 и 6 — числа из спеки, шаг 3 — по каналам между ними; шаг округляется и зажимается в 1…6',()=>{
+  const near=(a,b,t)=>{for(const k of ['hemi','key','fill'])assert.ok(Math.abs(a[k]-b[k])<1e-9,t+': '+k+' '+a[k]+' ≠ '+b[k]);assert.strictEqual(a.color,b.color,t+': цвет '+a.color.toString(16)+' ≠ '+b.color.toString(16));};
+  const T=s=>run('owTone('+s+')'),s1={hemi:.30,key:.90,fill:.22,color:0xa29b90},s6={hemi:.16,key:.62,fill:.08,color:0x5f5a52};
+  near(T(1),s1,'шаг 1');near(T(6),s6,'шаг 6');near(T(3),{hemi:.244,key:.788,fill:.164,color:0x878177},'шаг 3');
+  near(T(0),s1,'шаг 0 → 1');near(T(9),s6,'шаг 9 → 6');near(T(2.6),T(3),'шаг 2,6 → 3');});

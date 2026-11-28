@@ -179,3 +179,17 @@ function owMesh(m){const nv=m.V.length,V0=new Float32Array(nv*3),F0=new Uint32Ar
   m.V.forEach((p,i)=>{V0[i*3]=p[0];V0[i*3+1]=p[1];V0[i*3+2]=p[2];});m.F.forEach((f,i)=>{F0[i*3]=f[0];F0[i*3+1]=f[1];F0[i*3+2]=f[2];});
   let T=null;if(m.T&&m.T.length===nv){T=new Float32Array(nv*2);m.T.forEach((t,i)=>{T[i*2]=t[0];T[i*2+1]=t[1];});}
   const o=owOrient(V0,F0),frame=owFrame(V0);return {V:owApply(V0,frame),F:o.F,T,frame,flipped:o.flipped,vol:o.vol};}
+// #184 ортокамера «Спереди» / «Сбоку»: полувысота кадра орто, при которой предмет на расстоянии dist того же размера, что в перспективе с углом fovDeg; обратное (выход из орто) — dist = half / tan(fovDeg·π/360)
+function owOrthoHalf(dist,fovDeg){return dist*Math.tan(fovDeg*Math.PI/360);}
+/* #184 плоская фото-калька в ортовиде «Спереди» / «Сбоку»: углы картинки в кадре фигуры (мм) для uv (0,0), (1,0), (1,1), (0,1) — плоскость поперёк взгляда фото dir (ось a — наибольшая |dir|),
+   координата по оси a = depth, две другие — обратная 2×2 к части матрицы m по этим осям (owPhotoUV). Картинку без перспективы и без растяжки по форме модели так и видит ортокамера ракурса */
+function owPhotoQuad(m,dir,depth){const A=dir.map(Math.abs),a=A.indexOf(Math.max(...A)),[i,j]=[0,1,2].filter(k=>k!==a),d=m[i]*m[4+j]-m[j]*m[4+i];
+  return [[0,0],[1,0],[1,1],[0,1]].map(([u,v])=>{const r=u-m[a]*depth-m[3],s=v-m[4+a]*depth-m[7],q=[0,0,0];q[a]=depth;q[i]=(r*m[4+j]-s*m[j])/d;q[j]=(s*m[i]-r*m[4+i])/d;return q;});}
+// плоская калька на экране: ортовид того же ракурса, что фото («Фото спереди» — «Спереди», «Фото сбоку» — «Сбоку»); иначе — проекция фото на модель (#178, #185)
+function owFlatShow(photoKey,viewKey,ortho){return !!ortho&&photoKey===viewKey;}
+/* #188 «Тон гипса» мастерской: шаг 1…6 (округляется и зажимается, не число — шаг 1) → лампы «от камеры» (hemi — рассеянный, key — ключевой над зрителем, fill — подсветка от зрителя) и цвет гипса.
+   Линейно между шагом 1 и шагом 6 (спека 2026-11-28-workshop-light-tone, таблица «Решения»), цвет — по каналам с округлением к целому */
+const OW_TONE=[{hemi:.30,key:.90,fill:.22,color:0xa29b90},{hemi:.16,key:.62,fill:.08,color:0x5f5a52}];
+function owToneStep(step){return Math.min(6,Math.max(1,Math.round(+step)||1));}
+function owTone(step){const s=owToneStep(step),t=(s-1)/5,[a,b]=OW_TONE,L=k=>a[k]+(b[k]-a[k])*t,ch=x=>Math.round(((a.color>>x)&255)+(((b.color>>x)&255)-((a.color>>x)&255))*t)<<x;
+  return {hemi:L('hemi'),key:L('key'),fill:L('fill'),color:ch(16)|ch(8)|ch(0)};}
