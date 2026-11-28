@@ -401,8 +401,9 @@ body.og #stage{position:fixed!important;inset:0;width:100vw!important;height:100
 .laynote{margin:6px 0 2px}
 /* оригинал (вид), #146: только 3D и галочка «Текстура» — панели расчёта, вкладки и цифры скрыты */
 body.origview .controls .grp:not(#origBox),body.origview section.tabs,body.origview .hside,body.origview .angbtn,body.origview .angcard{display:none!important}
-/* оригинал для обводки, #175: расчёта нет — цифры, «Углы», вкладки и панели расчёта скрыты; «Редактор» виден, в нём — только «Симметрия» и разметка (задача 2) */
-body.owview #stats,body.owview .hside,body.owview .angbtn,body.owview .angcard,body.owview section.tabs,body.owview .controls [data-g="size"],body.owview .controls [data-g="faces"],body.owview .controls [data-g="metal"],body.owview .controls [data-g="perf"],body.owview .controls [data-g="view"],body.owview #edBox>:not(#symRow):not(#mkBox):not(#traceRow):not(#traceSel),body.owview #bMkApply{display:none!important}
+/* оригинал для обводки, #175: расчёта нет — цифры, «Углы», вкладки и панели расчёта скрыты; «Редактор» виден, в нём — только «Симметрия», калька, галочка «Модель» (#184) и разметка (задача 2) */
+body.owview #stats,body.owview .hside,body.owview .angbtn,body.owview .angcard,body.owview section.tabs,body.owview .controls [data-g="size"],body.owview .controls [data-g="faces"],body.owview .controls [data-g="metal"],body.owview .controls [data-g="perf"],body.owview .controls [data-g="view"],body.owview #edBox>:not(#symRow):not(#mkBox):not(#traceRow):not(#traceSel):not(#modelRow),body.owview #bMkApply{display:none!important}
+body:not(.owview) #toneRow{display:none}   /* #188 «Тон гипса» — только мастерская: у вида оригинала #146 (тот же блок #origBox) строки нет */
 #edMore{margin:4px 0 8px;border:1px solid var(--line)}
 #edMore summary{font-size:13px;padding:7px 8px;cursor:pointer;user-select:none}
 #edMore[open] summary{border-bottom:1px solid var(--line)}
