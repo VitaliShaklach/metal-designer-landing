@@ -181,3 +181,9 @@ function owMesh(m){const nv=m.V.length,V0=new Float32Array(nv*3),F0=new Uint32Ar
   const o=owOrient(V0,F0),frame=owFrame(V0);return {V:owApply(V0,frame),F:o.F,T,frame,flipped:o.flipped,vol:o.vol};}
 // #184 ортокамера «Спереди» / «Сбоку»: полувысота кадра орто, при которой предмет на расстоянии dist того же размера, что в перспективе с углом fovDeg; обратное (выход из орто) — dist = half / tan(fovDeg·π/360)
 function owOrthoHalf(dist,fovDeg){return dist*Math.tan(fovDeg*Math.PI/360);}
+/* #184 плоская фото-калька в ортовиде «Спереди» / «Сбоку»: углы картинки в кадре фигуры (мм) для uv (0,0), (1,0), (1,1), (0,1) — плоскость поперёк взгляда фото dir (ось a — наибольшая |dir|),
+   координата по оси a = depth, две другие — обратная 2×2 к части матрицы m по этим осям (owPhotoUV). Картинку без перспективы и без растяжки по форме модели так и видит ортокамера ракурса */
+function owPhotoQuad(m,dir,depth){const A=dir.map(Math.abs),a=A.indexOf(Math.max(...A)),[i,j]=[0,1,2].filter(k=>k!==a),d=m[i]*m[4+j]-m[j]*m[4+i];
+  return [[0,0],[1,0],[1,1],[0,1]].map(([u,v])=>{const r=u-m[a]*depth-m[3],s=v-m[4+a]*depth-m[7],q=[0,0,0];q[a]=depth;q[i]=(r*m[4+j]-s*m[j])/d;q[j]=(s*m[i]-r*m[4+i])/d;return q;});}
+// плоская калька на экране: ортовид того же ракурса, что фото («Фото спереди» — «Спереди», «Фото сбоку» — «Сбоку»); иначе — проекция фото на модель (#178, #185)
+function owFlatShow(photoKey,viewKey,ortho){return !!ortho&&photoKey===viewKey;}

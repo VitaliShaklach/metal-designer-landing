@@ -129,3 +129,66 @@ test('ресайз в ортовиде — пропорции кадра camO = 
   }
   expect(errs).toEqual([]);
 });
+
+/* ---------- Задача 2: плоская фото-калька (общее фото + фото головы) в ортовиде своего ракурса ---------- */
+// калька по выбору (как в списке «Калька»): 'front' | 'side' | 'tex'; фото — дождаться, пока картинки придут и прочитаются
+async function calka(page, k) {
+  await page.evaluate(k => { const s = $('traceSel'); s.value = k; s.dispatchEvent(new Event('change')); }, k);
+  if (k !== 'tex') await page.waitForFunction(() => owPhotoOn(), null, {timeout: 60000});
+}
+const flatState = page => page.evaluate(() => { const o = OW.o3, f = o.flat;
+  return {vis: !!(f && f.g.visible), gen: !!(f && f.gen), head: !!(f && f.head), mat: OW.mesh.material === o.plaster ? 'plaster' : OW.mesh.material === o.photo ? 'photo' : OW.mesh.material === o.seam ? 'seam' : OW.mesh.material === o.basic ? 'basic' : '?'}; });
+
+test('плоская калька: «Фото спереди» в «Спереди», «Фото сбоку» в «Сбоку» — плоско на гипсе; в других видах — проекция, как была', async ({page}) => {
+  test.slow();
+  const errs = await open(page);
+  await page.waitForFunction(() => OW.photos.length === 2, null, {timeout: 60000});
+  await editOn(page);
+  await calka(page, 'front');
+  await view(page, 'front');
+  expect(await flatState(page), '«Фото спереди», «Спереди»').toEqual({vis: true, gen: true, head: true, mat: 'plaster'});
+  await view(page, 'iso');
+  expect(await flatState(page), '«Фото спереди», «3D»').toMatchObject({vis: false, mat: 'photo'});
+  await view(page, 'front');
+  expect((await flatState(page)).vis, 'снова «Спереди» — плоская на месте').toBe(true);
+  // повернул мышью — перспектива, плоская скрыта, проекция
+  const cv = await page.$('#stage canvas'), bb = await cv.boundingBox(), cx = bb.x + bb.width / 2, cy = bb.y + bb.height / 2;
+  await page.mouse.move(cx, cy); await page.mouse.down(); for (let i = 1; i <= 10; i++) await page.mouse.move(cx + i * 8, cy); await page.mouse.up(); await page.waitForTimeout(600);
+  expect(await flatState(page), 'повернул мышью').toMatchObject({vis: false, mat: 'photo'});
+  await calka(page, 'side');
+  await view(page, 'front');
+  expect(await flatState(page), '«Фото сбоку» в «Спереди»').toMatchObject({vis: false, mat: 'photo'});
+  await view(page, 'side');
+  expect(await flatState(page), '«Фото сбоку» в «Сбоку»').toEqual({vis: true, gen: true, head: true, mat: 'plaster'});
+  // плоскость — поперёк взгляда, на краю габарита со стороны камеры (+1 мм): «сбоку» — x, «спереди» — z
+  const d = await page.evaluate(() => { const P = OW.o3.flat.gen.geometry.attributes.position.array; return {x: [P[0], P[3], P[6], P[9]], max: OW.box.max[0]}; });
+  d.x.forEach(x => expect(Math.abs(x - d.max - 1)).toBeLessThanOrEqual(1e-3));
+  await page.evaluate(() => { const c = $('cTrace'); c.checked = false; c.dispatchEvent(new Event('change')); });
+  expect(await flatState(page), 'галочка «Калька» снята').toMatchObject({vis: false, mat: 'plaster'});
+  expect(errs).toEqual([]);
+});
+
+test('плоская калька: «Текстура» в «Спереди» — плоской нет, швы на модели (#177); порядок рисования и глубина', async ({page}) => {
+  test.slow();
+  const errs = await open(page);
+  await page.waitForFunction(() => OW.o3 && OW.o3.mask && OW.photos.length === 2, null, {timeout: 60000});
+  await editOn(page);
+  await calka(page, 'tex');
+  await view(page, 'front');
+  expect(await flatState(page), '«Текстура», «Спереди»').toMatchObject({vis: false, mat: 'seam'});
+  await calka(page, 'front');
+  await page.waitForTimeout(150);
+  expect((await flatState(page)).vis).toBe(true);
+  const r = await page.evaluate(() => { const f = OW.o3.flat, mk = OW.mk3 ? OW.mk3.g.children.map(c => c.renderOrder) : [];
+    return {model: OW.mesh.renderOrder, gen: f.gen.renderOrder, head: f.head.renderOrder, group: f.g.renderOrder, mk, dt: [f.gen.material.depthTest, f.head.material.depthTest], dw: [f.gen.material.depthWrite, f.head.material.depthWrite], tr: [f.gen.material.transparent, f.head.material.transparent],
+      tex: [f.gen.material.uniforms.owPh.value === OW.o3.ptex[owPhoto().img], f.head.material.uniforms.owPh2.value === OW.o3.ptex[owPhoto().head.img]]}; });
+  expect(r.gen).toBeGreaterThan(r.model);
+  expect(r.head).toBeGreaterThan(r.gen);
+  expect(r.group, 'группа не поднимает порядок (groupOrder у three.js главнее renderOrder)').toBe(0);
+  expect(3, 'штрихи разметки (renderOrder 3) — поверх плоской').toBeGreaterThan(r.head);
+  expect(r.dt).toEqual([false, false]);
+  expect(r.dw).toEqual([false, false]);
+  expect(r.tr).toEqual([true, true]);
+  expect(r.tex, 'те же текстуры, что у проекции (o.ptex, owPhotoTex)').toEqual([true, true]);
+  expect(errs).toEqual([]);
+});

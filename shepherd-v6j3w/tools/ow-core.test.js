@@ -229,3 +229,19 @@ test('owHeadW: у края картинки головы вес спадает �
 // #184 ортокамера «Спереди» / «Сбоку»: полувысота кадра — предмет на расстоянии dist того же размера, что в перспективе fov (1000·tan 17,5° = 315,299)
 test('owOrthoHalf: полувысота орто-кадра по расстоянию и углу перспективы',()=>{
   assert.ok(Math.abs(run('owOrthoHalf(1000,35)')-315.299)<=.01,'1000 мм, 35°: '+run('owOrthoHalf(1000,35)'));assert.strictEqual(run('owOrthoHalf(0,35)'),0);});
+
+// #184 плоская фото-калька: углы картинки в кадре фигуры — плоскость поперёк взгляда фото на глубине depth; через матрицу фото углы дают uv (0,0), (1,0), (1,1), (0,1)
+test('owPhotoQuad: углы плоской кальки «спереди» и «сбоку» (общее фото и голова) — uv углов картинки, глубина по оси взгляда',()=>{
+  const pc={window:{}};vm.createContext(pc);vm.runInContext(fs.readFileSync(__dirname+'/../js/photos-shepherd7.js','utf8'),pc);const PH=pc.window.PHOTOS.shepherd7,UV=[[0,0],[1,0],[1,1],[0,1]];
+  assert.strictEqual(PH.map(p=>p.key).join(),'front,side');
+  PH.forEach(ph=>[['общее',ph.m],['голова',ph.head.m]].forEach(([nm,m])=>{const depth=ph.key==='front'?1178:161,ax=ph.key==='front'?2:0;c.m=m;c.dir=ph.dir;c.depth=depth;const Q=run('owPhotoQuad(m,dir,depth)');
+    assert.strictEqual(Q.length,4,ph.key+' '+nm);
+    Q.forEach((q,i)=>{assert.strictEqual(q.length,3);assert.ok(Math.abs(q[ax]-depth)<1e-9,`${ph.key} ${nm}, угол ${i}: по оси взгляда ${q[ax]} ≠ ${depth}`);c.q=q;const uv=run('owPhotoUV(m,q)');
+      assert.ok(Math.abs(uv[0]-UV[i][0])<=1e-6&&Math.abs(uv[1]-UV[i][1])<=1e-6,`${ph.key} ${nm}, угол ${i}: uv ${uv} ≠ ${UV[i]}`);});}));
+  // «спереди» общее: u = 0,000967·x + 0,498 → x угла (0,0) = −0,498 / 0,000967 ≈ −514,6 мм; v = −0,000935·y + 0,962 → y = 0,962 / 0,000935 ≈ 1029,2 мм (верх картинки выше головы)
+  c.m=PH[0].m;c.dir=PH[0].dir;const q0=run('owPhotoQuad(m,dir,1178)')[0];assert.ok(Math.abs(q0[0]+514.61)<.1&&Math.abs(q0[1]-1029.2)<.1,'угол (0,0) «спереди»: '+q0);});
+
+test('owFlatShow: плоская калька — только в ортовиде своего ракурса',()=>{
+  assert.strictEqual(run("owFlatShow('front','front',true)"),true);assert.strictEqual(run("owFlatShow('side','side',true)"),true);
+  assert.strictEqual(run("owFlatShow('front','side',true)"),false);assert.strictEqual(run("owFlatShow('side','front',true)"),false);
+  assert.strictEqual(run("owFlatShow('front','front',false)"),false);assert.strictEqual(run("owFlatShow('front','',false)"),false);assert.strictEqual(run("owFlatShow('tex','front',true)"),false);});

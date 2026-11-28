@@ -133,8 +133,8 @@ function sizeStage(){if(!ok)return;req3D();const w=stage.clientWidth,h=stage.cli
 function orthoFrame(){if(!camO)return;const h=VIEW.half,a=camera.aspect;camO.left=-h*a;camO.right=h*a;camO.top=h;camO.bottom=-h;camO.updateProjectionMatrix();}
 function viewOrtho(on,k){if(!ok)return;const t=controls.target;
   if(on){VIEW.half=owOrthoHalf(camera.position.distanceTo(t),camera.fov);VIEW.axis=camera.position.clone().sub(t).normalize();camO.position.copy(camera.position);camO.up.copy(camera.up);camO.zoom=1;orthoFrame();camO.lookAt(t);camO.updateMatrixWorld();controls.object=camO;VIEW.ortho=true;VIEW.key=k;}
-  else if(VIEW.ortho){camera.position.copy(t).add(camO.position.clone().sub(t).normalize().multiplyScalar(VIEW.half/camO.zoom/Math.tan(camera.fov*Math.PI/360)));camera.lookAt(t);camera.updateMatrixWorld();controls.object=camera;VIEW.ortho=false;VIEW.key='';}
-  req3D();}
+  else if(VIEW.ortho){camera.position.copy(t).add(camO.position.clone().sub(t).normalize().multiplyScalar(VIEW.half/camO.zoom/Math.tan(camera.fov*Math.PI/360)));camera.lookAt(t);camera.updateMatrixWorld();controls.object=camera;VIEW.ortho=false;VIEW.key='';}else{req3D();return;}
+  if(typeof OW!=='undefined'&&OW.on&&OW.o3)renderAll();req3D();}   // #184: вошли в орто или вышли — плоская калька или проекция фото (owRender)
 if(ok){new ResizeObserver(sizeStage).observe(stage);sizeStage();
   (function loop(){requestAnimationFrame(loop);if(camAnim){const k=Math.min(1,(performance.now()-camAnim.s)/600),e=k<.5?2*k*k:1-(-2*k+2)**2/2;controls.target.lerpVectors(camAnim.t0,camAnim.t1,e);camera.position.copy(controls.target).add(arcDir(camAnim,e));if(k>=1){camAnim=null;if(VIEW.want){const w=VIEW.want;VIEW.want='';viewOrtho(true,w);}}}
     controls.update();if(!camAnim&&need<=0)return;need--;lblVis();renderer.render(scene,curCam());labels.render(scene,curCam());})();

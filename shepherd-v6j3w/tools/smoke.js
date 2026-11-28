@@ -727,6 +727,14 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
     ok(old===0&&V3J.includes('renderer.render(scene,curCam());labels.render(scene,curCam());')&&OWJ.includes('),curCam());const O=rc.ray.origin')&&V3J.includes('function curCam(){return VIEW.ortho?camO:camera;}')
       &&V3J.includes("OW.on&&(k==='front'||k==='side')")&&V3J.includes('controls.object=camO;')&&Math.abs(oc.owOrthoHalf(1000,35)-315.299)<.01,
       'Овчарка 7 (#184): «Спереди» / «Сбоку» у фигур режима обводки — ортокамера (owOrthoHalf), лучи пера, проекции и рендер — от curCam(); setFromCamera / render / project с camera не осталось');}
+  // #184 задача 2: плоская фото-калька в ортовиде своего ракурса — те же текстуры (o.ptex, owPhotoTex), те же униформы (o.photo.userData.U, заполняет owPhotoUse: матрицы, маски, owHe по .edge, OW_HEAD_BAND)
+  // и тот же кусок шейдера, что у проекции #185 (OW_PH_GLSL — униформы, OW_PH_CW — цвет фото, швы по маске OW_PHOTO_SEAM_C, вес головы): одна логика швов и стыка головы, без копий
+  {const OWJ=fs.readFileSync(P+'owork.js','utf8'),fm=OWJ.slice(OWJ.indexOf('function owFlatMat('),OWJ.indexOf('\n',OWJ.indexOf('function owFlatMat(')+400)),cw=(/const OW_PH_CW=`([^`]*)`/.exec(OWJ)||[])[1]||'',gl=(/const OW_PH_GLSL=`([^`]*)`/.exec(OWJ)||[])[1]||'';
+    ok(cw.includes('smoothstep(.3,.6,texture2D(owMk,')&&cw.includes('smoothstep(.3,.6,texture2D(owMk2,')&&cw.includes('float hw=owHd>.5&&owIn(u2)?smoothstep(owHb.x-owBand,owHb.x,q.y)')&&cw.includes('smoothstep(0.,owHe.x,u2.x)')&&gl.includes('uniform vec3 owSeamC;')
+      &&(OWJ.match(/\$\{OW_PH_CW\}/g)||[]).length===2&&OWJ.includes('sh.fragmentShader=OW_PH_GLSL+sh.fragmentShader.replace(')&&OWJ.includes('fragmentShader:OW_PH_GLSL+`')&&OWJ.includes('owSeamC:{value:new THREE.Color(OW_PHOTO_SEAM_C)}')
+      &&/function owFlatMat\(U,layer\)\{return new THREE\.ShaderMaterial\(\{uniforms:Object\.assign\(\{\},U,/.test(OWJ)&&OWJ.includes('o.photo.userData.U')&&/function owFlatUse\(o,ph\)\{owPhotoUse\(o,ph\);/.test(OWJ)&&OWJ.includes('owPhotoQuad(')
+      &&OWJ.includes('owFlatShow(ph.key,VIEW.key,VIEW.ortho)')&&OWJ.includes('fl?owFlatUse(o,ph):owSeamOn()?o.seam:owPhotoOn()?owPhotoUse(o,ph):o.plaster')&&fm.includes('depthTest:false,depthWrite:false'),
+      'Овчарка 7 (#184): плоская фото-калька — те же текстуры, униформы и кусок шейдера, что у проекции #185 (швы по маске цветом OW_PHOTO_SEAM_C, стык головы — полоса OW_HEAD_BAND и край картинки по .edge); только в ортовиде своего ракурса, поверх модели без глубины');}
   // #176: перо по морде Овчарки 7 — точки руки (лучи по сетке, как owPick) → owStrokes → каждая точка штриха ≤ 1 мм от модели; расстояние — перебором треугольников (не той же сеткой)
   {['tlines','markup'].forEach(f=>vm.runInContext(fs.readFileSync(P+f+'.js','utf8'),oc));   // ow-core.js уже в oc (блок #175 выше)
     const R=vm.runInContext(`(()=>{const D=origDecode(ORIG.shepherd5),G=owGrid(D.V,D.F),O=[600,860,2500],raw=[];
