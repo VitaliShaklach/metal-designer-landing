@@ -61,6 +61,7 @@ NODE_OPTIONS=--use-system-ca npx playwright test    # страница: desktop 
 | Мангал редактора | `npx playwright test tests/e2e/editor-mangal.spec.js --project=desktop` |
 | Рысь редактора | `npx playwright test tests/e2e/editor-lynx.spec.js --project=desktop` |
 | Главная редактора | `npx playwright test tests/e2e/editor-home.spec.js --project=desktop` |
+| Овчарка (мастерская) | `npx playwright test tests/e2e/shepherd-flat.spec.js tests/e2e/shepherd-light.spec.js --project=desktop` |
 
 Тяжёлым тестам (раскрой, чертежи, карты по «Рассчитать») — `test.slow()` в самом тесте; общий таймаут в `playwright.config.js` не трогаем. После тестов — глазами на десктопе и на телефоне.
 
