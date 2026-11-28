@@ -735,6 +735,15 @@ ok(run("HN.every(h=>h.pieces>0&&h.items===h.pieces&&h.too===0&&h.cut>=h.items&&h
       &&/function owFlatMat\(U,layer\)\{return new THREE\.ShaderMaterial\(\{uniforms:Object\.assign\(\{\},U,/.test(OWJ)&&OWJ.includes('o.photo.userData.U')&&/function owFlatUse\(o,ph\)\{owPhotoUse\(o,ph\);/.test(OWJ)&&OWJ.includes('owPhotoQuad(')
       &&OWJ.includes('owFlatShow(ph.key,VIEW.key,VIEW.ortho)')&&OWJ.includes('fl?owFlatUse(o,ph):owSeamOn()?o.seam:owPhotoOn()?owPhotoUse(o,ph):o.plaster')&&fm.includes('depthTest:false,depthWrite:false'),
       'Овчарка 7 (#184): плоская фото-калька — те же текстуры, униформы и кусок шейдера, что у проекции #185 (швы по маске цветом OW_PHOTO_SEAM_C, стык головы — полоса OW_HEAD_BAND и край картинки по .edge); только в ортовиде своего ракурса, поверх модели без глубины');}
+  // #184 задача 3: галочка «Модель» у плоской кальки — в index.html скрыта по умолчанию и включена (в режиме её не прячет правило body.owview #edBox>…, style.css); обработчик в ui.js — OW.modelOn и owRender(); снята — модель материалом «только глубина»
+  // (colorWrite выкл., глубину пишет: штрихи за ней не просвечивают), фото 100 %; включена — гипс, 50 %; видна, только когда плоская калька на экране; «Сохранить» (owJSON) — формат прежний
+  {const HT=fs.readFileSync(__dirname+'/../index.html','utf8'),UI=fs.readFileSync(P+'ui.js','utf8'),OWJ=fs.readFileSync(P+'owork.js','utf8'),CSS=fs.readFileSync(__dirname+'/../css/style.css','utf8');
+    ok(CSS.includes(':not(#traceSel):not(#modelRow),')&&HT.includes('<label class="chk" id="modelRow" hidden><input type="checkbox" id="cModel" checked>')&&HT.indexOf('id="modelRow"')>HT.indexOf('id="traceSel"')
+      &&UI.includes("$('cModel').addEventListener('change',e=>{OW.modelOn=e.target.checked;owRender();});")
+      &&OWJ.includes('depth=new THREE.MeshBasicMaterial({colorWrite:false,side:THREE.DoubleSide})')&&OWJ.includes('f.mg.uniforms.owOp.value=OW.modelOn?.5:1;return OW.modelOn?o.plaster:o.depth;}')
+      &&OWJ.includes("$('modelRow').hidden=!fl;")&&OWJ.includes("modelOn:true,seam:null,seamMs:0});$('cModel').checked=true;")&&OWJ.includes('o.depth.dispose();')
+      &&OWJ.includes("function owJSON(){return {type:'md-art',v:1,ow:{src:OW.src,id:OW.id,name:OW.name},name:ST.name,mk:JSON.parse(mkSave(ST.mk))};}"),
+      'Овчарка 7 (#184): галочка «Модель» — скрыта, пока нет плоской кальки; снята — модель только в глубину (заслоняет штрихи), фото 100 %; включена — гипс, 50 %; сброс при открытии; owJSON прежний');}
   // #176: перо по морде Овчарки 7 — точки руки (лучи по сетке, как owPick) → owStrokes → каждая точка штриха ≤ 1 мм от модели; расстояние — перебором треугольников (не той же сеткой)
   {['tlines','markup'].forEach(f=>vm.runInContext(fs.readFileSync(P+f+'.js','utf8'),oc));   // ow-core.js уже в oc (блок #175 выше)
     const R=vm.runInContext(`(()=>{const D=origDecode(ORIG.shepherd5),G=owGrid(D.V,D.F),O=[600,860,2500],raw=[];
